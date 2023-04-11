@@ -15,7 +15,9 @@ module Spec.BabbageFeatures(
     inlineDatumSpendTest,
     referenceInputWithV1ScriptErrorTest,
     referenceScriptOutputWithV1ScriptErrorTest,
-    inlineDatumOutputWithV1ScriptErrorTest
+    inlineDatumOutputWithV1ScriptErrorTest,
+    returnCollateralWithTokensValidScriptTest,
+    submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
     ) where
 
 import Cardano.Api qualified as C
@@ -37,9 +39,7 @@ import Helpers.Utils qualified as U
 import Plutus.V1.Ledger.Interval qualified as PlutusV1
 import Plutus.V1.Ledger.Time qualified as PlutusV1
 import Plutus.V2.Ledger.Api qualified as PlutusV2
-import PlutusScripts.AlwaysSucceeds (alwaysSucceedMintWitnessV2', alwaysSucceedPolicyTxInfoRedeemerV2)
-import PlutusScripts.AlwaysSucceeds qualified as PS
-import PlutusScripts.Helpers (toScriptData)
+import PlutusScripts.Always qualified as PS
 import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V2TxInfo (checkV2TxInfoAssetIdV2, checkV2TxInfoMintWitnessV2, checkV2TxInfoRedeemer, txInfoData,
                                txInfoFee, txInfoInputs, txInfoMint, txInfoOutputs, txInfoSigs)
@@ -70,7 +70,7 @@ checkTxInfoV2Test networkOptions TestParams{..} preTestnetTime = do
     fee = 2_500_000 :: C.Lovelace
     amountPaid = 10_000_000
     amountReturned = totalLovelace - amountPaid - fee
-    datum = toScriptData (42 ::Integer)
+    datum = PS.toScriptData (42 ::Integer)
 
     txOut1 = Tx.txOutWithDatumInTx era (C.lovelaceToValue amountPaid <> tokenValues) w1Address datum
     txOut2 = Tx.txOut era (C.lovelaceToValue amountReturned) w1Address
@@ -89,13 +89,13 @@ checkTxInfoV2Test networkOptions TestParams{..} preTestnetTime = do
     expDCert                 = []                   -- not testing any staking registration certificate
     expWdrl                  = PlutusV2.fromList [] -- not testing any staking reward withdrawal
     expTxInfoSigs            = txInfoSigs [w1VKey]
-    expTxInfoRedeemers       = alwaysSucceedPolicyTxInfoRedeemerV2
+    expTxInfoRedeemers       = PS.alwaysSucceedPolicyTxInfoRedeemerV2
     expTxInfoData            = txInfoData [datum]
     expTxInfoValidRange      = timeRange
 
     redeemer = checkV2TxInfoRedeemer [expTxInfoInputs] [expTxInfoReferenceInputs] expTxInfoOutputs expTxInfoFee expTxInfoMint
                expDCert expWdrl expTxInfoValidRange expTxInfoSigs expTxInfoRedeemers expTxInfoData
-    mintWitnesses = Map.fromList [checkV2TxInfoMintWitnessV2 era redeemer executionUnits1, alwaysSucceedMintWitnessV2' era executionUnits2]
+    mintWitnesses = Map.fromList [checkV2TxInfoMintWitnessV2 era redeemer executionUnits1, PS.alwaysSucceedMintWitnessV2' era executionUnits2]
 
     txBodyContent = (Tx.emptyTxBodyContent era pparams)
       { C.txIns = Tx.pubkeyTxIns [txIn]
@@ -369,7 +369,7 @@ referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
       }
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
-  H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceInputsNotSupported" eitherTx -- why is this validity interval error?
+  H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceInputsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   H.success
 
 referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
@@ -399,7 +399,7 @@ referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   H.annotate $ show eitherTx
-  H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceScriptsNotSupported" eitherTx -- why is this validity interval error?
+  H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceScriptsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   H.success
 
 inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
@@ -428,10 +428,142 @@ inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   H.annotate $ show eitherTx
-  H.assert $ Tx.isTxBodyErrorValidityInterval "InlineDatumsNotSupported" eitherTx -- why is this validity interval error?
+  H.assert $ Tx.isTxBodyErrorValidityInterval "InlineDatumsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   H.success
 
--- TODO: cannot create reference script output whilst evaluating V1 script test
--- TODO: cannot create inline datum output whilst evaluating V1 script test
--- TODO: return and total collateral (with and without MA)
+returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
+  Either TN.LocalNodeOptions TN.TestnetOptions ->
+  TestParams ->
+  m ()
+returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
+
+  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+
+  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+
+  -- build and submit transaction to create output containing some tokens.
+
+  let
+    tokenValues = C.valueFromList [(PS.alwaysSucceedAssetIdV2, 10)]
+    mintWitnesses = Map.fromList [PS.alwaysSucceedMintWitnessV2 era Nothing]
+    collateral = Tx.txInsCollateral era [txIn]
+    txOut = Tx.txOutWithInlineDatum era (C.lovelaceToValue 5_000_000 <> tokenValues) w1Address (PS.toScriptData ())
+
+    txBodyContent = (Tx.emptyTxBodyContent era pparams)
+      { C.txIns = Tx.pubkeyTxIns [txIn]
+      , C.txInsCollateral = collateral
+      , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
+      , C.txOuts = [txOut]
+      }
+
+  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  Tx.submitTx era localNodeConnectInfo signedTx
+  let txIn2 = Tx.txIn (Tx.txId signedTx) 0
+  Q.waitForTxInAtAddress era localNodeConnectInfo w1Address txIn2 "waitForTxInAtAddress"
+
+  -- build and submit transaction with tokens in collateral input.
+  -- This is allowed because using return collateral feature.
+
+  let
+    tokenValues2 = C.valueFromList [(PS.alwaysSucceedAssetIdV2, 20)]
+    collateral2 = Tx.txInsCollateral era [txIn2]
+    txOut2 = Tx.txOutWithInlineDatum era (C.lovelaceToValue 2_000_000 <> tokenValues2) w1Address (PS.toScriptData ())
+    colReturnTxOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
+
+    txBodyContent2 = (Tx.emptyTxBodyContent era pparams)
+      { C.txIns = Tx.pubkeyTxIns [txIn2]
+      , C.txInsCollateral = collateral2
+      , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
+      , C.txOuts = [txOut2]
+      , C.txReturnCollateral = Tx.txReturnCollateral era colReturnTxOut
+      }
+
+  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  Tx.submitTx era localNodeConnectInfo signedTx2
+  let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
+  -- Query for txo and assert it contains newly minted token
+  resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
+  txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues2
+  H.assert txOutHasTokenValue
+
+  H.success
+
+-- Submit a failing script when using total and return collateral in tx body.
+-- Check that ada and tokens from collateral input are returned in the collateral output.
+-- Also check that regular input is not consumed.
+submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest :: (MonadIO m , MonadTest m) =>
+  Either TN.LocalNodeOptions TN.TestnetOptions ->
+  TestParams ->
+  m ()
+submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestParams{..} = do
+
+  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+
+  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+
+  -- build and submit transaction to create output containing some tokens.
+
+  let
+    tokenValues = C.valueFromList [(PS.alwaysSucceedAssetIdV2, 10)]
+    mintWitnesses = Map.fromList [PS.alwaysSucceedMintWitnessV2 era Nothing]
+    collateral = Tx.txInsCollateral era [txIn]
+    txOutAmount = 10_000_000
+    txOut = Tx.txOut era (C.lovelaceToValue txOutAmount <> tokenValues) w1Address
+
+    txBodyContent = (Tx.emptyTxBodyContent era pparams)
+      { C.txIns = Tx.pubkeyTxIns [txIn]
+      , C.txInsCollateral = collateral
+      , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
+      , C.txOuts = [txOut]
+      }
+
+  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  Tx.submitTx era localNodeConnectInfo signedTx
+  let collateralTxIn = Tx.txIn (Tx.txId signedTx) 0
+  Q.waitForTxInAtAddress era localNodeConnectInfo w1Address collateralTxIn "waitForTxInAtAddress"
+
+  -- build and submit transaction with failing script
+
+  txIn2 <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+
+  let
+    tokenValues2 = C.valueFromList [(PS.alwaysFailsAssetIdV2, 1)]
+    mintWitnesses2 = Map.fromList [PS.alwaysFailsMintWitnessV2 era Nothing]
+    collateral2 = Tx.txInsCollateral era [collateralTxIn]
+    txOut1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+    txOut2 = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues2) w1Address
+    colReturnAmount = 4_000_000
+    colReturnValue = C.lovelaceToValue colReturnAmount <> tokenValues
+    colReturnTxOut = Tx.txOut era colReturnValue w1Address
+    totalCollateralAmount = txOutAmount - colReturnAmount
+
+    txBodyContent2 = (Tx.emptyTxBodyContent era pparams)
+      { C.txIns = Tx.pubkeyTxIns [txIn2]
+      , C.txInsCollateral = collateral2
+      , C.txMintValue = Tx.txMintValue era tokenValues2 mintWitnesses2
+      , C.txOuts = [txOut1, txOut2]
+      , C.txReturnCollateral = Tx.txReturnCollateral era colReturnTxOut
+      , C.txTotalCollateral = Tx.txTotalCollateral era totalCollateralAmount
+      , C.txScriptValidity = Tx.txScriptValidity era C.ScriptInvalid
+      }
+
+  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  Tx.submitTx era localNodeConnectInfo signedTx2
+
+  -- Query for return collateral txo and assert presence of ada and tokens from the first tx
+  let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 3 -- collateral return index is n outputs (including change)
+  resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
+  txOutHasAdaAndTokenValue <- Q.txOutHasValue resultTxOut colReturnValue
+  H.assert txOutHasAdaAndTokenValue
+  -- Query collateral input and assert it has been spent
+  collateralSpent <- not <$> Q.isTxOutAtAddress era localNodeConnectInfo w1Address collateralTxIn
+  H.assert collateralSpent
+  -- Query regular tx input and assert it has not been spent
+  txInNotSpent <- Q.isTxOutAtAddress era localNodeConnectInfo w1Address txIn2
+  H.assert txInNotSpent
+
+  H.success
+
 -- TODO: access datum in reference input in plutus script

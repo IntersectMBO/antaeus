@@ -174,6 +174,16 @@ getTxOutAtAddress' era localNodeConnectInfo address txIn debugStr = do
   utxos <- findUTxOByAddress era localNodeConnectInfo address
   return $ Map.lookup txIn $ C.unUTxO utxos
 
+isTxOutAtAddress :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.Address C.ShelleyAddr
+  -> C.TxIn
+  -> m Bool
+isTxOutAtAddress era localNodeConnectInfo address txIn = do
+  utxos <- findUTxOByAddress era localNodeConnectInfo address
+  return $ Map.member txIn $ C.unUTxO utxos
+
 txOutHasValue :: (MonadIO m)
   => C.TxOut C.CtxUTxO era
   -> C.Value

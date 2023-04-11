@@ -37,6 +37,7 @@ pv6Tests = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> d
     runTest "datumHashSpendTest" AlonzoFeatures.datumHashSpendTest options testParams
     runTest "mintBurnTest" AlonzoFeatures.mintBurnTest options testParams
     runTest "collateralContainsTokenErrorTest" AlonzoFeatures.collateralContainsTokenErrorTest options testParams
+    runTest "noCollateralInputsErrorTest" AlonzoFeatures.noCollateralInputsErrorTest options testParams
     runTest "missingCollateralInputErrorTest" AlonzoFeatures.missingCollateralInputErrorTest options testParams
     runTest "tooManyCollateralInputsErrorTest" AlonzoFeatures.tooManyCollateralInputsErrorTest options testParams
     runTest "verifySchnorrAndEcdsaTest" Builtins.verifySchnorrAndEcdsaTest options testParams
@@ -56,6 +57,7 @@ pv7Tests = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> d
     runTest "datumHashSpendTest" AlonzoFeatures.datumHashSpendTest options testParams
     runTest "mintBurnTest" AlonzoFeatures.mintBurnTest options testParams
     runTest "collateralContainsTokenErrorTest" AlonzoFeatures.collateralContainsTokenErrorTest options testParams
+    runTest "noCollateralInputsErrorTest" AlonzoFeatures.noCollateralInputsErrorTest options testParams
     runTest "missingCollateralInputErrorTest" AlonzoFeatures.missingCollateralInputErrorTest options testParams
     runTest "tooManyCollateralInputsErrorTest" AlonzoFeatures.tooManyCollateralInputsErrorTest options testParams
     runTest "verifySchnorrAndEcdsaTest" Builtins.verifySchnorrAndEcdsaTest options testParams
@@ -82,6 +84,7 @@ pv8Tests = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> d
     runTest "datumHashSpendTest" AlonzoFeatures.datumHashSpendTest options testParams
     runTest "mintBurnTest" AlonzoFeatures.mintBurnTest options testParams
     runTest "collateralContainsTokenErrorTest" AlonzoFeatures.collateralContainsTokenErrorTest options testParams
+    runTest "noCollateralInputsErrorTest" AlonzoFeatures.noCollateralInputsErrorTest options testParams
     runTest "missingCollateralInputErrorTest" AlonzoFeatures.missingCollateralInputErrorTest options testParams
     runTest "tooManyCollateralInputsErrorTest" AlonzoFeatures.tooManyCollateralInputsErrorTest options testParams
     runTest "verifySchnorrAndEcdsaTest" Builtins.verifySchnorrAndEcdsaTest options testParams
@@ -92,6 +95,8 @@ pv8Tests = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> d
     runTest "referenceInputWithV1ScriptErrorTest" BabbageFeatures.referenceInputWithV1ScriptErrorTest options testParams
     runTest "referenceScriptOutputWithV1ScriptErrorTest" BabbageFeatures.referenceScriptOutputWithV1ScriptErrorTest options testParams
     runTest "inlineDatumOutputWithV1ScriptErrorTest" BabbageFeatures.inlineDatumOutputWithV1ScriptErrorTest options testParams
+    runTest "returnCollateralWithTokensValidScriptTest" BabbageFeatures.returnCollateralWithTokensValidScriptTest options testParams
+    runTest "submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest" BabbageFeatures.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest options testParams
 
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
@@ -102,7 +107,7 @@ debug = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath
 
     -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
-    runTest "referenceScriptOutputWithV1ScriptErrorTest" BabbageFeatures.referenceScriptOutputWithV1ScriptErrorTest options testParams
+    runTest "noCollateralInputsErrorTest" AlonzoFeatures.noCollateralInputsErrorTest options testParams
 
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 

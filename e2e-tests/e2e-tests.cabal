@@ -99,7 +99,7 @@ test-suite plutus-e2e-tests-test
     Helpers.Testnet
     Helpers.Tx
     Helpers.Utils
-    PlutusScripts.AlwaysSucceeds
+    PlutusScripts.Always
     PlutusScripts.Helpers
     PlutusScripts.SECP256k1
     PlutusScripts.V1TxInfo
