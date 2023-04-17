@@ -12,6 +12,7 @@ module Spec.AlonzoFeatures (
     mintBurnTest,
     collateralContainsTokenErrorTest,
     missingCollateralInputErrorTest,
+    noCollateralInputsErrorTest,
     tooManyCollateralInputsErrorTest
     ) where
 
@@ -33,7 +34,7 @@ import Helpers.Utils qualified as U
 import Plutus.V1.Ledger.Api qualified as PlutusV1
 import Plutus.V1.Ledger.Interval qualified as PlutusV1
 import Plutus.V1.Ledger.Time qualified as PlutusV1
-import PlutusScripts.AlwaysSucceeds qualified as PS
+import PlutusScripts.Always qualified as PS
 import PlutusScripts.Helpers (toScriptData)
 import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V1TxInfo (checkV1TxInfoAssetIdV1, checkV1TxInfoMintWitnessV1, checkV1TxInfoRedeemer, txInfoData,
@@ -320,6 +321,38 @@ missingCollateralInputErrorTest networkOptions TestParams{..} = do
   H.assert $ Tx.isTxBodyError "TxBodyEmptyTxInsCollateral" eitherTx
   H.success
 
+noCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
+  Either TN.LocalNodeOptions TN.TestnetOptions ->
+  TestParams ->
+  m ()
+noCollateralInputsErrorTest networkOptions TestParams{..} = do
+
+  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+
+  -- build a transaction to mint tokens
+
+  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+
+  let
+    collateral = Tx.txInsCollateral era []
+    tokenValues = C.valueFromList [(PS.alwaysSucceedAssetIdV1, 1)]
+    mintWitnesses = Map.fromList [PS.alwaysSucceedMintWitnessV1 era Nothing]
+    txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
+
+    txBodyContent = (Tx.emptyTxBodyContent era pparams)
+      { C.txIns = Tx.pubkeyTxIns [txIn]
+      , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
+      , C.txInsCollateral = collateral -- txInsCollateral exists but with empty list
+      , C.txOuts = [txOut]
+      }
+
+  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx
+  -- this ledger error isn't caught by balancing so asserting for it on submit instead
+  H.assert $ Tx.isSubmitError "NoCollateralInputs" eitherSubmit
+  H.success
+
 tooManyCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -363,3 +396,6 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{..} = do
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
   H.assert $ Tx.isSubmitError "TooManyCollateralInputs" eitherSubmit
+
+-- TODO: tx to produce error: InsufficientCollateral
+-- TODO: collateral input at script address error

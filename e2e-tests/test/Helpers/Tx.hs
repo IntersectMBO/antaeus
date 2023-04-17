@@ -184,6 +184,17 @@ txInsCollateral era txIns = case C.collateralSupportedInEra era of
   Nothing        -> error "era supporting collateral only"
   Just supported -> C.TxInsCollateral supported txIns
 
+-- | Produce return collateral output if era supports it. Used for building txbody.
+txReturnCollateral :: C.CardanoEra era -> C.TxOut C.CtxTx era -> C.TxReturnCollateral C.CtxTx era
+txReturnCollateral era txIns = case C.totalAndReturnCollateralSupportedInEra era of
+  Nothing        -> error "era supporting return & total collateral only"
+  Just supported -> C.TxReturnCollateral supported txIns
+
+txTotalCollateral :: C.CardanoEra era -> C.Lovelace -> C.TxTotalCollateral era
+txTotalCollateral era lovelace = case C.totalAndReturnCollateralSupportedInEra era of
+  Nothing        -> error "era supporting return & total collateral only"
+  Just supported -> C.TxTotalCollateral supported lovelace
+
 txValidityRange :: C.CardanoEra era -> C.SlotNo -> C.SlotNo -> (C.TxValidityLowerBound era, C.TxValidityUpperBound era)
 txValidityRange era lowerSlot upperSlot =
   (C.TxValidityLowerBound validityLowerBoundSupportedInEra lowerSlot,
@@ -195,6 +206,11 @@ txValidityRange era lowerSlot upperSlot =
     validityUpperBoundSupportedInEra = case C.validityUpperBoundSupportedInEra era of
         Nothing   -> error "era must support upper bound"
         (Just ub) -> ub
+
+txScriptValidity :: C.CardanoEra era -> C.ScriptValidity -> C.TxScriptValidity era
+txScriptValidity era sv = case C.txScriptValiditySupportedInCardanoEra era of
+  Nothing        -> error "era supporting return & total collateral only"
+  Just supported -> C.TxScriptValidity supported sv
 
 -- | Get TxId from a signed transaction.
 --  Useful for producing TxIn for building subsequant transaction.
