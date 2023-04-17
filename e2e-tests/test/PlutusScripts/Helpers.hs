@@ -12,11 +12,11 @@ import Codec.Serialise (serialise)
 import Data.ByteString qualified as BS (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
-import Plutus.Script.Utils.Value (CurrencySymbol)
 import Plutus.V1.Ledger.Api (MintingPolicy, Validator, unMintingPolicyScript, unValidatorScript)
 import Plutus.V1.Ledger.Api qualified as PlutusV1
 import Plutus.V1.Ledger.Bytes qualified as P (bytes, fromHex)
 import Plutus.V1.Ledger.Scripts (Datum (Datum), Redeemer (Redeemer))
+import Plutus.V1.Ledger.Value (CurrencySymbol)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
 

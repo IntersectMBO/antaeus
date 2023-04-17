@@ -21,7 +21,7 @@ module PlutusScripts.SECP256k1 (
   ) where
 
 import Cardano.Api qualified as C
-import Plutus.Script.Utils.Typed (IsScriptContext (mkUntypedMintingPolicy))
+import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Plutus.V1.Ledger.Api (MintingPolicy, mkMintingPolicyScript)
 import Plutus.V1.Ledger.Api qualified as PlutusV1
 import Plutus.V2.Ledger.Api qualified as PlutusV2
