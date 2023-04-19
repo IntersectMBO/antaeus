@@ -154,7 +154,7 @@ inputs.std.lib.dev.mkShell {
       name = "PLUTUS_CORE_OBJECTS_INV";
       value = cell.library.plutus-core-objects-inv;
     }
-    # These environemnt variables are rquired by marconi-chain-index tets
+    # These environemnt variables are required by the e2e tests
     {
       name = "CARDANO_CLI";
       value = "${cell.library.cardano-node.cardano-cli}/bin/cardano-cli";

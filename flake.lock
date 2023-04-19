@@ -4274,34 +4274,7 @@
         "type": "github"
       }
     },
-    "plutus-apps": {
-      "inputs": {
-        "CHaP": "CHaP_2",
-        "flake-compat": "flake-compat_4",
-        "gitignore-nix": "gitignore-nix_2",
-        "hackage-nix": "hackage-nix_2",
-        "haskell-language-server": "haskell-language-server_2",
-        "haskell-nix": "haskell-nix_2",
-        "iohk-nix": "iohk-nix_2",
-        "nixpkgs": "nixpkgs_10",
-        "plutus-core": "plutus-core",
-        "pre-commit-hooks-nix": "pre-commit-hooks-nix_2",
-        "sphinxcontrib-haddock": "sphinxcontrib-haddock_2",
-        "std": "std_5"
-      },
-      "locked": {
-        "lastModified": 1678469658,
-        "narHash": "sha256-e40tZACSVumSfZBgyqu9JlGwEe2c0Wsty6TMcb5BFTM=",
-        "owner": "input-output-hk",
-        "rev": "9d90900d049f2333960fbc349cc816d2b163cda5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "input-output-hk",
-        "type": "github"
-      }
-    },
-    "plutus-core": {
+     "plutus-core": {
       "inputs": {
         "CHaP": "CHaP_3",
         "gitignore-nix": "gitignore-nix_3",
