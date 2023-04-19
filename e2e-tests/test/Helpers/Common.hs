@@ -18,7 +18,7 @@ cardanoEraToShelleyBasedEra cEra = case cEra of
 
 -- | Make a payment or script address
 makeAddress ::
-  (Either (C.VerificationKey C.PaymentKey) C.ScriptHash) ->
+  Either (C.VerificationKey C.PaymentKey) C.ScriptHash ->
   C.NetworkId ->
   C.Address C.ShelleyAddr
 makeAddress (Left paymentKey) nId =

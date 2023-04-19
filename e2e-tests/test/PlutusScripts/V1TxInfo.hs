@@ -23,10 +23,9 @@ module PlutusScripts.V1TxInfo (
   ) where
 
 import Cardano.Api qualified as C
-import Ledger.Tx.CardanoAPI.Internal (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
-                                      fromCardanoTxOutToPV1TxInfoTxOut, fromCardanoTxOutToPV1TxInfoTxOut',
-                                      fromCardanoValue)
-import Plutus.Script.Utils.Typed (IsScriptContext (mkUntypedMintingPolicy))
+import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
+import Helpers.TypeConverters (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
+                               fromCardanoTxOutToPV1TxInfoTxOut, fromCardanoTxOutToPV1TxInfoTxOut', fromCardanoValue)
 import Plutus.V1.Ledger.Api (mkMintingPolicyScript)
 import Plutus.V1.Ledger.Api qualified as PlutusV1
 import Plutus.V1.Ledger.Interval qualified as P
