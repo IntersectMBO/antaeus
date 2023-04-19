@@ -23,9 +23,9 @@ module PlutusScripts.V2TxInfo (
   ) where
 
 import Cardano.Api qualified as C
-import Helpers.Common (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
-                       fromCardanoTxOutToPV2TxInfoTxOut, fromCardanoTxOutToPV2TxInfoTxOut', fromCardanoValue)
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
+import Helpers.TypeConverters (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
+                               fromCardanoTxOutToPV2TxInfoTxOut, fromCardanoTxOutToPV2TxInfoTxOut', fromCardanoValue)
 import Plutus.V1.Ledger.Api (mkMintingPolicyScript)
 import Plutus.V1.Ledger.Interval qualified as P
 import Plutus.V2.Ledger.Api qualified as PlutusV2

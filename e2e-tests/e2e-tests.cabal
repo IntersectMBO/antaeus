@@ -100,6 +100,7 @@ test-suite plutus-e2e-tests-test
     Helpers.Test
     Helpers.Testnet
     Helpers.Tx
+    Helpers.TypeConverters
     Helpers.Utils
     PlutusScripts.Always
     PlutusScripts.Helpers

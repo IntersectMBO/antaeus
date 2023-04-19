@@ -47,7 +47,7 @@ isSubmitError _ _                                      = False
 multiAssetSupportedInEra :: C.CardanoEra era -> C.MultiAssetSupportedInEra era
 multiAssetSupportedInEra era = fromEither $ C.multiAssetSupportedInEra era
   where
-    fromEither (Left _)  = error $ "Era must support MA"
+    fromEither (Left _)  = error "Era must support MA"
     fromEither (Right m) = m
 
 -- | Treat CardanoEra as ShelleyBased to satisfy constraint on constructBalancedTx.
