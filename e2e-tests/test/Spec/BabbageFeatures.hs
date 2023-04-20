@@ -6,19 +6,11 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-} -- Not using all CardanoEra
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# OPTIONS_GHC -Wno-missing-import-lists #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module Spec.BabbageFeatures(
-    checkTxInfoV2Test,
-    referenceScriptMintTest,
-    referenceScriptInlineDatumSpendTest,
-    referenceScriptDatumHashSpendTest,
-    inlineDatumSpendTest,
-    referenceInputWithV1ScriptErrorTest,
-    referenceScriptOutputWithV1ScriptErrorTest,
-    inlineDatumOutputWithV1ScriptErrorTest,
-    returnCollateralWithTokensValidScriptTest,
-    submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
-    ) where
+module Spec.BabbageFeatures where
 
 import Cardano.Api qualified as C
 import Data.Map qualified as Map
@@ -33,6 +25,7 @@ import Hedgehog.Internal.Property (MonadTest)
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
 import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
+import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -44,7 +37,10 @@ import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V2TxInfo (checkV2TxInfoAssetIdV2, checkV2TxInfoMintWitnessV2, checkV2TxInfoRedeemer, txInfoData,
                                txInfoFee, txInfoInputs, txInfoMint, txInfoOutputs, txInfoSigs)
 
--- | Test must be first to run after new testnet is initialised due to slot timing
+checkTxInfoV2TestInfo = TestInfo {
+    testName="checkTxInfoV2Test",
+    testDescription="Check each attribute of the TxInfo from the V2 ScriptContext in a single transaction"
+    }
 checkTxInfoV2Test :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -120,6 +116,10 @@ checkTxInfoV2Test networkOptions TestParams{..} preTestnetTime = do
 
   H.success
 
+referenceScriptMintTestInfo = TestInfo {
+    testName="referenceScriptMintTest",
+    testDescription="Mint tokens by referencing an input containing a Plutus policy as witness"
+    }
 referenceScriptMintTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -175,6 +175,10 @@ referenceScriptMintTest networkOptions TestParams{..} = do
 
   H.success
 
+referenceScriptInlineDatumSpendTestInfo = TestInfo {
+    testName="referenceScriptInlineDatumSpendTest",
+    testDescription="Spend funds locked by script by using inline datum and referencing an input containing a Plutus script as witness"
+    }
 referenceScriptInlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -232,6 +236,10 @@ referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
 
   H.success
 
+referenceScriptDatumHashSpendTestInfo = TestInfo {
+    testName="referenceScriptDatumHashSpendTest",
+    testDescription="Spend funds locked by script by providing datum in txbody and referencing an input containing a Plutus script as witness"
+    }
 referenceScriptDatumHashSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -290,6 +298,10 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
 
   H.success
 
+inlineDatumSpendTestInfo = TestInfo {
+    testName="inlineDatumSpendTest",
+    testDescription="Spend funds locked by script by using inline datum and providing Plutus script in transaction as witness"
+    }
 inlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -343,6 +355,10 @@ inlineDatumSpendTest networkOptions TestParams{..} = do
 
   H.success
 
+referenceInputWithV1ScriptErrorTestInfo = TestInfo {
+    testName="referenceInputWithV1ScriptErrorTest",
+    testDescription="ReferenceInputsNotSupported error occurs when executing a V1 script whilst referencing an input"
+    }
 referenceInputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -372,6 +388,10 @@ referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
   H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceInputsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   H.success
 
+referenceScriptOutputWithV1ScriptErrorTestInfo = TestInfo {
+    testName="referenceScriptOutputWithV1ScriptErrorTest",
+    testDescription="ReferenceScriptsNotSupported error occurs when executing a V1 script whilst creating an output including a reference script"
+    }
 referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -402,6 +422,10 @@ referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
   H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceScriptsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   H.success
 
+inlineDatumOutputWithV1ScriptErrorTestInfo = TestInfo {
+    testName="inlineDatumOutputWithV1ScriptErrorTest",
+    testDescription="InlineDatumsNotSupported error occurs when executing a V1 script whilst creating an output including an inline datum"
+    }
 inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -431,6 +455,10 @@ inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
   H.assert $ Tx.isTxBodyErrorValidityInterval "InlineDatumsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   H.success
 
+returnCollateralWithTokensValidScriptTestInfo = TestInfo {
+    testName="returnCollateralWithTokensValidScriptTest",
+    testDescription="Check it is possible to provide collateral input containing tokens if return collateral is being used to return them"
+    }
 returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -489,9 +517,12 @@ returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
 
   H.success
 
--- Submit a failing script when using total and return collateral in tx body.
--- Check that ada and tokens from collateral input are returned in the collateral output.
--- Also check that regular input is not consumed.
+submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo = TestInfo {
+    testName="submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest",
+    testDescription="Submit a failing script when using total and return collateral in tx body." ++
+       "Check that ada and tokens from collateral input are returned in the collateral output." ++
+       "and that the regular input is not consumed."
+    }
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->

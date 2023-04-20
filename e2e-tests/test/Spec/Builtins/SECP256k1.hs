@@ -7,8 +7,10 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use if" #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# OPTIONS_GHC -Wno-missing-import-lists #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 
-module Spec.Builtins.SECP256k1(verifySchnorrAndEcdsaTest) where
+module Spec.Builtins.SECP256k1 where
 
 import Cardano.Api qualified as C
 import Data.Map qualified as Map
@@ -20,19 +22,15 @@ import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
 import Helpers.Query qualified as Q
 import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
+import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import PlutusScripts.SECP256k1 qualified as PS
 
-{- | Test that builtins: verifySchnorrSecp256k1Signature and verifyEcdsaSecp256k1Signature can only
-   be used to mint in Babbage era protocol version 8 and beyond.
-
-   Steps:
-    - spin up a testnet
-    - build and submit a transaction to mint a token using the two SECP256k1 builtins
-    - if pv8+ then query the ledger to see if mint was successful otherwise expect
-        "forbidden builtin" error when building tx
--}
+verifySchnorrAndEcdsaTestInfo = TestInfo {
+    testName="verifySchnorrAndEcdsaTest",
+    testDescription="SECP256k1 builtin verify functions verifySchnorrSecp256k1Signature and verifyEcdsaSecp256k1Signature can only be used to mint in Babbage era protocol version 8 and beyond."
+    }
 verifySchnorrAndEcdsaTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -92,5 +90,5 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
       resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "TN.getTxOutAtAddress"
       txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
       H.assert txOutHasTokenValue
-
       H.success
+

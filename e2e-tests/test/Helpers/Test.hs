@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-missing-import-lists #-}
 module Helpers.Test (
     TestParams(..),
     runTest,
@@ -8,8 +9,11 @@ import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.IORef (IORef)
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock.POSIX qualified as Time
+import GHC.IORef (atomicModifyIORef')
+import Helpers.TestResults (TestInfo (..), TestResult (..))
 import Helpers.Testnet qualified as TN
 import Text.Printf (printf)
 
@@ -21,36 +25,44 @@ data TestParams = TestParams {
 }
 
 runTestGeneric :: MonadIO m =>
-  String ->
+  TestInfo ->
   (Either TN.LocalNodeOptions TN.TestnetOptions -> TestParams -> Time.POSIXTime -> m ()) ->
+  IORef [TestResult] ->
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   Maybe Time.POSIXTime ->
   m ()
-runTestGeneric testName test networkOptions testParams preTestnetTime = do
-  liftIO $ putStrLn $ "\nRunning: " ++ testName
+runTestGeneric testInfo test resultsRef networkOptions testParams preTestnetTime = do
+  liftIO $ putStrLn $ "\nRunning: " ++ testName testInfo
   t <- liftIO Time.getPOSIXTime
   test networkOptions testParams (fromMaybe t preTestnetTime)
   t2 <- liftIO Time.getPOSIXTime
   let diff = realToFrac $ t2 - t :: Double
   liftIO $ putStrLn $ "Pass\nDuration: " ++ printf "%.2f" diff ++ "s"
+  let result = TestResult
+        { resultTestInfo = testInfo
+        , resultSuccessful = True -- TODO: support test failure
+        , resultTime = diff
+        }
+  liftIO $ atomicModifyIORef' resultsRef (\results -> (result : results, ()))
 
 runTest :: MonadIO m =>
-  String ->
+  TestInfo ->
   (Either TN.LocalNodeOptions TN.TestnetOptions -> TestParams -> m ()) ->
+  IORef [TestResult] ->
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m ()
-runTest testName test networkOptions testParams =
-    runTestGeneric testName (\opts params _ -> test opts params) networkOptions testParams Nothing
+runTest testInfo test resultsRef networkOptions testParams =
+  runTestGeneric testInfo (\opts params _ -> test opts params) resultsRef networkOptions testParams Nothing
 
 runTestWithPosixTime :: MonadIO m =>
-  String ->
+  TestInfo ->
   (Either TN.LocalNodeOptions TN.TestnetOptions -> TestParams -> Time.POSIXTime -> m ()) ->
+  IORef [TestResult] ->
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   Time.POSIXTime ->
   m ()
-runTestWithPosixTime testName test networkOptions testParams preTestnetTime =
-    runTestGeneric testName test networkOptions testParams (Just preTestnetTime)
-
+runTestWithPosixTime testInfo test resultsRef networkOptions testParams preTestnetTime =
+    runTestGeneric testInfo test resultsRef networkOptions testParams (Just preTestnetTime)

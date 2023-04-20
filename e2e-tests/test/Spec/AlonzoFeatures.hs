@@ -5,16 +5,11 @@
 
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-} -- Not using all CardanoEra
 {-# LANGUAGE RecordWildCards     #-}
+{-# OPTIONS_GHC -Wno-missing-import-lists #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module Spec.AlonzoFeatures (
-    checkTxInfoV1Test,
-    datumHashSpendTest,
-    mintBurnTest,
-    collateralContainsTokenErrorTest,
-    missingCollateralInputErrorTest,
-    noCollateralInputsErrorTest,
-    tooManyCollateralInputsErrorTest
-    ) where
+module Spec.AlonzoFeatures where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
@@ -28,6 +23,7 @@ import Hedgehog qualified as H
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
 import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
+import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -40,6 +36,11 @@ import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V1TxInfo (checkV1TxInfoAssetIdV1, checkV1TxInfoMintWitnessV1, checkV1TxInfoRedeemer, txInfoData,
                                txInfoFee, txInfoInputs, txInfoMint, txInfoOutputs, txInfoSigs)
 
+
+checkTxInfoV1TestInfo = TestInfo {
+    testName="checkTxInfoV1Test",
+    testDescription="Check each attribute of the TxInfo from the V1 ScriptContext in a single transaction"
+    }
 checkTxInfoV1Test :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -111,7 +112,10 @@ checkTxInfoV1Test networkOptions TestParams{..} preTestnetTime = do
 
   H.success
 
--- tests spending outputs with datum hash both with and without datum value embedded in tx body
+datumHashSpendTestInfo = TestInfo {
+    testName="datumHashSpendTest",
+    testDescription="Test spending outputs with datum hash both with and without datum value embedded in tx body"
+    }
 datumHashSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -172,6 +176,10 @@ datumHashSpendTest networkOptions TestParams{..} = do
 
   H.success
 
+mintBurnTestInfo = TestInfo {
+    testName="mintBurnTest",
+    testDescription="Mint some tokens with Plutus policy in one transaction and then burn some of them in second transaction"
+    }
 mintBurnTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -234,6 +242,10 @@ mintBurnTest networkOptions TestParams{..} = do
 
   H.success
 
+collateralContainsTokenErrorTestInfo = TestInfo {
+    testName="collateralContainsTokenErrorTest",
+    testDescription="CollateralContainsNonADA error occurs when including tokens in a collateral input"
+    }
 collateralContainsTokenErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -293,6 +305,10 @@ collateralContainsTokenErrorTest networkOptions TestParams{..} = do
 
   H.success
 
+missingCollateralInputErrorTestInfo = TestInfo {
+    testName="missingCollateralInputErrorTest",
+    testDescription="TxBodyEmptyTxInsCollateral error occurs when collateral input is required but txbody's txInsCollateral is missing"
+    }
 missingCollateralInputErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -321,6 +337,10 @@ missingCollateralInputErrorTest networkOptions TestParams{..} = do
   H.assert $ Tx.isTxBodyError "TxBodyEmptyTxInsCollateral" eitherTx
   H.success
 
+noCollateralInputsErrorTestInfo = TestInfo {
+    testName="noCollateralInputsErrorTest",
+    testDescription="NoCollateralInputs error occurs when collateral is required but txbody's txInsCollateral is empty"
+    }
 noCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -353,6 +373,10 @@ noCollateralInputsErrorTest networkOptions TestParams{..} = do
   H.assert $ Tx.isSubmitError "NoCollateralInputs" eitherSubmit
   H.success
 
+tooManyCollateralInputsErrorTestInfo = TestInfo {
+    testName="tooManyCollateralInputsErrorTest",
+    testDescription="TooManyCollateralInputs error occurs when number of collateral inputs exceed protocol param 'maxCollateralInputs'"
+    }
 tooManyCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->

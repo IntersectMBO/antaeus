@@ -41,12 +41,16 @@ Antaeus is currently under development, with a growing suite of tests covering:
 
 ---
 
+### Allure Report !!! TODO: REFINE SECTION !!!
+
+JUnit XML report is first produced in e2e-tests/test-report-xml/test-results.xml
+Run `allure serve <test-report-xml>` to generate and host the Allure report
+
 ### Planned Features
 
 We're working on adding the following features to Antaeus:
 
 - CI execution with private testnet on commit (nix configuration coming soon).
-- Test reporting with [Allure](https://github.com/allure-framework).
 - Nightly CI test execution would be useful in public environments.
 
 ---

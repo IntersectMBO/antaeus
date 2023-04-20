@@ -144,3 +144,4 @@ test-suite antaeus-test
     , tasty
     , tasty-hedgehog
     , temporary
+    , xml
