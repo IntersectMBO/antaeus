@@ -86,7 +86,7 @@ common lang
   if (os(osx) || os(linux))
     build-depends: unix
 
-test-suite plutus-e2e-tests-test
+test-suite antaeus-test
   import:         lang
   ghc-options:    -Wno-unused-packages
   type:           exitcode-stdio-1.0

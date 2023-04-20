@@ -53,4 +53,4 @@ We're working on adding the following features to Antaeus:
 
 ### Licensing
 
-You are free to copy, modify, and distribute the Marconi Platform with under the terms of the Apache 2.0 license. See the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files for details.
+You are free to copy, modify, and distribute Antaeus under the terms of the Apache 2.0 license. See the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files for details.
