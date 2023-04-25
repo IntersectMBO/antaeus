@@ -15,16 +15,15 @@ module Spec.Builtins.SECP256k1 where
 import Cardano.Api qualified as C
 import Data.Map qualified as Map
 
-import Hedgehog qualified as H
-
 import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
 import Helpers.Query qualified as Q
-import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
+import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath), assert)
 import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
+import Helpers.Utils qualified as U
 import PlutusScripts.SECP256k1 qualified as PS
 
 verifySchnorrAndEcdsaTestInfo = TestInfo {
@@ -34,7 +33,7 @@ verifySchnorrAndEcdsaTestInfo = TestInfo {
 verifySchnorrAndEcdsaTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -74,11 +73,12 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
     True -> do
       -- Assert that "forbidden" error occurs when attempting to use either SECP256k1 builtin
       eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
-      H.assert $ Tx.isTxBodyScriptExecutionError
-        "Forbidden builtin function: (builtin verifySchnorrSecp256k1Signature)" eitherTx
-      H.assert $ Tx.isTxBodyScriptExecutionError
-        "Forbidden builtin function: (builtin verifyEcdsaSecp256k1Signature)" eitherTx
-      H.success
+      let
+        expErrorSchnorr = "Forbidden builtin function: (builtin verifySchnorrSecp256k1Signature)"
+        expErrorEcdsa = "Forbidden builtin function: (builtin verifyEcdsaSecp256k1Signature)"
+      a1 <- assert expErrorSchnorr $ Tx.isTxBodyScriptExecutionError expErrorSchnorr eitherTx
+      a2 <- assert expErrorEcdsa $ Tx.isTxBodyScriptExecutionError expErrorEcdsa eitherTx
+      U.concatMaybesList [a1, a2]
 
     False -> do
       -- Build and submit transaction
@@ -89,6 +89,6 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
       -- Query for txo and assert it contains newly minting tokens to prove successful use of SECP256k1 builtins
       resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "TN.getTxOutAtAddress"
       txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
-      H.assert txOutHasTokenValue
-      H.success
+      assert "txOut has tokens" txOutHasTokenValue
+
 

@@ -4,13 +4,14 @@ import Cardano.Api qualified as C
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor (void)
+import Data.List (intersperse)
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
+import Hedgehog.Extras qualified as H
 import Hedgehog.Extras qualified as HE
 import Hedgehog.Extras.Stock.CallStack qualified as H
-import Hedgehog.Extras.Test.Base qualified as H
 import System.Directory qualified as IO
 import System.Environment qualified as IO
 import System.IO qualified as IO
@@ -62,6 +63,13 @@ maybeReadAs as path = do
   maybeEither . liftIO $ C.readFileTextEnvelope as path'
   where
     maybeEither m = m >>= return . either (const Nothing) Just
+
+-- | Concatentate Just Strings. Useful for aggregating test failures.
+concatMaybesList :: MonadTest m => [Maybe String] -> m (Maybe String)
+concatMaybesList mList =
+  let justStrings = map (maybe "" id) mList
+      withLineBreaks = mconcat . intersperse "\n\n" $ justStrings
+  in if all null justStrings then pure Nothing else pure $ Just withLineBreaks
 
 -- | Convert a 'POSIXTime' to the number of milliseconds since the Unix epoch.
 posixToMilliseconds :: Time.POSIXTime -> Integer

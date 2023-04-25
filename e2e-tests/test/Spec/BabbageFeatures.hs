@@ -24,7 +24,7 @@ import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog.Internal.Property (MonadTest)
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
-import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
+import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath), assert, success)
 import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
@@ -45,7 +45,7 @@ checkTxInfoV2Test :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   POSIXTime ->
-  m ()
+  m (Maybe String)
 checkTxInfoV2Test networkOptions TestParams{..} preTestnetTime = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -112,9 +112,8 @@ checkTxInfoV2Test networkOptions TestParams{..} preTestnetTime = do
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress "
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
-  H.assert txOutHasTokenValue
+  assert "txOut has tokens" txOutHasTokenValue
 
-  H.success
 
 referenceScriptMintTestInfo = TestInfo {
     testName="referenceScriptMintTest",
@@ -123,7 +122,7 @@ referenceScriptMintTestInfo = TestInfo {
 referenceScriptMintTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 referenceScriptMintTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -171,9 +170,7 @@ referenceScriptMintTest networkOptions TestParams{..} = do
   -- Query for txo and assert it contains newly minted token
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
-  H.assert txOutHasTokenValue
-
-  H.success
+  assert "txOut has tokens" txOutHasTokenValue
 
 referenceScriptInlineDatumSpendTestInfo = TestInfo {
     testName="referenceScriptInlineDatumSpendTest",
@@ -182,7 +179,7 @@ referenceScriptInlineDatumSpendTestInfo = TestInfo {
 referenceScriptInlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -232,9 +229,7 @@ referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
   -- Query for txo and assert it contains newly minted token
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
   txOutHasAdaValue <- Q.txOutHasValue resultTxOut adaValue
-  H.assert txOutHasAdaValue
-
-  H.success
+  assert "txOut has tokens" txOutHasAdaValue
 
 referenceScriptDatumHashSpendTestInfo = TestInfo {
     testName="referenceScriptDatumHashSpendTest",
@@ -243,7 +238,7 @@ referenceScriptDatumHashSpendTestInfo = TestInfo {
 referenceScriptDatumHashSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -294,9 +289,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
   -- Query for txo and assert it contains newly minted token
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
   txOutHasAdaValue <- Q.txOutHasValue resultTxOut adaValue
-  H.assert txOutHasAdaValue
-
-  H.success
+  assert "txOut has tokens" txOutHasAdaValue
 
 inlineDatumSpendTestInfo = TestInfo {
     testName="inlineDatumSpendTest",
@@ -305,7 +298,7 @@ inlineDatumSpendTestInfo = TestInfo {
 inlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 inlineDatumSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -351,9 +344,7 @@ inlineDatumSpendTest networkOptions TestParams{..} = do
   -- Query for txo and assert it contains newly minted token
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
   txOutHasAdaValue <- Q.txOutHasValue resultTxOut adaValue
-  H.assert txOutHasAdaValue
-
-  H.success
+  assert "txOut has tokens" txOutHasAdaValue
 
 referenceInputWithV1ScriptErrorTestInfo = TestInfo {
     testName="referenceInputWithV1ScriptErrorTest",
@@ -362,7 +353,7 @@ referenceInputWithV1ScriptErrorTestInfo = TestInfo {
 referenceInputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -385,8 +376,8 @@ referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
       }
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
-  H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceInputsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
-  H.success
+  let expError = "ReferenceInputsNotSupported"
+  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
 
 referenceScriptOutputWithV1ScriptErrorTestInfo = TestInfo {
     testName="referenceScriptOutputWithV1ScriptErrorTest",
@@ -395,7 +386,7 @@ referenceScriptOutputWithV1ScriptErrorTestInfo = TestInfo {
 referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -419,8 +410,8 @@ referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   H.annotate $ show eitherTx
-  H.assert $ Tx.isTxBodyErrorValidityInterval "ReferenceScriptsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
-  H.success
+  let expError = "ReferenceScriptsNotSupported"
+  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
 
 inlineDatumOutputWithV1ScriptErrorTestInfo = TestInfo {
     testName="inlineDatumOutputWithV1ScriptErrorTest",
@@ -429,7 +420,7 @@ inlineDatumOutputWithV1ScriptErrorTestInfo = TestInfo {
 inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -452,8 +443,8 @@ inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   H.annotate $ show eitherTx
-  H.assert $ Tx.isTxBodyErrorValidityInterval "InlineDatumsNotSupported" eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
-  H.success
+  let expError = "InlineDatumsNotSupported"
+  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
 
 returnCollateralWithTokensValidScriptTestInfo = TestInfo {
     testName="returnCollateralWithTokensValidScriptTest",
@@ -462,7 +453,7 @@ returnCollateralWithTokensValidScriptTestInfo = TestInfo {
 returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -513,9 +504,7 @@ returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
   -- Query for txo and assert it contains newly minted token
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues2
-  H.assert txOutHasTokenValue
-
-  H.success
+  assert "txOut has tokens" txOutHasTokenValue
 
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo = TestInfo {
     testName="submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest",
@@ -526,7 +515,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo = TestInfo {
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -587,14 +576,13 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestP
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 3 -- collateral return index is n outputs (including change)
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "getTxOutAtAddress"
   txOutHasAdaAndTokenValue <- Q.txOutHasValue resultTxOut colReturnValue
-  H.assert txOutHasAdaAndTokenValue
+  a1 <- assert "txOut has tokens" txOutHasAdaAndTokenValue
   -- Query collateral input and assert it has been spent
   collateralSpent <- not <$> Q.isTxOutAtAddress era localNodeConnectInfo w1Address collateralTxIn
-  H.assert collateralSpent
+  a2 <- assert "collateral spent" collateralSpent
   -- Query regular tx input and assert it has not been spent
   txInNotSpent <- Q.isTxOutAtAddress era localNodeConnectInfo w1Address txIn2
-  H.assert txInNotSpent
-
-  H.success
+  a3 <- assert "txIn not spent" txInNotSpent
+  U.concatMaybesList [a1, a2, a3]
 
 -- TODO: access datum in reference input in plutus script

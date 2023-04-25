@@ -22,7 +22,7 @@ import Hedgehog (MonadTest)
 import Hedgehog qualified as H
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
-import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
+import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath), assert, success)
 import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
@@ -45,7 +45,7 @@ checkTxInfoV1Test :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   POSIXTime ->
-  m ()
+  m (Maybe String)
 checkTxInfoV1Test networkOptions TestParams{..} preTestnetTime = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -108,9 +108,7 @@ checkTxInfoV1Test networkOptions TestParams{..} preTestnetTime = do
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress "
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
-  H.assert txOutHasTokenValue
-
-  H.success
+  assert "txOut has tokens" txOutHasTokenValue
 
 datumHashSpendTestInfo = TestInfo {
     testName="datumHashSpendTest",
@@ -119,7 +117,7 @@ datumHashSpendTestInfo = TestInfo {
 datumHashSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 datumHashSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -174,7 +172,7 @@ datumHashSpendTest networkOptions TestParams{..} = do
   txOutHasAdaValue <- Q.txOutHasValue resultTxOut1 adaValue
   H.assert txOutHasAdaValue
 
-  H.success
+  success
 
 mintBurnTestInfo = TestInfo {
     testName="mintBurnTest",
@@ -183,7 +181,7 @@ mintBurnTestInfo = TestInfo {
 mintBurnTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 mintBurnTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -224,23 +222,19 @@ mintBurnTest networkOptions TestParams{..} = do
     tokenValues2 = C.valueFromList [(PS.alwaysSucceedAssetIdV1, 5)]
     collateral2 = Tx.txInsCollateral era [otherTxIn]
     txOut2 = Tx.txOut era (C.lovelaceToValue 5_000_000 <> tokenValues2) w1Address
-
     txBodyContent2 = (Tx.emptyTxBodyContent era pparams)
       { C.txIns = Tx.pubkeyTxIns [txIn2]
       , C.txInsCollateral = collateral2
       , C.txMintValue = Tx.txMintValue era burnValue mintWitnesses
       , C.txOuts = [txOut2]
       }
-
   signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn2 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains tokens remaining after burn
   resultTxOut2 <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn2 "resultTxOut2 <- getTxOutAtAddress"
   txOutHasTokenValue2 <- Q.txOutHasValue resultTxOut2 tokenValues2
-  H.assert txOutHasTokenValue2
-
-  H.success
+  assert "txOut has tokens" txOutHasTokenValue2
 
 collateralContainsTokenErrorTestInfo = TestInfo {
     testName="collateralContainsTokenErrorTest",
@@ -249,7 +243,7 @@ collateralContainsTokenErrorTestInfo = TestInfo {
 collateralContainsTokenErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 collateralContainsTokenErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -301,9 +295,8 @@ collateralContainsTokenErrorTest networkOptions TestParams{..} = do
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
   -- Not sure why this ledger error is doesn't occur when balancing (it does with cardano-cli)
   -- asserting for it on submit instead
-  H.assert $ Tx.isSubmitError "CollateralContainsNonADA" eitherSubmit
-
-  H.success
+  let expError = "CollateralContainsNonADA"
+  assert expError $ Tx.isSubmitError expError eitherSubmit
 
 missingCollateralInputErrorTestInfo = TestInfo {
     testName="missingCollateralInputErrorTest",
@@ -312,7 +305,7 @@ missingCollateralInputErrorTestInfo = TestInfo {
 missingCollateralInputErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 missingCollateralInputErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -334,8 +327,8 @@ missingCollateralInputErrorTest networkOptions TestParams{..} = do
       }
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
-  H.assert $ Tx.isTxBodyError "TxBodyEmptyTxInsCollateral" eitherTx
-  H.success
+  let expError = "TxBodyEmptyTxInsCollateral"
+  assert expError $ Tx.isTxBodyError expError eitherTx
 
 noCollateralInputsErrorTestInfo = TestInfo {
     testName="noCollateralInputsErrorTest",
@@ -344,7 +337,7 @@ noCollateralInputsErrorTestInfo = TestInfo {
 noCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 noCollateralInputsErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -370,8 +363,8 @@ noCollateralInputsErrorTest networkOptions TestParams{..} = do
   signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
-  H.assert $ Tx.isSubmitError "NoCollateralInputs" eitherSubmit
-  H.success
+  let expError = "NoCollateralInputs"
+  assert expError $ Tx.isSubmitError expError eitherSubmit
 
 tooManyCollateralInputsErrorTestInfo = TestInfo {
     testName="tooManyCollateralInputsErrorTest",
@@ -380,7 +373,7 @@ tooManyCollateralInputsErrorTestInfo = TestInfo {
 tooManyCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
-  m ()
+  m (Maybe String)
 tooManyCollateralInputsErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
@@ -419,7 +412,8 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{..} = do
 
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
-  H.assert $ Tx.isSubmitError "TooManyCollateralInputs" eitherSubmit
+  let expError = "TooManyCollateralInputs"
+  assert expError $ Tx.isSubmitError expError eitherSubmit
 
 -- TODO: tx to produce error: InsufficientCollateral
 -- TODO: collateral input at script address error

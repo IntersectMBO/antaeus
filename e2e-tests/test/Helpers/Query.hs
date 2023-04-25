@@ -191,3 +191,4 @@ txOutHasValue :: (MonadIO m)
 txOutHasValue (C.TxOut _ txOutValue _ _) tokenValue = do
   let value = C.txOutValueToValue txOutValue
   return $ isInfixOf (C.valueToList tokenValue) (C.valueToList value)
+

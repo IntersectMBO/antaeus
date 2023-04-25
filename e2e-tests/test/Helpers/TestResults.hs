@@ -8,6 +8,7 @@ module Helpers.TestResults (
     testSuitesToJUnit
 ) where
 
+import Data.Maybe (fromJust)
 import Text.XML.Light (Attr (Attr), CData (CData), CDataKind (CDataText), Content (Elem, Text), Element (..),
                        QName (QName))
 
@@ -24,6 +25,7 @@ data TestSuiteResults = TestSuiteResults {
 data TestResult = TestResult {
     resultTestInfo   :: TestInfo,
     resultSuccessful :: Bool,
+    resultFailure    :: Maybe String, -- TODO: use this in failureElement in xml output
     resultTime       :: Double
 } deriving Show
 
@@ -77,8 +79,8 @@ testCaseToJUnit suiteName result = defElement
       , elContent = []
       }
 
-    failureElement = defElement -- TODO: make framework handle test failures, not exit Property.
+    failureElement = defElement -- TODO: make framework handle test failures
       { elName = QName "failure" Nothing Nothing
-      , elAttribs = [Attr (QName "type" Nothing Nothing) "AssertionError"] -- example type
-      , elContent = [Text $ CData CDataText (testName $ resultTestInfo result) Nothing]
+      , elAttribs = [Attr (QName "message" Nothing Nothing) "test failure"] -- example type
+      , elContent = [Text $ CData CDataText (fromJust (resultFailure result)) Nothing]
       }

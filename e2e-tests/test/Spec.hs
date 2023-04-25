@@ -7,6 +7,7 @@ module Main(main) where
 import CardanoTestnet qualified as TN
 import Control.Exception (SomeException)
 import Control.Exception.Base (try)
+import Control.Monad (forM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.IORef (IORef, readIORef)
 import Data.Time.Clock.POSIX qualified as Time
@@ -14,7 +15,7 @@ import GHC.IORef (newIORef)
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as HE
 import Helpers.Test (TestParams (TestParams), runTest, runTestWithPosixTime)
-import Helpers.TestResults (TestResult, TestSuiteResults (..), testSuitesToJUnit)
+import Helpers.TestResults (TestInfo (..), TestResult (..), TestSuiteResults (..), testSuitesToJUnit)
 import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
 import Spec.AlonzoFeatures qualified as Alonzo
@@ -34,12 +35,23 @@ main = do
 
 tests :: IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] ->  TestTree
 tests pv6ResultsRef pv7ResultsRef pv8ResultsRef = testGroup "Plutus E2E Tests" [
-  testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
+    testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
   , testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
   , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
 --   , testProperty "debug" (debugTests pv8ResultsRef)
 --   , testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
   ]
+
+allFailureMessages :: [IORef [TestResult]] -> IO [String]
+allFailureMessages resultRefsList = do
+  allResults <- forM resultRefsList readIORef
+  let failedResults = filter (not . resultSuccessful) $ concat allResults
+  return $ map (testName . resultTestInfo) failedResults
+
+suiteFailureMessages :: IORef [TestResult] -> IO [String]
+suiteFailureMessages resultRefs = do
+  results <- readIORef resultRefs
+  return $ map (testName . resultTestInfo) $ filter (not . resultSuccessful) results
 
 pv6Tests :: IORef [TestResult] -> H.Property
 pv6Tests resultsRef = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
@@ -52,15 +64,20 @@ pv6Tests resultsRef = H.integration . HE.runFinallies . U.workspace "." $ \tempA
 
     sequence_
       [ runWithPosixTime Alonzo.checkTxInfoV1TestInfo Alonzo.checkTxInfoV1Test
-      , run Alonzo.datumHashSpendTestInfo Alonzo.datumHashSpendTest
-      , run Alonzo.mintBurnTestInfo Alonzo.mintBurnTest
-      , run Alonzo.collateralContainsTokenErrorTestInfo Alonzo.collateralContainsTokenErrorTest
-      , run Alonzo.noCollateralInputsErrorTestInfo Alonzo.noCollateralInputsErrorTest
-      , run Alonzo.missingCollateralInputErrorTestInfo Alonzo.missingCollateralInputErrorTest
-      , run Alonzo.tooManyCollateralInputsErrorTestInfo Alonzo.tooManyCollateralInputsErrorTest
-      , run Builtins.verifySchnorrAndEcdsaTestInfo Builtins.verifySchnorrAndEcdsaTest
+       , run Alonzo.datumHashSpendTestInfo Alonzo.datumHashSpendTest
+       , run Alonzo.mintBurnTestInfo Alonzo.mintBurnTest
+       , run Alonzo.collateralContainsTokenErrorTestInfo Alonzo.collateralContainsTokenErrorTest
+       , run Alonzo.noCollateralInputsErrorTestInfo Alonzo.noCollateralInputsErrorTest
+       , run Alonzo.missingCollateralInputErrorTestInfo Alonzo.missingCollateralInputErrorTest
+       , run Alonzo.tooManyCollateralInputsErrorTestInfo Alonzo.tooManyCollateralInputsErrorTest
+       , run Builtins.verifySchnorrAndEcdsaTestInfo Builtins.verifySchnorrAndEcdsaTest
       ]
 
+    --isFailure <- liftIO $ anyFailure resultsRef
+    --if isFailure then H.failure else U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
+
+    failureMessages <- liftIO $ suiteFailureMessages resultsRef
+    liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 
@@ -161,13 +178,16 @@ runTestsWithResults :: IO ()
 runTestsWithResults = do
   createDirectoryIfMissing False "test-report-xml"
 
-  [pv6ResultsRef, pv7ResultsRef, pv8ResultsRef] <- traverse newIORef [[], [], []]
+  allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef] <- traverse newIORef [[], [], []]
 
   -- Catch the exception returned by defaultMain to proceed with report generation
   _ <- try (defaultMain $ tests pv6ResultsRef pv7ResultsRef pv8ResultsRef) :: IO (Either SomeException ())
 
   [pv6Results, pv7Results, pv8Results] <- traverse readIORef [pv6ResultsRef, pv7ResultsRef, pv8ResultsRef]
   -- putStrLn $ "Debug final results: " ++ show results -- REMOVE
+
+  failureMessages <- liftIO $ allFailureMessages allRefs
+  liftIO $ putStrLn $ "Total number of test failures: " ++ (show $ length failureMessages)
 
   let
     pv6TestSuiteResult = TestSuiteResults "Alonzo PV6 Tests"  pv6Results
