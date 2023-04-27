@@ -5,17 +5,18 @@ module Helpers.TestResults (
     TestInfo(..),
     TestSuiteResults(..),
     TestResult(..),
-    testSuitesToJUnit
+    testSuitesToJUnit,
+    allFailureMessages,
+    suiteFailureMessages
 ) where
 
+import Control.Monad (forM)
+import Data.IORef (IORef)
 import Data.Maybe (fromJust)
+import GHC.IORef (readIORef)
+import Helpers.TestData (TestInfo (..))
 import Text.XML.Light (Attr (Attr), CData (CData), CDataKind (CDataText), Content (Elem, Text), Element (..),
                        QName (QName))
-
-data TestInfo = TestInfo {
-    testName        :: String,
-    testDescription :: String
-} deriving Show
 
 data TestSuiteResults = TestSuiteResults {
     suiteName    :: String,
@@ -30,7 +31,9 @@ data TestResult = TestResult {
 } deriving Show
 
 defElement :: Element
-defElement = Element {elLine = Nothing}
+defElement = Element { elAttribs = [],
+                       elContent = [],
+                       elLine = Nothing }
 
 -- top level - all Property test suites
 testSuitesToJUnit :: [TestSuiteResults] -> Element
@@ -69,14 +72,12 @@ testCaseToJUnit suiteName result = defElement
   where
     propertiesElement= defElement
       { elName = QName "properties" Nothing Nothing
-      , elAttribs = []
       , elContent = [Elem descriptionProperty]
       }
     descriptionProperty = defElement
       { elName = QName "property" Nothing Nothing
       , elAttribs = [ Attr (QName "name" Nothing Nothing) "description"
                     , Attr (QName "value" Nothing Nothing) (testDescription $ resultTestInfo result) ]
-      , elContent = []
       }
 
     failureElement = defElement -- TODO: make framework handle test failures
@@ -84,3 +85,14 @@ testCaseToJUnit suiteName result = defElement
       , elAttribs = [Attr (QName "message" Nothing Nothing) "test failure"] -- example type
       , elContent = [Text $ CData CDataText (fromJust (resultFailure result)) Nothing]
       }
+
+allFailureMessages :: [IORef [TestResult]] -> IO [String]
+allFailureMessages resultRefsList = do
+  allResults <- forM resultRefsList readIORef
+  let failedResults = filter (not . resultSuccessful) $ concat allResults
+  return $ map (testName . resultTestInfo) failedResults
+
+suiteFailureMessages :: IORef [TestResult] -> IO [String]
+suiteFailureMessages resultRefs = do
+  results <- readIORef resultRefs
+  return $ map (testName . resultTestInfo) $ filter (not . resultSuccessful) results

@@ -98,6 +98,7 @@ test-suite antaeus-test
     Helpers.Query
     Helpers.ScriptUtils
     Helpers.Test
+    Helpers.TestData
     Helpers.Testnet
     Helpers.TestResults
     Helpers.Tx

@@ -64,9 +64,9 @@ maybeReadAs as path = do
   where
     maybeEither m = m >>= return . either (const Nothing) Just
 
--- | Concatentate Just Strings. Useful for aggregating test failures.
-concatMaybesList :: MonadTest m => [Maybe String] -> m (Maybe String)
-concatMaybesList mList =
+-- | Concatenate Just Strings. Useful for aggregating test failures.
+concatMaybes :: MonadTest m => [Maybe String] -> m (Maybe String)
+concatMaybes mList =
   let justStrings = map (maybe "" id) mList
       withLineBreaks = mconcat . intersperse "\n\n" $ justStrings
   in if all null justStrings then pure Nothing else pure $ Just withLineBreaks

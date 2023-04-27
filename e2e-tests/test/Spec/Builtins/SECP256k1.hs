@@ -19,7 +19,8 @@ import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
 import Helpers.Query qualified as Q
-import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath), assert)
+import Helpers.Test (assert)
+import Helpers.TestData (TestParams (..))
 import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
@@ -27,9 +28,9 @@ import Helpers.Utils qualified as U
 import PlutusScripts.SECP256k1 qualified as PS
 
 verifySchnorrAndEcdsaTestInfo = TestInfo {
-    testName="verifySchnorrAndEcdsaTest",
-    testDescription="SECP256k1 builtin verify functions verifySchnorrSecp256k1Signature and verifyEcdsaSecp256k1Signature can only be used to mint in Babbage era protocol version 8 and beyond."
-    }
+    testName = "verifySchnorrAndEcdsaTest",
+    testDescription = "SECP256k1 builtin verify functions verifySchnorrSecp256k1Signature and verifyEcdsaSecp256k1Signature can only be used to mint in Babbage era protocol version 8 and beyond.",
+    test = verifySchnorrAndEcdsaTest}
 verifySchnorrAndEcdsaTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
@@ -78,7 +79,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
         expErrorEcdsa = "Forbidden builtin function: (builtin verifyEcdsaSecp256k1Signature)"
       a1 <- assert expErrorSchnorr $ Tx.isTxBodyScriptExecutionError expErrorSchnorr eitherTx
       a2 <- assert expErrorEcdsa $ Tx.isTxBodyScriptExecutionError expErrorEcdsa eitherTx
-      U.concatMaybesList [a1, a2]
+      U.concatMaybes [a1, a2]
 
     False -> do
       -- Build and submit transaction
