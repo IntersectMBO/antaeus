@@ -25,6 +25,8 @@ import Test.Tasty.Hedgehog (testProperty)
 main :: IO ()
 main = defaultMain tests
 
+-- propEndToEndScriptTx = integration $ (liftIO TN.setDarwinTmpdir >>) $ HE.runFinallies $ H.workspace "." $ \tempAbsPath -> do
+
 pv6Tests :: H.Property
 pv6Tests = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
     let options = TN.testnetOptionsAlonzo6
