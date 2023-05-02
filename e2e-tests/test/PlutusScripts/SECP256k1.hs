@@ -20,16 +20,16 @@ module PlutusScripts.SECP256k1 (
   , verifyEcdsaMintWitnessV2
   ) where
 
-import Cardano.Api qualified as C
+import qualified Cardano.Api as C
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Plutus.V1.Ledger.Api (MintingPolicy, mkMintingPolicyScript)
-import Plutus.V1.Ledger.Api qualified as PlutusV1
-import Plutus.V2.Ledger.Api qualified as PlutusV2
+import qualified Plutus.V1.Ledger.Api as PlutusV1
+import qualified Plutus.V2.Ledger.Api as PlutusV2
 import PlutusScripts.Helpers (bytesFromHex, mintScriptWitness, plutusL1, plutusL2, policyIdV1, policyIdV2, policyScript,
                               toScriptData)
-import PlutusTx qualified
-import PlutusTx.Builtins qualified as BI
-import PlutusTx.Prelude qualified as P
+import qualified PlutusTx
+import qualified PlutusTx.Builtins as BI
+import qualified PlutusTx.Prelude as P
 
 ---- SECP256k1 ----
 

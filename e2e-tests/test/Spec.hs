@@ -9,16 +9,16 @@
 module Main(main) where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Time.Clock.POSIX qualified as Time
-import Hedgehog qualified as H
-import Hedgehog.Extras qualified as HE
+import qualified Data.Time.Clock.POSIX as Time
+import qualified Hedgehog as H
+import qualified Hedgehog.Extras as HE
 import Helpers.Test (TestParams (TestParams), runTest, runTestWithPosixTime)
-import Helpers.Testnet qualified as TN
-import Helpers.Utils qualified as U
-import Spec.AlonzoFeatures qualified as AlonzoFeatures
-import Spec.BabbageFeatures qualified as BabbageFeatures
-import Spec.Builtins.SECP256k1 qualified as Builtins
-import Test.Base qualified as H
+import qualified Helpers.Testnet as TN
+import qualified Helpers.Utils as U
+import qualified Spec.AlonzoFeatures as AlonzoFeatures
+import qualified Spec.BabbageFeatures as BabbageFeatures
+import qualified Spec.Builtins.SECP256k1 as Builtins
+import qualified Test.Base as H
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 

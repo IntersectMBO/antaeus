@@ -2,10 +2,10 @@
 
 -- subset of utilities from plutus-script-utils
 module Helpers.ScriptUtils where
-import Plutus.V1.Ledger.Api qualified as PV1
-import Plutus.V2.Ledger.Api qualified as PV2
+import qualified Plutus.V1.Ledger.Api as PV1
+import qualified Plutus.V2.Ledger.Api as PV2
 import PlutusTx (UnsafeFromData)
-import PlutusTx.Prelude qualified as P
+import qualified PlutusTx.Prelude as P
 
 type UntypedValidator = PV1.BuiltinData -> PV1.BuiltinData -> PV1.BuiltinData -> ()
 type UntypedMintingPolicy = PV1.BuiltinData -> PV1.BuiltinData -> ()

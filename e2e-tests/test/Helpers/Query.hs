@@ -7,15 +7,15 @@
 
 module Helpers.Query where
 
-import Cardano.Api qualified as C
+import qualified Cardano.Api as C
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf, sortBy)
-import Data.Map qualified as Map
-import Data.Set qualified as Set
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Hedgehog (MonadTest)
-import Hedgehog.Extras.Test qualified as HE
-import Hedgehog.Extras.Test.Base qualified as H
+import qualified Hedgehog.Extras.Test as HE
+import qualified Hedgehog.Extras.Test.Base as H
 import Helpers.Common (cardanoEraToShelleyBasedEra, toEraInCardanoMode)
 
 -- | Find the first UTxO at address and return as TxIn. Used for txbody's txIns.

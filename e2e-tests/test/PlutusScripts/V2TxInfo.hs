@@ -22,19 +22,19 @@ module PlutusScripts.V2TxInfo (
   , checkV2TxInfoMintWitnessV2
   ) where
 
-import Cardano.Api qualified as C
+import qualified Cardano.Api as C
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Helpers.TypeConverters (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
                                fromCardanoTxOutToPV2TxInfoTxOut, fromCardanoTxOutToPV2TxInfoTxOut', fromCardanoValue)
 import Plutus.V1.Ledger.Api (mkMintingPolicyScript)
-import Plutus.V1.Ledger.Interval qualified as P
-import Plutus.V2.Ledger.Api qualified as PlutusV2
+import qualified Plutus.V1.Ledger.Interval as P
+import qualified Plutus.V2.Ledger.Api as PlutusV2
 import Plutus.V2.Ledger.Contexts (ownCurrencySymbol)
 import PlutusScripts.Helpers (mintScriptWitness', plutusL2, policyIdV2, policyScript, toScriptData)
-import PlutusTx qualified
-import PlutusTx.AssocMap qualified as AMap
-import PlutusTx.Builtins qualified as P
-import PlutusTx.Prelude qualified as P
+import qualified PlutusTx
+import qualified PlutusTx.AssocMap as AMap
+import qualified PlutusTx.Builtins as P
+import qualified PlutusTx.Prelude as P
 
 data V2TxInfo = V2TxInfo
   { expTxInfoInputs          :: [PlutusV2.TxInInfo] -- ^ Transaction inputs; cannot be an empty list

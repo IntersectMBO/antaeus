@@ -10,19 +10,19 @@
 
 module Spec.Builtins.SECP256k1(verifySchnorrAndEcdsaTest) where
 
-import Cardano.Api qualified as C
-import Data.Map qualified as Map
+import qualified Cardano.Api as C
+import qualified Data.Map as Map
 
-import Hedgehog qualified as H
+import qualified Hedgehog as H
 
-import CardanoTestnet qualified as TN
+import qualified CardanoTestnet as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
-import Helpers.Query qualified as Q
+import qualified Helpers.Query as Q
 import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
-import Helpers.Testnet qualified as TN
-import Helpers.Tx qualified as Tx
-import PlutusScripts.SECP256k1 qualified as PS
+import qualified Helpers.Testnet as TN
+import qualified Helpers.Tx as Tx
+import qualified PlutusScripts.SECP256k1 as PS
 
 {- | Test that builtins: verifySchnorrSecp256k1Signature and verifyEcdsaSecp256k1Signature can only
    be used to mint in Babbage era protocol version 8 and beyond.

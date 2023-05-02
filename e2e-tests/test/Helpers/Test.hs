@@ -4,13 +4,13 @@ module Helpers.Test (
     runTestWithPosixTime
 ) where
 
-import Cardano.Api qualified as C
-import Cardano.Api.Shelley qualified as C
-import CardanoTestnet qualified as TN
+import qualified Cardano.Api as C
+import qualified Cardano.Api.Shelley as C
+import qualified CardanoTestnet as TN
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Maybe (fromMaybe)
-import Data.Time.Clock.POSIX qualified as Time
-import Helpers.Testnet qualified as TN
+import qualified Data.Time.Clock.POSIX as Time
+import qualified Helpers.Testnet as TN
 import Text.Printf (printf)
 
 data TestParams = TestParams {

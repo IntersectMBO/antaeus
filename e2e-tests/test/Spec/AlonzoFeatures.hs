@@ -16,27 +16,27 @@ module Spec.AlonzoFeatures (
     tooManyCollateralInputsErrorTest
     ) where
 
-import Cardano.Api qualified as C
-import Cardano.Api.Shelley qualified as C
-import CardanoTestnet qualified as TN
+import qualified Cardano.Api as C
+import qualified Cardano.Api.Shelley as C
+import qualified CardanoTestnet as TN
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Data.Map qualified as Map
+import qualified Data.Map as Map
 import Data.Time.Clock.POSIX (POSIXTime)
-import Data.Time.Clock.POSIX qualified as Time
+import qualified Data.Time.Clock.POSIX as Time
 import Hedgehog (MonadTest)
-import Hedgehog qualified as H
+import qualified Hedgehog as H
 import Helpers.Common (makeAddress)
-import Helpers.Query qualified as Q
+import qualified Helpers.Query as Q
 import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
-import Helpers.Testnet qualified as TN
-import Helpers.Tx qualified as Tx
-import Helpers.Utils qualified as U
-import Plutus.V1.Ledger.Api qualified as PlutusV1
-import Plutus.V1.Ledger.Interval qualified as PlutusV1
-import Plutus.V1.Ledger.Time qualified as PlutusV1
-import PlutusScripts.Always qualified as PS
+import qualified Helpers.Testnet as TN
+import qualified Helpers.Tx as Tx
+import qualified Helpers.Utils as U
+import qualified Plutus.V1.Ledger.Api as PlutusV1
+import qualified Plutus.V1.Ledger.Interval as PlutusV1
+import qualified Plutus.V1.Ledger.Time as PlutusV1
+import qualified PlutusScripts.Always as PS
 import PlutusScripts.Helpers (toScriptData)
-import PlutusScripts.Helpers qualified as PS
+import qualified PlutusScripts.Helpers as PS
 import PlutusScripts.V1TxInfo (checkV1TxInfoAssetIdV1, checkV1TxInfoMintWitnessV1, checkV1TxInfoRedeemer, txInfoData,
                                txInfoFee, txInfoInputs, txInfoMint, txInfoOutputs, txInfoSigs)
 
