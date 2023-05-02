@@ -8,6 +8,7 @@
   outputs = inputs:
     inputs.iogx.mkFlake {
       inherit inputs;
+
       repoRoot = ./.;
       shellName = "antaeus";
     };
