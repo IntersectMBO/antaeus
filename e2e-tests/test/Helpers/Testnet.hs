@@ -5,21 +5,24 @@
 module Helpers.Testnet where
 
 import Cardano.Api (Error)
-import Cardano.Api qualified as C
-import Cardano.Api.Shelley qualified as C
-import CardanoTestnet qualified as TN
+import qualified Cardano.Api as C
+import qualified Cardano.Api.Shelley as C
+import qualified CardanoTestnet as TN
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
-import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
-import Hedgehog.Extras.Stock.OS qualified as OS
-import Hedgehog.Extras.Test qualified as HE
-import Hedgehog.Extras.Test.Base qualified as H
+import qualified Hedgehog.Extras.Stock.IO.Network.Sprocket as IO
+import qualified Hedgehog.Extras.Stock.OS as OS
+import qualified Hedgehog.Extras.Test as HE
+import qualified Hedgehog.Extras.Test.Base as H
 import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoMode)
 import Helpers.Utils (maybeReadAs)
-import System.Directory qualified as IO
-import System.Environment qualified as IO
+import qualified System.Directory as IO
+import qualified System.Environment as IO
+import qualified System.Info as IO
+
 import System.FilePath ((</>))
 
 #if defined(mingw32_HOST_OS)
@@ -30,8 +33,8 @@ import System.Posix.Signals (sigKILL, signalProcess)
 
 import System.Process (cleanupProcess)
 import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
-import Test.Runtime qualified as TN
-import Testnet.Conf qualified as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
+import qualified Test.Runtime as TN
+import qualified Testnet.Conf as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
 
 data LocalNodeOptions = LocalNodeOptions
   { era             :: C.AnyCardanoEra
@@ -165,6 +168,11 @@ setupTestEnvironment options tempAbsPath = do
       base <- getProjectBase
       liftIO $ putStrLn $ "\nStarting local testnet in " ++ show era ++ " PV" ++ show pv ++ "..."
       startTestnet era testnetOptions base tempAbsPath
+
+
+setDarwinTmpdir :: IO ()
+setDarwinTmpdir = when (IO.os == "darwin") $ IO.setEnv "TMPDIR" "/tmp"
+
 
 -- | Network ID of the testnet
 getNetworkId :: TN.TestnetRuntime -> C.NetworkId

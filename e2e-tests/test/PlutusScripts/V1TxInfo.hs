@@ -22,17 +22,17 @@ module PlutusScripts.V1TxInfo (
   , checkV1TxInfoMintWitnessV1
   ) where
 
-import Cardano.Api qualified as C
+import qualified Cardano.Api as C
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Helpers.TypeConverters (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
                                fromCardanoTxOutToPV1TxInfoTxOut, fromCardanoTxOutToPV1TxInfoTxOut', fromCardanoValue)
 import Plutus.V1.Ledger.Api (mkMintingPolicyScript)
-import Plutus.V1.Ledger.Api qualified as PlutusV1
-import Plutus.V1.Ledger.Interval qualified as P
+import qualified Plutus.V1.Ledger.Api as PlutusV1
+import qualified Plutus.V1.Ledger.Interval as P
 import PlutusScripts.Helpers (mintScriptWitness', plutusL1, policyIdV1, policyScript, toScriptData)
-import PlutusTx qualified
-import PlutusTx.Builtins qualified as P
-import PlutusTx.Prelude qualified as P
+import qualified PlutusTx
+import qualified PlutusTx.Builtins as P
+import qualified PlutusTx.Prelude as P
 
 data V1TxInfo = V1TxInfo
   { expTxInfoInputs      :: [PlutusV1.TxInInfo] -- ^ Transaction inputs; cannot be an empty list

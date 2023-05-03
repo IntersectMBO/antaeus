@@ -8,15 +8,15 @@
 module Helpers.Tx where
 
 import Cardano.Api (QueryConvenienceError)
-import Cardano.Api qualified as C
-import Cardano.Api.Shelley qualified as C
+import qualified Cardano.Api as C
+import qualified Cardano.Api.Shelley as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf)
-import Data.Map qualified as Map
-import GHC.Stack qualified as GHC
+import qualified Data.Map as Map
+import qualified GHC.Stack as GHC
 import Hedgehog (MonadTest)
-import Hedgehog.Extras.Test qualified as HE
-import Hedgehog.Extras.Test.Base qualified as H
+import qualified Hedgehog.Extras.Test as HE
+import qualified Hedgehog.Extras.Test.Base as H
 import Helpers.Common (toEraInCardanoMode)
 import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult (SubmitFail, SubmitSuccess))
 

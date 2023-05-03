@@ -1,15 +1,15 @@
 {-# LANGUAGE ViewPatterns #-}
 module Helpers.TypeConverters where
 
-import Cardano.Api.Byron qualified as C
-import Cardano.Api.Shelley qualified as C
+import qualified Cardano.Api.Byron as C
+import qualified Cardano.Api.Shelley as C
 import Cardano.Chain.Common (addrToBase58)
 import Plutus.V1.Ledger.Address (Address (Address))
-import Plutus.V1.Ledger.Api qualified as PV1
+import qualified Plutus.V1.Ledger.Api as PV1
 import Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential), StakingCredential (StakingHash))
-import Plutus.V1.Ledger.Value qualified as Value
-import Plutus.V2.Ledger.Api qualified as PV2
-import PlutusTx.Prelude qualified as PlutusTx
+import qualified Plutus.V1.Ledger.Value as Value
+import qualified Plutus.V2.Ledger.Api as PV2
+import qualified PlutusTx.Prelude as PlutusTx
 
 fromCardanoPaymentKeyHash :: C.Hash C.PaymentKey -> PV1.PubKeyHash
 fromCardanoPaymentKeyHash paymentKeyHash = PV1.PubKeyHash $ PlutusTx.toBuiltin $ C.serialiseToRawBytes paymentKeyHash

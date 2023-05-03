@@ -1,6 +1,6 @@
 module Helpers.Utils where
 
-import Cardano.Api qualified as C
+import qualified Cardano.Api as C
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor (void)
