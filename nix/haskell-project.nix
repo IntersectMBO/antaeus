@@ -18,15 +18,15 @@ let
       freer-extras.package.buildable = !isCross;
       cardano-node-emulator.package.buildable = !isCross;
       cardano-streaming.package.buildable = !isCross;
-      antaeus-e2e-tests.package.buildable = !isCross;
+      e2e-tests.package.buildable = !isCross;
       # These need R
       plutus-core.components.benchmarks.cost-model-test.buildable = lib.mkForce (!isCross);
       plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce (!isCross);
 
       plutus-pab-executables.components.tests.plutus-pab-test-full-long-running.buildable = lib.mkForce (!isDarwin);
 
-      antaeus-e2e-tests.doHaddock = deferPluginErrors;
-      antaeus-e2e-tests.flags.defer-plugin-errors = deferPluginErrors;
+      e2e-tests.doHaddock = deferPluginErrors;
+      e2e-tests.flags.defer-plugin-errors = deferPluginErrors;
 
       # The lines `export CARDANO_NODE=...` and `export CARDANO_CLI=...`
       # is necessary to prevent the error
@@ -39,7 +39,7 @@ let
       # `configuration/defaults/byron-mainnet` directory.
       # Else, we'll get the error
       # `/nix/store/ls0ky8x6zi3fkxrv7n4vs4x9czcqh1pb-antaeus/antaeus/test/configuration.yaml: openFile: does not exist (No such file or directory)`
-      antaeus-e2e-tests.preCheck = "
+      e2e-tests.components.tests.antaeus-test.preCheck = "
         export CARDANO_CLI=${config.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli${pkgs.stdenv.hostPlatform.extensions.executable}
         export CARDANO_NODE=${config.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node${pkgs.stdenv.hostPlatform.extensions.executable}
         export CARDANO_NODE_SRC=${flakeopts.repoRoot}
