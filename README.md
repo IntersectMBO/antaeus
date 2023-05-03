@@ -41,12 +41,16 @@ Antaeus is currently under development, with a growing suite of tests covering:
 
 ---
 
+### Test Report TMP
+
+After every test run a JUnit XML report is produced in e2e-tests/test-report-xml/test-results.xml. An existing report will be overwritten.
+Run `allure serve <test-report-xml>` to generate and host the Allure report.
+
 ### Planned Features
 
 We're working on adding the following features to Antaeus:
 
 - CI execution with private testnet on commit (nix configuration coming soon).
-- Test reporting with [Allure](https://github.com/allure-framework).
 - Nightly CI test execution would be useful in public environments.
 
 ---

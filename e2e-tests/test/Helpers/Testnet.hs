@@ -38,7 +38,7 @@ data LocalNodeOptions = LocalNodeOptions
   , protocolVersion :: Int
   , localEnvDir     :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
   , testnetMagic    :: Int
-  }
+  } deriving Show
 
 localNodeOptionsPreview :: Either LocalNodeOptions TN.TestnetOptions
 localNodeOptionsPreview = Left $ LocalNodeOptions
