@@ -40,7 +40,6 @@ let
       # Else, we'll get the error
       # `/nix/store/ls0ky8x6zi3fkxrv7n4vs4x9czcqh1pb-antaeus/antaeus/test/configuration.yaml: openFile: does not exist (No such file or directory)`
       antaeus-e2e-tests.preCheck = "
-        echo aaaaaaaaaaaaaaa
         export CARDANO_CLI=${config.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli${pkgs.stdenv.hostPlatform.extensions.executable}
         export CARDANO_NODE=${config.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node${pkgs.stdenv.hostPlatform.extensions.executable}
         export CARDANO_NODE_SRC=${flakeopts.repoRoot}
