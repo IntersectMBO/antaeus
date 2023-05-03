@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          e2e-tests
-version:       1.2.0.0
+version:       1.0.0.0
 license:       Apache-2.0
 license-files:
   LICENSE
@@ -48,21 +48,33 @@ common lang
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api
+    , cardano-api                    ^>=8.0
     , cardano-binary
-    , cardano-ledger-alonzo
-    , cardano-ledger-babbage
+    , cardano-crypto-class
+    , cardano-crypto-wrapper
+    , cardano-ledger-allegra
+    , cardano-ledger-alonzo          ^>=1.1
+    , cardano-ledger-babbage         ^>=1.1
+    , cardano-ledger-binary
     , cardano-ledger-byron
+    , cardano-ledger-conway          ^>=1.1
     , cardano-ledger-core
+    , cardano-ledger-mary            ^>=1.1
     , cardano-ledger-shelley
-    , cardano-ledger-shelley-ma
+    , cardano-protocol-tpraos        ^>=1.0
+    , cardano-slotting
     , iohk-monitoring
+    , ouroboros-consensus
+    , ouroboros-consensus-byron
+    , ouroboros-consensus-diffusion
+    , ouroboros-consensus-protocol   ^>=0.4
+    , ouroboros-network-api
 
   ------------------------
   -- Non-IOG dependencies
   ------------------------
   build-depends:
-    , base
+    , base                  >=4.9 && <5
     , bytestring
     , containers
     , filepath
@@ -117,14 +129,17 @@ test-suite antaeus-test
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api:{cardano-api, gen}
-    , cardano-testnet
+    , cardano-api:{cardano-api, gen}  >=8.0
+    , cardano-binary
+    , cardano-crypto-class
+    , cardano-ledger-core
+    , cardano-testnet                 ^>=8.0
     , iohk-monitoring
     , ouroboros-network
-    , plutus-core                     ==1.0.0.1
-    , plutus-ledger-api               ==1.0.0.1
-    , plutus-tx                       ==1.0.0.0
-    , plutus-tx-plugin                ==1.0.0.0
+    , plutus-core
+    , plutus-ledger-api               ^>=1.1
+    , plutus-tx
+    , plutus-tx-plugin
 
   ------------------------
   -- Non-IOG dependencies

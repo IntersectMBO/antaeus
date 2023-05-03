@@ -41,7 +41,7 @@ Antaeus is currently under development, with a growing suite of tests covering:
 
 ---
 
-### Test Report TMP
+### Test Report
 
 After every test run a JUnit XML report is produced in e2e-tests/test-report-xml/test-results.xml. An existing report will be overwritten.
 Run `allure serve <test-report-xml>` to generate and host the Allure report.
