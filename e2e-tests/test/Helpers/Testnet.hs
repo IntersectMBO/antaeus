@@ -29,10 +29,11 @@ import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
 #endif
 
+import Cardano.Testnet qualified as CTN
 import System.Process (cleanupProcess)
 import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
-import Test.Runtime qualified as TN
-import Testnet.Conf qualified as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
+import Testnet.Util.Runtime qualified as CTN
+--import Testnet.Conf qualified as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
 
 data LocalNodeOptions = LocalNodeOptions
   { era             :: C.AnyCardanoEra
@@ -75,11 +76,11 @@ startTestnet ::
   TN.TestnetOptions ->
   FilePath ->
   FilePath ->
-  H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [TN.PoolNode])
+  H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
 startTestnet era testnetOptions base tempAbsBasePath' = do
   configurationTemplate <- H.noteShow $ base </> "configuration/defaults/byron-mainnet/configuration.yaml"
-  conf :: TC.Conf <- HE.noteShowM $ TC.mkConf (TC.ProjectBase base) (TC.YamlFilePath configurationTemplate) (tempAbsBasePath' <> "/") Nothing
-  tn <- TN.testnet testnetOptions conf
+  conf :: CTN.Conf <- HE.noteShowM $ CTN.mkConf (CTN.ProjectBase base) (CTN.YamlFilePath configurationTemplate) (tempAbsBasePath' <> "/") Nothing
+  tn <- TN.testnet testnetOptions conf base
 
   -- Boilerplate codecs used for protocol serialisation. The number of epochSlots is specific
   -- to each blockchain instance. This value is used by cardano mainnet/testnet and only applies
@@ -97,12 +98,12 @@ startTestnet era testnetOptions base tempAbsBasePath' = do
   liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs -- set node socket environment for Cardano.Api.Convenience.Query
   pure (localNodeConnectInfo, pparams, networkId, Just $ TN.poolNodes tn)
 
-cleanupTestnet :: (MonadIO m) => Maybe [TN.PoolNode] -> m [Either TimedOut ()]
+cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
 cleanupTestnet mPoolNodes = case mPoolNodes of
     Just poolNodes -> do
-      liftIO $ mapM_ (\node -> cleanupProcess (Just (TN.poolNodeStdinHandle node), Nothing, Nothing, TN.poolNodeProcessHandle node)) poolNodes -- graceful SIGTERM all nodes
+      liftIO $ mapM_ (\ (CTN.PoolNode poolRuntime _) -> cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)) poolNodes -- graceful SIGTERM all nodes
       if not OS.isWin32 then -- do no process kill signalling on windows
-        liftIO $ mapM (\node -> killUnixHandle $ TN.poolNodeProcessHandle node) poolNodes -- kill signal for any node unix handles still open
+        liftIO $ mapM (\node -> killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node) poolNodes -- kill signal for any node unix handles still open
         else return []
     _ ->     return []
     where
@@ -120,7 +121,7 @@ connectToLocalNode ::
   C.CardanoEra era ->
   LocalNodeOptions ->
   FilePath ->
-  H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [TN.PoolNode])
+  H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
 connectToLocalNode era localNodeOptions tempAbsPath = do
   let localEnvDir' = localEnvDir localNodeOptions
 
@@ -153,7 +154,7 @@ connectToLocalNode era localNodeOptions tempAbsPath = do
 setupTestEnvironment ::
   Either LocalNodeOptions TN.TestnetOptions ->
   FilePath ->
-  H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [TN.PoolNode])
+  H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
 setupTestEnvironment options tempAbsPath = do
   case options of
     Left localNodeOptions -> do
@@ -172,10 +173,10 @@ getNetworkId :: TN.TestnetRuntime -> C.NetworkId
 getNetworkId tn = C.Testnet $ C.NetworkMagic $ fromIntegral (TN.testnetMagic tn)
 
 -- | Path to a pool node's unix socket
-getPoolSocketPathAbs :: (MonadTest m, MonadIO m) => TC.Conf -> TN.TestnetRuntime -> m FilePath
+getPoolSocketPathAbs :: (MonadTest m, MonadIO m) => CTN.Conf -> TN.TestnetRuntime -> m FilePath
 getPoolSocketPathAbs conf tn = do
-  let tempAbsPath = TC.tempAbsPath conf
-  socketPath <- IO.sprocketArgumentName <$> H.headM (TN.poolNodeSprocket <$> TN.poolNodes tn)
+  let tempAbsPath = CTN.tempAbsPath conf
+  socketPath <- IO.sprocketArgumentName <$> H.headM (CTN.poolSprockets tn)
   H.note =<< (liftIO $ IO.canonicalizePath $ tempAbsPath </> socketPath)
 
 -- | Query network's protocol parameters

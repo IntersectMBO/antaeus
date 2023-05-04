@@ -63,6 +63,7 @@ common lang
     , cardano-ledger-shelley
     , cardano-protocol-tpraos        ^>=1.0
     , cardano-slotting
+    , cardano-testnet                ^>=8.0
     , iohk-monitoring
     , ouroboros-consensus
     , ouroboros-consensus-byron
@@ -84,6 +85,7 @@ common lang
     , optparse-applicative
     , prettyprinter
     , process
+    , random
     , serialise
     , sqlite-simple
     , stm
@@ -116,6 +118,8 @@ test-suite antaeus-test
     Helpers.Tx
     Helpers.TypeConverters
     Helpers.Utils
+    OldPlutus.Extras
+    OldPlutus.Scripts
     PlutusScripts.Always
     PlutusScripts.Helpers
     PlutusScripts.SECP256k1
@@ -149,10 +153,12 @@ test-suite antaeus-test
     , async
     , base             >=4.9 && <5
     , bytestring
+    , cborg
     , containers
     , directory
     , exceptions
     , filepath
+    , flat
     , hedgehog
     , hedgehog-extras
     , prettyprinter

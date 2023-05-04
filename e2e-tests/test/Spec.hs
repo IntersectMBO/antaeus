@@ -6,7 +6,7 @@
 
 module Main(main) where
 
-import CardanoTestnet qualified as TN
+import Cardano.Testnet qualified as TN
 import Control.Exception (SomeException)
 import Control.Exception.Base (try)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -25,7 +25,7 @@ import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins.SECP256k1 qualified as Builtins
 import System.Directory (createDirectoryIfMissing)
-import Test.Base qualified as H
+--import Hedgehog.Extras.Test.Base qualified as H -- NEEDED?
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Text.XML.Light (showTopElement)

@@ -4,27 +4,24 @@ module Helpers.TypeConverters where
 import Cardano.Api.Byron qualified as C
 import Cardano.Api.Shelley qualified as C
 import Cardano.Chain.Common (addrToBase58)
-import Plutus.V1.Ledger.Address (Address (Address))
-import Plutus.V1.Ledger.Api qualified as PV1
-import Plutus.V1.Ledger.Credential (Credential (PubKeyCredential, ScriptCredential), StakingCredential (StakingHash))
-import Plutus.V1.Ledger.Value qualified as Value
-import Plutus.V2.Ledger.Api qualified as PV2
+import PlutusLedgerApi.V1 qualified as PV1
+import PlutusLedgerApi.V1.Address (Address (Address))
+import PlutusLedgerApi.V1.Credential (Credential (PubKeyCredential, ScriptCredential), StakingCredential (StakingHash))
+import PlutusLedgerApi.V1.Value qualified as Value
+import PlutusLedgerApi.V2 qualified as PV2
 import PlutusTx.Prelude qualified as PlutusTx
 
 fromCardanoPaymentKeyHash :: C.Hash C.PaymentKey -> PV1.PubKeyHash
 fromCardanoPaymentKeyHash paymentKeyHash = PV1.PubKeyHash $ PlutusTx.toBuiltin $ C.serialiseToRawBytes paymentKeyHash
 
-fromCardanoScriptData :: C.ScriptData -> PV1.BuiltinData
-fromCardanoScriptData = PV1.dataToBuiltinData . C.toPlutusData
+fromCardanoScriptData :: C.HashableScriptData -> PV1.BuiltinData
+fromCardanoScriptData = PV1.dataToBuiltinData . C.toPlutusData . C.getScriptData
 
-fromCardanoScriptHash :: C.ScriptHash -> PV1.ValidatorHash
-fromCardanoScriptHash scriptHash = PV1.ValidatorHash $ PlutusTx.toBuiltin $ C.serialiseToRawBytes scriptHash
+fromCardanoScriptHash :: C.ScriptHash -> PV1.ScriptHash
+fromCardanoScriptHash scriptHash = PV1.ScriptHash $ PlutusTx.toBuiltin $ C.serialiseToRawBytes scriptHash
 
 fromCardanoTxIn :: C.TxIn -> PV1.TxOutRef
 fromCardanoTxIn (C.TxIn txId (C.TxIx txIx)) = PV1.TxOutRef (fromCardanoTxId txId) (toInteger txIx)
-
-scriptToValidatorHash :: C.ScriptHash -> PV1.ValidatorHash
-scriptToValidatorHash = PV1.ValidatorHash . PlutusTx.toBuiltin . C.serialiseToRawBytes
 
 cardanoAddressCredential :: C.AddressInEra era -> Credential
 cardanoAddressCredential (C.AddressInEra C.ByronAddressInAnyEra (C.ByronAddress address))
@@ -40,7 +37,7 @@ cardanoAddressCredential (C.AddressInEra _ (C.ShelleyAddress _ paymentCredential
           $ PlutusTx.toBuiltin
           $ C.serialiseToRawBytes paymentKeyHash
       C.PaymentCredentialByScript scriptHash ->
-          ScriptCredential $ scriptToValidatorHash scriptHash
+          ScriptCredential $ fromCardanoScriptHash scriptHash
 
 cardanoStakingCredential :: C.AddressInEra era -> Maybe StakingCredential
 cardanoStakingCredential (C.AddressInEra C.ByronAddressInAnyEra _) = Nothing
@@ -57,7 +54,7 @@ cardanoStakingCredential (C.AddressInEra _ (C.ShelleyAddress _ _ stakeAddressRef
       $ PV1.PubKeyHash
       $ PlutusTx.toBuiltin
       $ C.serialiseToRawBytes stakeKeyHash
-    fromCardanoStakeCredential (C.StakeCredentialByScript scriptHash) = ScriptCredential (scriptToValidatorHash scriptHash)
+    fromCardanoStakeCredential (C.StakeCredentialByScript scriptHash) = ScriptCredential $ fromCardanoScriptHash scriptHash
 
 toPlutusAddress :: C.AddressInEra era -> Address
 toPlutusAddress address = Address (cardanoAddressCredential address) (cardanoStakingCredential address)
@@ -76,7 +73,7 @@ fromCardanoTxOutDatum C.TxOutDatumNone       =
 fromCardanoTxOutDatum (C.TxOutDatumHash _ h) =
     PV2.OutputDatumHash $ PV2.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes h)
 fromCardanoTxOutDatum (C.TxOutDatumInTx _ d) =
-    PV2.OutputDatumHash $ PV2.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptData d))
+    PV2.OutputDatumHash $ PV2.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptDataBytes d))
 fromCardanoTxOutDatum (C.TxOutDatumInline _ d) =
     PV2.OutputDatum $ PV2.Datum $ fromCardanoScriptData d
 
@@ -93,16 +90,16 @@ fromCardanoTxOutDatumHash C.TxOutDatumNone       = Nothing
 fromCardanoTxOutDatumHash (C.TxOutDatumHash _ h) =
     Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes h)
 fromCardanoTxOutDatumHash (C.TxOutDatumInTx _ d) =
-    Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptData d))
+    Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptDataBytes d))
 fromCardanoTxOutDatumHash (C.TxOutDatumInline _ d) =
-    Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptData d))
+    Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptDataBytes d))
 
 fromCardanoTxOutDatumHash' :: C.TxOutDatum C.CtxUTxO era -> Maybe PV1.DatumHash
 fromCardanoTxOutDatumHash' C.TxOutDatumNone       = Nothing
 fromCardanoTxOutDatumHash' (C.TxOutDatumHash _ h) =
     Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes h)
 fromCardanoTxOutDatumHash' (C.TxOutDatumInline _ d) =
-    Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptData d))
+    Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptDataBytes d))
 
 fromCardanoTxOutToPV1TxInfoTxOut :: C.TxOut C.CtxTx era -> PV1.TxOut
 fromCardanoTxOutToPV1TxInfoTxOut (C.TxOut _ _ C.TxOutDatumInline{} _) =
@@ -145,14 +142,14 @@ fromCardanoTxOutToPV2TxInfoTxOut' (C.TxOut addr value datum refScript) =
 refScriptToScriptHash :: C.ReferenceScript era -> Maybe PV2.ScriptHash
 refScriptToScriptHash C.ReferenceScriptNone = Nothing
 refScriptToScriptHash (C.ReferenceScript _ (C.ScriptInAnyLang _ s)) =
-    let (PV2.ValidatorHash h) = fromCardanoScriptHash $ C.hashScript s
+    let (PV2.ScriptHash h) = fromCardanoScriptHash $ C.hashScript s
      in Just $ PV2.ScriptHash h
 
 fromCardanoTxId :: C.TxId -> PV1.TxId
 fromCardanoTxId txId = PV1.TxId $ PlutusTx.toBuiltin $ C.serialiseToRawBytes txId
 
-fromCardanoPolicyId :: C.PolicyId -> PV1.MintingPolicyHash
-fromCardanoPolicyId (C.PolicyId scriptHash) = PV2.MintingPolicyHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes scriptHash)
+fromCardanoPolicyId :: C.PolicyId -> PV1.CurrencySymbol
+fromCardanoPolicyId (C.PolicyId scriptHash) = PV2.CurrencySymbol $ PlutusTx.toBuiltin (C.serialiseToRawBytes scriptHash)
 
 fromCardanoAssetName :: C.AssetName -> Value.TokenName
 fromCardanoAssetName (C.AssetName bs) = Value.TokenName $ PlutusTx.toBuiltin bs
@@ -160,9 +157,7 @@ fromCardanoAssetName (C.AssetName bs) = Value.TokenName $ PlutusTx.toBuiltin bs
 fromCardanoAssetId :: C.AssetId -> Value.AssetClass
 fromCardanoAssetId C.AdaAssetId = Value.assetClass PV1.adaSymbol PV1.adaToken
 fromCardanoAssetId (C.AssetId policyId assetName) =
-    Value.assetClass
-        (Value.mpsSymbol . fromCardanoPolicyId $ policyId)
-        (fromCardanoAssetName assetName)
+    Value.assetClass (fromCardanoPolicyId policyId) (fromCardanoAssetName assetName)
 
 fromCardanoValue :: C.Value -> Value.Value
 fromCardanoValue (C.valueToList -> list) =

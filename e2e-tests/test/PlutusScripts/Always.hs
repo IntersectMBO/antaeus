@@ -38,10 +38,9 @@ module PlutusScripts.Always (
   ) where
 
 import Cardano.Api qualified as C
-import Plutus.V1.Ledger.Api (MintingPolicy, Redeemer, ScriptPurpose (Minting), Validator, mkMintingPolicyScript,
-                             mkValidatorScript)
-import Plutus.V1.Ledger.Api qualified as BI
-import Plutus.V2.Ledger.Api qualified as PlutusV2 (Map)
+import PlutusLedgerApi.V1 (MintingPolicy, Redeemer, ScriptPurpose (Minting), Validator, mkMintingPolicyScript,
+                           mkValidatorScript)
+import PlutusLedgerApi.V2 qualified as PlutusV2 (Map)
 import PlutusScripts.Helpers (asRedeemer, fromPolicyId, mintScriptWitness, mintScriptWitness', plutusL1, plutusL2,
                               policyIdV1, policyIdV2, policyScript, spendScriptWitness, toScriptData, validatorScript)
 import PlutusTx qualified
@@ -71,7 +70,7 @@ alwaysSucceedAssetIdV2 = C.AssetId alwaysSucceedPolicyIdV2 ""
 alwaysSucceedPolicyTxInfoRedeemerV2 :: PlutusV2.Map ScriptPurpose Redeemer
 alwaysSucceedPolicyTxInfoRedeemerV2 = AMap.singleton
   (Minting $ fromPolicyId alwaysSucceedPolicyIdV2)
-  (asRedeemer $ BI.toBuiltinData ())
+  (asRedeemer $ PlutusTx.toBuiltinData ())
 
 -- | Witness token mint for including in txbody's txMintValue
 -- Use Nothing to include script in witness, else provide TxIn to reference script
@@ -151,7 +150,7 @@ alwaysSucceedSpendWitnessV2 era mRefScript mDatum =
 -- AlwaysFails minting policy --
 
 alwaysFailsPolicy :: MintingPolicy
-alwaysFailsPolicy = mkMintingPolicyScript $$(PlutusTx.compile [|| \_ _ -> P.error () ||])
+alwaysFailsPolicy = mkMintingPolicyScript $$(PlutusTx.mkMintingPolicyScript [|| \_ _ -> P.error () ||])
 
 alwaysFailsPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
 alwaysFailsPolicyScriptV1 = policyScript alwaysFailsPolicy
@@ -171,7 +170,7 @@ alwaysFailsAssetIdV2 = C.AssetId alwaysFailsPolicyIdV2 ""
 alwaysFailsPolicyTxInfoRedeemerV2 :: PlutusV2.Map ScriptPurpose Redeemer
 alwaysFailsPolicyTxInfoRedeemerV2 = AMap.singleton
   (Minting $ fromPolicyId alwaysFailsPolicyIdV2)
-  (asRedeemer $ BI.toBuiltinData ())
+  (asRedeemer $ PlutusTx.toBuiltinData ())
 
 -- | Witness token mint for including in txbody's txMintValue
 -- Use Nothing to include script in witness, else provide TxIn to reference script
