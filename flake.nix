@@ -10,6 +10,7 @@
       inherit inputs;
       repoRoot = ./.;
       shellName = "antaeus";
+      shellPrompt = "\n\\[\\033[1;31m\\][antaeus:\\w]\\$\\[\\033[0m\\] ";
     };
 
   nixConfig = {
