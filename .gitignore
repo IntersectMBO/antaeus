@@ -81,7 +81,6 @@ pkgs/.stack
 .history/
 .virtualenv
 .vscode/
-.devenv
 .hsenv
 TAGS
 .DS_Store

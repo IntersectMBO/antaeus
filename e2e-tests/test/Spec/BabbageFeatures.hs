@@ -12,12 +12,12 @@
 
 module Spec.BabbageFeatures where
 
-import qualified Cardano.Api as C
-import qualified Data.Map as Map
+import Cardano.Api qualified as C
+import Data.Map qualified as Map
 
-import qualified Hedgehog as H
+import Hedgehog qualified as H
 
-import qualified CardanoTestnet as TN
+import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as Time

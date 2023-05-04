@@ -29,7 +29,7 @@ module CardanoTestnet
   , testnet
   ) where
 
-import qualified Cardano.Api as C
+import Cardano.Api qualified as C
 import Control.Concurrent (threadDelay)
 import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -41,27 +41,27 @@ import Test.Runtime (Delegator (..), NodeLoggingFormat (..), PaymentKeyPair (..)
                      PoolNodeKeys (..), StakingKeyPair (..), TestnetNode (..), TestnetRuntime (..))
 
 import Data.Functor (void, ($>), (<&>))
-import qualified Data.HashMap.Lazy as HM
-import qualified Data.List as L
-import qualified Data.Time.Clock as DTC
+import Data.HashMap.Lazy qualified as HM
+import Data.List qualified as L
+import Data.Time.Clock qualified as DTC
 import Hedgehog (MonadTest)
-import qualified Hedgehog as H
-import qualified Hedgehog.Extras.Stock.Aeson as J
-import qualified Hedgehog.Extras.Stock.IO.Network.Socket as H
-import qualified Hedgehog.Extras.Stock.IO.Network.Sprocket as IO
-import qualified Hedgehog.Extras.Stock.OS as OS
-import qualified Hedgehog.Extras.Stock.String as S
-import qualified Hedgehog.Extras.Test.Base as H
-import qualified Hedgehog.Extras.Test.File as H
-import qualified Hedgehog.Extras.Test.Process as H
-import qualified Network.Socket as IO
-import qualified System.IO as IO
-import qualified System.Info as OS
-import qualified System.Process as IO
-import qualified Test.Assert as H
-import qualified Test.Process as H
-import qualified Testnet.Conf as H
-import qualified UnliftIO.Exception as IO
+import Hedgehog qualified as H
+import Hedgehog.Extras.Stock.Aeson qualified as J
+import Hedgehog.Extras.Stock.IO.Network.Socket qualified as H
+import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
+import Hedgehog.Extras.Stock.OS qualified as OS
+import Hedgehog.Extras.Stock.String qualified as S
+import Hedgehog.Extras.Test.Base qualified as H
+import Hedgehog.Extras.Test.File qualified as H
+import Hedgehog.Extras.Test.Process qualified as H
+import Network.Socket qualified as IO
+import System.IO qualified as IO
+import System.Info qualified as OS
+import System.Process qualified as IO
+import Test.Assert qualified as H
+import Test.Process qualified as H
+import Testnet.Conf qualified as H
+import UnliftIO.Exception qualified as IO
 
 {- HLINT ignore "Reduce duplication" -}
 {- HLINT ignore "Redundant <&>" -}

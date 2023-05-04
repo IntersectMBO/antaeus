@@ -1,6 +1,6 @@
 module Helpers.Common where
 
-import qualified Cardano.Api as C
+import Cardano.Api qualified as C
 
 -- | Any CardanoEra with CardanoMode
 toEraInCardanoMode :: C.CardanoEra era -> (C.EraInMode era C.CardanoMode)

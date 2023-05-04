@@ -12,10 +12,9 @@
 
 module Spec.Builtins.SECP256k1 where
 
-import qualified Cardano.Api as C
-import qualified Data.Map as Map
+import Cardano.Api qualified as C
+import Data.Map qualified as Map
 
-<<<<<<< HEAD
 import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
@@ -27,18 +26,16 @@ import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
 import PlutusScripts.SECP256k1 qualified as PS
-=======
-import qualified Hedgehog as H
+import Hedgehog qualified as H
 
-import qualified CardanoTestnet as TN
+import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
-import qualified Helpers.Query as Q
+import Helpers.Query qualified as Q
 import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
-import qualified Helpers.Testnet as TN
-import qualified Helpers.Tx as Tx
-import qualified PlutusScripts.SECP256k1 as PS
->>>>>>> 13a92eb (IOGX Integration)
+import Helpers.Testnet qualified as TN
+import Helpers.Tx qualified as Tx
+import PlutusScripts.SECP256k1 qualified as PS
 
 verifySchnorrAndEcdsaTestInfo = TestInfo {
     testName = "verifySchnorrAndEcdsaTest",

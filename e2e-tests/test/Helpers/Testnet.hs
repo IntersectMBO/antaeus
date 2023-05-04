@@ -5,23 +5,23 @@
 module Helpers.Testnet where
 
 import Cardano.Api (Error)
-import qualified Cardano.Api as C
-import qualified Cardano.Api.Shelley as C
-import qualified CardanoTestnet as TN
+import Cardano.Api qualified as C
+import Cardano.Api.Shelley qualified as C
+import CardanoTestnet qualified as TN
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
-import qualified Hedgehog.Extras.Stock.IO.Network.Sprocket as IO
-import qualified Hedgehog.Extras.Stock.OS as OS
-import qualified Hedgehog.Extras.Test as HE
-import qualified Hedgehog.Extras.Test.Base as H
+import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
+import Hedgehog.Extras.Stock.OS qualified as OS
+import Hedgehog.Extras.Test qualified as HE
+import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoMode)
 import Helpers.Utils (maybeReadAs)
-import qualified System.Directory as IO
-import qualified System.Environment as IO
-import qualified System.Info as IO
+import System.Directory qualified as IO
+import System.Environment qualified as IO
+import System.Info qualified as IO
 
 import System.FilePath ((</>))
 
@@ -33,8 +33,8 @@ import System.Posix.Signals (sigKILL, signalProcess)
 
 import System.Process (cleanupProcess)
 import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
-import qualified Test.Runtime as TN
-import qualified Testnet.Conf as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
+import Test.Runtime qualified as TN
+import Testnet.Conf qualified as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
 
 data LocalNodeOptions = LocalNodeOptions
   { era             :: C.AnyCardanoEra

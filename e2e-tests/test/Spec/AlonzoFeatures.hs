@@ -11,15 +11,15 @@
 
 module Spec.AlonzoFeatures where
 
-import qualified Cardano.Api as C
-import qualified Cardano.Api.Shelley as C
-import qualified CardanoTestnet as TN
+import Cardano.Api qualified as C
+import Cardano.Api.Shelley qualified as C
+import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog (MonadTest)
-import qualified Hedgehog as H
+import Hedgehog qualified as H
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert, success)
@@ -33,7 +33,7 @@ import Plutus.V1.Ledger.Interval qualified as PlutusV1
 import Plutus.V1.Ledger.Time qualified as PlutusV1
 import PlutusScripts.Always qualified as PS
 import PlutusScripts.Helpers (toScriptData)
-import qualified PlutusScripts.Helpers as PS
+import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V1TxInfo (checkV1TxInfoAssetIdV1, checkV1TxInfoMintWitnessV1, checkV1TxInfoRedeemer, txInfoData,
                                txInfoFee, txInfoInputs, txInfoMint, txInfoOutputs, txInfoSigs)
 

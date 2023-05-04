@@ -37,16 +37,16 @@ module PlutusScripts.Always (
   , alwaysFailsPolicyTxInfoRedeemerV2
   ) where
 
-import qualified Cardano.Api as C
+import Cardano.Api qualified as C
 import Plutus.V1.Ledger.Api (MintingPolicy, Redeemer, ScriptPurpose (Minting), Validator, mkMintingPolicyScript,
                              mkValidatorScript)
-import qualified Plutus.V1.Ledger.Api as BI
-import qualified Plutus.V2.Ledger.Api as PlutusV2 (Map)
+import Plutus.V1.Ledger.Api qualified as BI
+import Plutus.V2.Ledger.Api qualified as PlutusV2 (Map)
 import PlutusScripts.Helpers (asRedeemer, fromPolicyId, mintScriptWitness, mintScriptWitness', plutusL1, plutusL2,
                               policyIdV1, policyIdV2, policyScript, spendScriptWitness, toScriptData, validatorScript)
-import qualified PlutusTx
-import qualified PlutusTx.AssocMap as AMap
-import qualified PlutusTx.Prelude as P
+import PlutusTx qualified
+import PlutusTx.AssocMap qualified as AMap
+import PlutusTx.Prelude qualified as P
 
 -- AlwaysSucceeds minting policy --
 

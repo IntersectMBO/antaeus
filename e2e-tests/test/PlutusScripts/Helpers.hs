@@ -6,19 +6,19 @@
 
 module PlutusScripts.Helpers where
 
-import qualified Cardano.Api as C
-import qualified Cardano.Api.Shelley as C
+import Cardano.Api qualified as C
+import Cardano.Api.Shelley qualified as C
 import Codec.Serialise (serialise)
-import qualified Data.ByteString as BS (ByteString)
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Short as SBS
+import Data.ByteString qualified as BS (ByteString)
+import Data.ByteString.Lazy qualified as LBS
+import Data.ByteString.Short qualified as SBS
 import Plutus.V1.Ledger.Api (MintingPolicy, Validator, unMintingPolicyScript, unValidatorScript)
-import qualified Plutus.V1.Ledger.Api as PlutusV1
-import qualified Plutus.V1.Ledger.Bytes as P (bytes, fromHex)
+import Plutus.V1.Ledger.Api qualified as PlutusV1
+import Plutus.V1.Ledger.Bytes qualified as P (bytes, fromHex)
 import Plutus.V1.Ledger.Scripts (Datum (Datum), Redeemer (Redeemer))
 import Plutus.V1.Ledger.Value (CurrencySymbol)
-import qualified PlutusTx
-import qualified PlutusTx.Builtins as BI
+import PlutusTx qualified
+import PlutusTx.Builtins qualified as BI
 
 -- | Treat string of hexidecimal bytes literally, without encoding. Useful for hashes.
 bytesFromHex :: BS.ByteString -> BS.ByteString
