@@ -18,6 +18,7 @@ import Data.Map qualified as Map
 import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
+import Hedgehog qualified as H
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestParams (..))
@@ -26,7 +27,6 @@ import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
 import PlutusScripts.SECP256k1 qualified as PS
-import Hedgehog qualified as H
 
 import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
