@@ -8,7 +8,6 @@ import Cardano.Api (Error)
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import CardanoTestnet qualified as TN
-import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
@@ -21,7 +20,6 @@ import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoM
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.Environment qualified as IO
-import System.Info qualified as IO
 
 import System.FilePath ((</>))
 
@@ -168,11 +166,6 @@ setupTestEnvironment options tempAbsPath = do
       base <- getProjectBase
       liftIO $ putStrLn $ "\nStarting local testnet in " ++ show era ++ " PV" ++ show pv ++ "..."
       startTestnet era testnetOptions base tempAbsPath
-
-
-setDarwinTmpdir :: IO ()
-setDarwinTmpdir = when (IO.os == "darwin") $ IO.setEnv "TMPDIR" "/tmp"
-
 
 -- | Network ID of the testnet
 getNetworkId :: TN.TestnetRuntime -> C.NetworkId

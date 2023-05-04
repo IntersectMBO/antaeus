@@ -18,7 +18,6 @@ import Data.Map qualified as Map
 import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
-import Hedgehog qualified as H
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestParams (..))
@@ -26,15 +25,6 @@ import Helpers.TestResults (TestInfo (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
-import PlutusScripts.SECP256k1 qualified as PS
-
-import CardanoTestnet qualified as TN
-import Control.Monad.IO.Class (MonadIO)
-import Hedgehog (MonadTest)
-import Helpers.Query qualified as Q
-import Helpers.Test (TestParams (TestParams, localNodeConnectInfo, networkId, pparams, tempAbsPath))
-import Helpers.Testnet qualified as TN
-import Helpers.Tx qualified as Tx
 import PlutusScripts.SECP256k1 qualified as PS
 
 verifySchnorrAndEcdsaTestInfo = TestInfo {
