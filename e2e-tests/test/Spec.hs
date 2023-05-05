@@ -5,7 +5,6 @@
 
 module Main(main) where
 
-import CardanoTestnet qualified as TN
 import Control.Exception (SomeException)
 import Control.Exception.Base (try)
 import Control.Monad.IO.Class (MonadIO (liftIO))
