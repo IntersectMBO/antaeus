@@ -33,7 +33,6 @@ import Cardano.Testnet qualified as CTN
 import System.Process (cleanupProcess)
 import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 import Testnet.Util.Runtime qualified as CTN
---import Testnet.Conf qualified as TC (Conf (..), ProjectBase (ProjectBase), YamlFilePath (YamlFilePath), mkConf)
 
 data LocalNodeOptions = LocalNodeOptions
   { era             :: C.AnyCardanoEra

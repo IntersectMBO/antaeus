@@ -8,6 +8,7 @@
 
 {-# OPTIONS_GHC -Wno-unused-local-binds -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
+{-# LANGUAGE NumericUnderscores    #-}
 
 module CardanoTestnet
   ( TestnetOptions(..)
@@ -21,12 +22,15 @@ module CardanoTestnet
 
 import Prelude
 
+import Control.Concurrent (threadDelay)
 import Control.Monad
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (encode, object, toJSON, (.=))
 import Data.HashMap.Lazy qualified as HM
 import Data.List qualified as L
 import Data.Time.Clock qualified as DTC
 import Hedgehog.Extras.Stock.Aeson qualified as J
+import Hedgehog.Extras.Stock.IO.Network.Socket qualified as H
 import Hedgehog.Extras.Stock.OS qualified as OS
 import Hedgehog.Extras.Test.Base qualified as H
 import Hedgehog.Extras.Test.File qualified as H
@@ -35,16 +39,18 @@ import System.Info qualified as OS
 
 import Control.Monad.Catch (MonadCatch)
 import Data.Aeson.Types (Value)
+import Data.Functor (void, ($>), (<&>))
 import Data.Time.Clock (UTCTime)
 import GHC.Stack (HasCallStack, withFrozenCallStack)
 import Hedgehog.Internal.Property (MonadTest)
 
 import Cardano.Api qualified as C
 import Cardano.Testnet qualified as CTN
+import Control.Exception qualified as IO
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog.Extras.Stock (showUTCTimeSeconds)
-import System.FilePath qualified as FP
-import System.Random qualified as IO
+import Hedgehog.Internal.Property qualified as H
+import Network.Socket qualified as IO
 import Testnet.Util.Assert qualified as H
 import Testnet.Util.Process (execCli_)
 import Testnet.Util.Runtime (Delegator (..), NodeLoggingFormat (..), PaymentKeyPair (..), PoolNode (PoolNode),
@@ -70,7 +76,7 @@ defaultTestnetOptions :: TestnetOptions
 defaultTestnetOptions = TestnetOptions
   { era = C.AnyCardanoEra C.BabbageEra
   , protocolVersion = 8
-  , numSpoNodes = 3
+  , numSpoNodes = 3 -- probably needs to be 3 due to some hard coding file creation further down
   , slotDuration = 1000
   , slotLength = 0.2
   , activeSlotsCoeff = 0.1 -- higher value (e.g. 0.9) prevents long waits for slot leader but could be the cause of more rollbacks/forks
@@ -96,8 +102,8 @@ createByronGenesis testnetMagic startTime testnetOptions pParamFp genOutputDir =
     , "--start-time", showUTCTimeSeconds startTime
     , "--k", show (securityParam testnetOptions)
     , "--n-poor-addresses", "0"
-    , "--n-delegate-addresses", show @Int (numSpoNodes testnetOptions)
-    , "--total-balance", show @Int (totalBalance testnetOptions)
+    , "--n-delegate-addresses", show (numSpoNodes testnetOptions)
+    , "--total-balance", show (totalBalance testnetOptions)
     , "--delegate-share", "1"
     , "--avvm-entry-count", "0"
     , "--avvm-entry-balance", "0"
@@ -105,8 +111,8 @@ createByronGenesis testnetMagic startTime testnetOptions pParamFp genOutputDir =
     , "--genesis-output-dir", genOutputDir
     ]
 
-defaultByronGenesisJsonValue :: Value
-defaultByronGenesisJsonValue =
+defaultByronGenesisJsonValue :: Int -> Value
+defaultByronGenesisJsonValue slotDuration =
   object
     [ "heavyDelThd" .= toJSON @String "300000000000"
     , "maxBlockSize" .= toJSON @String "2000000"
@@ -115,7 +121,7 @@ defaultByronGenesisJsonValue =
     , "maxProposalSize" .= toJSON @String "700"
     , "mpcThd" .= toJSON @String "20000000000000"
     , "scriptVersion" .= toJSON @Int 0
-    , "slotDuration" .= toJSON @String "1000"
+    , "slotDuration" .= toJSON @String (show slotDuration)
     , "softforkRule" .= object
       [ "initThd" .= toJSON @String "900000000000000"
       , "minThd" .= toJSON @String "600000000000000"
@@ -134,19 +140,47 @@ defaultByronGenesisJsonValue =
 ----
 
 
-{- HLINT ignore "Redundant flip" -}
-
 -- | For an unknown reason, CLI commands are a lot slower on Windows than on Linux and
 -- MacOS.  We need to allow a lot more time to set up a testnet.
 startTimeOffsetSeconds :: DTC.NominalDiffTime
 startTimeOffsetSeconds = if OS.isWin32 then 90 else 15
+
+-- | Check if a TCP port is open
+isPortOpen :: Int -> IO Bool
+isPortOpen port = do
+  socketAddressInfos <- IO.getAddrInfo Nothing (Just "127.0.0.1") (Just (show port))
+  case socketAddressInfos of
+    socketAddressInfo:_ -> canConnect (IO.addrAddress socketAddressInfo) $> True
+    []                  -> return False
+
+-- | Check if it is possible to connect to a socket address
+-- TODO: upstream fix to Hedgehog Extras
+canConnect :: IO.SockAddr -> IO Bool
+canConnect sockAddr = IO.bracket (IO.socket IO.AF_INET IO.Stream 6) IO.close' $ \sock -> do
+  res <- IO.try $ IO.connect sock sockAddr
+  case res of
+    Left (_ :: IO.IOException) -> return False
+    Right _                    -> return True
+
+-- | Get random list of open ports. Timeout after 60seconds if unsuccessful.
+getOpenPorts :: (MonadTest m, Control.Monad.IO.Class.MonadIO m) => Int -> Int -> m [Int]
+getOpenPorts n numberOfPorts = do
+  when (n == 0) $ do
+   error "getOpenPorts timeout"
+  ports <- liftIO $ H.allocateRandomPorts numberOfPorts
+  allOpen <- liftIO $ mapM isPortOpen ports
+  unless (and allOpen) $ do
+    H.annotate "Some ports are not open, trying again..."
+    liftIO $ threadDelay 1_000_000 -- wait 1 sec
+    void $ getOpenPorts (pred n) numberOfPorts
+  pure ports
 
 testnet :: TestnetOptions -> CTN.Conf -> FilePath -> H.Integration TestnetRuntime
 testnet testnetOptions CTN.Conf{..} projectBasePath = do
   H.createDirectoryIfMissing (tempAbsPath </> "logs")
 
   H.lbsWriteFile (tempAbsPath </> "byron.genesis.spec.json")
-    . encode $ defaultByronGenesisJsonValue
+    . encode $ defaultByronGenesisJsonValue $ slotDuration testnetOptions
 
   void $ H.note OS.os
   currentTime <- H.noteShowIO DTC.getCurrentTime
@@ -191,8 +225,13 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
     . HM.insert "TestShelleyHardForkAtEpoch" (toJSON @Int 0)
     . HM.insert "TestAllegraHardForkAtEpoch" (toJSON @Int 0)
     . HM.insert "TestMaryHardForkAtEpoch" (toJSON @Int 0)
-    . HM.insert "TestAlonzoHardForkAtEpoch" (toJSON @Int 0)
-    . HM.insert "TestBabbageHardForkAtEpoch" (toJSON @Int 0)
+    . case era testnetOptions of
+        C.AnyCardanoEra C.AlonzoEra  ->
+            HM.insert "TestAlonzoHardForkAtEpoch" (toJSON @Int 0)
+        C.AnyCardanoEra C.BabbageEra ->
+            HM.insert "TestAlonzoHardForkAtEpoch" (toJSON @Int 0)
+          . HM.insert "TestBabbageHardForkAtEpoch" (toJSON @Int 0)
+        otherwise -> HM.insert "" "" -- meh
     . HM.insert "ExperimentalHardForksEnabled" (toJSON True)
     . flip HM.alter "setupScribes"
         ( fmap
@@ -203,20 +242,18 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
                     NodeLoggingFormatAsJson -> "ScJson"
                     NodeLoggingFormatAsText -> "ScText")
 
-  let numPoolNodes = 3 :: Int
-
   execCli_
     [ "genesis", "create-staked"
     , "--genesis-dir", tempAbsPath
     , "--testnet-magic", show @Int testnetMagic
-    , "--gen-pools", show @Int 3
+    , "--gen-pools", show @Int $ numSpoNodes testnetOptions
     , "--supply", "1000000000000"
     , "--supply-delegated", "1000000000000"
     , "--gen-stake-delegs", "3"
     , "--gen-utxo-keys", "3"
     ]
 
-  poolKeys <- H.noteShow $ flip fmap [1..numPoolNodes] $ \n ->
+  poolKeys <- H.noteShow $ flip fmap [1 .. numSpoNodes testnetOptions] $ \n ->
     PoolNodeKeys
       { poolNodeKeysColdVkey = tempAbsPath </> "pools" </> "cold" <> show n <> ".vkey"
       , poolNodeKeysColdSkey = tempAbsPath </> "pools" </> "cold" <> show n <> ".skey"
@@ -273,10 +310,10 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
       ( J.rewriteObject ( HM.insert "protocolMagic" (toJSON @Int testnetMagic)))
 
   H.rewriteJsonFile (tempAbsPath </> "genesis/shelley/genesis.json") $ J.rewriteObject
-    ( HM.insert "slotLength"             (toJSON @Double 0.1)
-    . HM.insert "activeSlotsCoeff"       (toJSON @Double 0.1)
-    . HM.insert "securityParam"          (toJSON @Int 10)     -- TODO: USE config parameter
-    . HM.insert "epochLength"            (toJSON @Int 500)
+    ( HM.insert "slotLength"             (toJSON @Double $ slotLength testnetOptions)
+    . HM.insert "activeSlotsCoeff"       (toJSON @Double $ activeSlotsCoeff testnetOptions)
+    . HM.insert "securityParam"          (toJSON @Int $ securityParam testnetOptions)
+    . HM.insert "epochLength"            (toJSON @Int 10_000) -- higher value so that txs can have higher upper bound validity range
     . HM.insert "maxLovelaceSupply"      (toJSON @Int 1000000000000)
     . HM.insert "minFeeA"                (toJSON @Int 44)
     . HM.insert "minFeeB"                (toJSON @Int 155381)
@@ -290,7 +327,7 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
       )
     . HM.insert "rho"                    (toJSON @Double 0.1)
     . HM.insert "tau"                    (toJSON @Double 0.1)
-    . HM.insert "updateQuorum"           (toJSON @Int 2)
+    . HM.insert "updateQuorum"           (toJSON @Int 1)
     )
 
   H.renameFile (tempAbsPath </> "pools/vrf1.skey") (tempAbsPath </> "node-spo1/vrf.skey")
@@ -315,9 +352,11 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
   H.renameFile (tempAbsPath </> "byron-gen-command/delegation-cert.001.json") (tempAbsPath </> "node-spo2/byron-delegation.cert")
   H.renameFile (tempAbsPath </> "byron-gen-command/delegation-cert.002.json") (tempAbsPath </> "node-spo3/byron-delegation.cert")
 
-  H.writeFile (tempAbsPath </> "node-spo1/port") "3001"
-  H.writeFile (tempAbsPath </> "node-spo2/port") "3002"
-  H.writeFile (tempAbsPath </> "node-spo3/port") "3003"
+  [port1, port2, port3] <- getOpenPorts 60 $ numSpoNodes testnetOptions -- 60s timeout to find open ports
+
+  H.writeFile (tempAbsPath </> "node-spo1/port") (show port1)
+  H.writeFile (tempAbsPath </> "node-spo2/port") (show port2)
+  H.writeFile (tempAbsPath </> "node-spo3/port") (show port3)
 
 
   -- Make topology files
@@ -328,12 +367,12 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
     [ "Producers" .= toJSON
       [ object
         [ "addr"    .= toJSON @String "127.0.0.1"
-        , "port"    .= toJSON @Int 3002
+        , "port"    .= toJSON @Int port2
         , "valency" .= toJSON @Int 1
         ]
       , object
         [ "addr"    .= toJSON @String "127.0.0.1"
-        , "port"    .= toJSON @Int 3003
+        , "port"    .= toJSON @Int port3
         , "valency" .= toJSON @Int 1
         ]
       ]
@@ -344,12 +383,12 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
     [ "Producers" .= toJSON
       [ object
         [ "addr"    .= toJSON @String "127.0.0.1"
-        , "port"    .= toJSON @Int 3001
+        , "port"    .= toJSON @Int port1
         , "valency" .= toJSON @Int 1
         ]
       , object
         [ "addr"    .= toJSON @String "127.0.0.1"
-        , "port"    .= toJSON @Int 3003
+        , "port"    .= toJSON @Int port3
         , "valency" .= toJSON @Int 1
         ]
       ]
@@ -360,12 +399,12 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
     [ "Producers" .= toJSON
       [ object
         [ "addr"    .= toJSON @String "127.0.0.1"
-        , "port"    .= toJSON @Int 3001
+        , "port"    .= toJSON @Int port1
         , "valency" .= toJSON @Int 1
         ]
       , object
         [ "addr"    .= toJSON @String "127.0.0.1"
-        , "port"    .= toJSON @Int 3002
+        , "port"    .= toJSON @Int port2
         , "valency" .= toJSON @Int 1
         ]
       ]
@@ -386,7 +425,7 @@ testnet testnetOptions CTN.Conf{..} projectBasePath = do
     return $ PoolNode runtime key
 
   now <- H.noteShowIO DTC.getCurrentTime
-  deadline <- H.noteShow $ DTC.addUTCTime 90 now
+  deadline <- H.noteShow $ DTC.addUTCTime 300 now -- increased from 90s
 
   forM_ spoNodes $ \node -> do
     nodeStdoutFile <- H.noteTempFile logDir $ node <> ".stdout.log"

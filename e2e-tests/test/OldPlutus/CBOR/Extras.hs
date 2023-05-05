@@ -1,8 +1,8 @@
-module OldPlutus.Extras where
+module OldPlutus.CBOR.Extras where
 
-import Codec.CBOR.Decoding as CBOR
+import Codec.CBOR.Decoding as CBOR (Decoder, decodeBytes)
 import Codec.Serialise (Serialise, decode, encode)
-import Data.Either.Extras
+import Data.Either.Extras (fromRightM)
 import Flat qualified
 import Flat.Decoder qualified as Flat
 

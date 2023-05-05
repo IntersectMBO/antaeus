@@ -118,7 +118,8 @@ test-suite antaeus-test
     Helpers.Tx
     Helpers.TypeConverters
     Helpers.Utils
-    OldPlutus.Extras
+    OldPlutus.CBOR.Extras
+    OldPlutus.Prettyprinter.Extras
     OldPlutus.Scripts
     PlutusScripts.Always
     PlutusScripts.Helpers
@@ -155,6 +156,7 @@ test-suite antaeus-test
     , bytestring
     , cborg
     , containers
+    , deepseq
     , directory
     , exceptions
     , filepath
@@ -165,6 +167,7 @@ test-suite antaeus-test
     , serialise
     , stm
     , streaming
+    , tagged
     , tasty
     , tasty-hedgehog
     , temporary
