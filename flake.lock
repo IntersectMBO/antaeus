@@ -2359,11 +2359,11 @@
         "tullia": "tullia_2"
       },
       "locked": {
-        "lastModified": 1683252766,
-        "narHash": "sha256-AJyo0OBLO4C35K2vG+bXVeiopVTjAmhbAP3qq8XLsiU=",
+        "lastModified": 1683284170,
+        "narHash": "sha256-oVbSrLMdGCdw31/MaHL01QQYwgAyJ1KFo3r9xMQPE9Y=",
         "owner": "zeme-iohk",
         "repo": "iogx",
-        "rev": "8008c18740cf84d56aceee866d8cebdf244516e7",
+        "rev": "f30f4e7b161b72de678b1d7c577d6352e3bc6b06",
         "type": "github"
       },
       "original": {
