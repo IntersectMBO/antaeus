@@ -2,9 +2,11 @@
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module Main(main) where
 
+import CardanoTestnet qualified as TN
 import Control.Exception (SomeException)
 import Control.Exception.Base (try)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -134,6 +136,34 @@ pv8Tests resultsRef = H.integration . HE.runFinallies . U.workspace "." $ \tempA
     liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
+debugTests :: IORef [TestResult] -> H.Property
+debugTests resultsRef = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+    let options = TN.testnetOptionsBabbage8
+    (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
+    let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing
+
+    -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
+    runTest Alonzo.noCollateralInputsErrorTestInfo resultsRef options testParams
+
+    U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
+
+localNodeTests :: IORef [TestResult] -> Either TN.LocalNodeOptions TN.TestnetOptions -> H.Property
+localNodeTests resultsRef options = H.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+    --preTestnetTime <- liftIO Time.getPOSIXTime
+    (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
+    let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing
+        run name = runTest name resultsRef options testParams
+
+    -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
+    -- TODO: pass in or query for slot range to use in checkTxInfo tests
+    --runTestWithPosixTime "checkTxInfoV1Test" Alonzo.checkTxInfoV1Test options testParams preTestnetTime
+    --runTestWithPosixTime "checkTxInfoV2Test" Babbage.checkTxInfoV2Test options testParams preTestnetTime
+    run Builtins.verifySchnorrAndEcdsaTestInfo
+    run Babbage.referenceScriptMintTestInfo
+    run Babbage.referenceScriptInlineDatumSpendTestInfo
+    run Babbage.referenceScriptDatumHashSpendTestInfo
+
+    U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 runTestsWithResults :: IO ()
 runTestsWithResults = do
