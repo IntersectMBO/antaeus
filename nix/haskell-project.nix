@@ -51,14 +51,7 @@ let
       # Relies on cabal-doctest, just turn it off in the Nix build
       prettyprinter-configurable.components.tests.prettyprinter-configurable-doctest.buildable = lib.mkForce false;
 
-      # Broken due to warnings, unclear why the setting that fixes this for the build doesn't work here.
-      iohk-monitoring.doHaddock = false;
-      cardano-wallet.doHaddock = false;
-
-      # Werror everything. This is a pain, see https://github.com/input-output-hk/haskell.nix/issues/519
-      cardano-streaming.ghcOptions = [ "-Werror" ];
-      antaeus-e2e-tests.ghcOptions = [ "-Werror" ];
-      pab-blockfrost.ghcOptions = [ "-Werror" ];
+      e2e-tests.ghcOptions = [ "-Werror" ];
 
       # Honestly not sure why we need this, it has a mysterious unused dependency on "m"
       # This will go away when we upgrade nixpkgs and things use ieee754 anyway.
@@ -76,14 +69,6 @@ pkgs.haskell-nix.cabalProject' (_: {
   compiler-nix-name = ghc;
 
   src = flakeopts.repoRoot;
-
-  sha256map = {
-    "https://github.com/input-output-hk/cardano-addresses"."b7273a5d3c21f1a003595ebf1e1f79c28cd72513" = "129r5kyiw10n2021bkdvnr270aiiwyq58h472d151ph0r7wpslgp";
-    "https://github.com/input-output-hk/cardano-config"."1646e9167fab36c0bff82317743b96efa2d3adaa" = "sha256-TNbpnR7llUgBN2WY7CryMxNVupBIUH01h1hRNHoxboY=";
-    "https://github.com/input-output-hk/cardano-ledger"."da3e9ae10cf9ef0b805a046c84745f06643583c2" = "sha256-3VUZKkLu1R43GUk9IwgsGQ55O0rnu8NrCkFX9gqA4ck=";
-    "https://github.com/input-output-hk/cardano-wallet"."18a931648550246695c790578d4a55ee2f10463e" = "0i40hp1mdbljjcj4pn3n6zahblkb2jmpm8l4wnb36bya1pzf66fx";
-    "https://github.com/sevanspowell/hw-aeson"."b5ef03a7d7443fcd6217ed88c335f0c411a05408" = "1dwx90wqavdl4d0npbzbxyh2pzi9zs1qz7nvsrb3n1cm2xbv4i5z";
-  };
 
   inputMap = {
     "https://input-output-hk.github.io/cardano-haskell-packages" = inputs.CHaP;
