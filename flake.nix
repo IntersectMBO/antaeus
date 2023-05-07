@@ -28,7 +28,7 @@
       includeReadTheDocsSite = false;
       readTheDocsSiteDir = null;
       readTheDocsHaddockPrologue = "";
-      readTheDocsExtraHaddockPackages = _: { };
+      readTheDocsExtraHaddockPackages = null;
     };
 
   nixConfig = {
