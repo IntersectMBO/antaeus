@@ -2,7 +2,6 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 {-# LANGUAGE RecordWildCards #-}
 module Helpers.TestResults (
-    TestInfo(..),
     TestSuiteResults(..),
     TestResult(..),
     testSuitesToJUnit,

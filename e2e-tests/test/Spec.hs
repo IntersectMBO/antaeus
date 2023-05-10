@@ -7,7 +7,6 @@
 module Main(main) where
 
 import Cardano.Testnet qualified as CTN
-import CardanoTestnet qualified as TN
 import Control.Exception (SomeException)
 import Control.Exception.Base (try)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -80,22 +79,22 @@ pv7Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
 
     -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
     sequence_
-      [  run Alonzo.checkTxInfoV1TestInfo
-       , run Babbage.checkTxInfoV2TestInfo
-       , run Alonzo.datumHashSpendTestInfo
-       , run Alonzo.mintBurnTestInfo
-       , run Alonzo.collateralContainsTokenErrorTestInfo
-       , run Alonzo.noCollateralInputsErrorTestInfo
-       , run Alonzo.missingCollateralInputErrorTestInfo
-       , run Alonzo.tooManyCollateralInputsErrorTestInfo
-       , run Builtins.verifySchnorrAndEcdsaTestInfo
-       , run Babbage.referenceScriptMintTestInfo
-       , run Babbage.referenceScriptInlineDatumSpendTestInfo
-       , run Babbage.referenceScriptDatumHashSpendTestInfo
-       , run Babbage.inlineDatumSpendTestInfo
-       , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-       , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-       , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+      [   run Alonzo.checkTxInfoV1TestInfo
+        , run Babbage.checkTxInfoV2TestInfo
+        , run Alonzo.datumHashSpendTestInfo
+        , run Alonzo.mintBurnTestInfo
+        , run Alonzo.collateralContainsTokenErrorTestInfo
+        , run Alonzo.noCollateralInputsErrorTestInfo
+        , run Alonzo.missingCollateralInputErrorTestInfo
+        , run Alonzo.tooManyCollateralInputsErrorTestInfo
+        , run Builtins.verifySchnorrAndEcdsaTestInfo
+        , run Babbage.referenceScriptMintTestInfo
+        , run Babbage.referenceScriptInlineDatumSpendTestInfo
+        , run Babbage.referenceScriptDatumHashSpendTestInfo
+        , run Babbage.inlineDatumSpendTestInfo
+        , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+        , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+        , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
       ]
 
     failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -112,9 +111,9 @@ pv8Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
 
     -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
     sequence_
-      [  --run Alonzo.checkTxInfoV1TestInfo
-       --, run Babbage.checkTxInfoV2TestInfo
-         run Alonzo.datumHashSpendTestInfo
+      [  run Alonzo.checkTxInfoV1TestInfo
+       , run Babbage.checkTxInfoV2TestInfo
+       , run Alonzo.datumHashSpendTestInfo
        , run Alonzo.mintBurnTestInfo
        , run Alonzo.collateralContainsTokenErrorTestInfo
        , run Alonzo.noCollateralInputsErrorTestInfo

@@ -12,7 +12,6 @@
 module Spec.AlonzoFeatures where
 
 import Cardano.Api.Shelley qualified as C
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
@@ -22,8 +21,7 @@ import Hedgehog qualified as H
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert, success)
-import Helpers.TestData (TestParams (..))
-import Helpers.TestResults (TestInfo (..))
+import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -50,7 +48,7 @@ checkTxInfoV1Test networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction
 
@@ -121,7 +119,7 @@ datumHashSpendTest :: (MonadIO m , MonadTest m) =>
 datumHashSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction with two script outputs to be spent
   -- only one has its datum value embedded in the tx body
@@ -185,7 +183,7 @@ mintBurnTest :: (MonadTest m, MonadIO m) =>
 mintBurnTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -248,7 +246,7 @@ collateralContainsTokenErrorTest :: (MonadTest m, MonadIO m) =>
 collateralContainsTokenErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -274,7 +272,6 @@ collateralContainsTokenErrorTest networkOptions TestParams{..} = do
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
   -- Query for txo and assert it contains newly minted token
   resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress"
-  H.annotate $ show resultTxOut
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
   H.assert txOutHasTokenValue
 
@@ -310,7 +307,7 @@ missingCollateralInputErrorTest :: (MonadTest m, MonadIO m) =>
 missingCollateralInputErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -342,7 +339,7 @@ noCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
 noCollateralInputsErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -378,7 +375,7 @@ tooManyCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
 tooManyCollateralInputsErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -415,6 +412,13 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{..} = do
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
   let expError = "TooManyCollateralInputs"
   assert expError $ Tx.isSubmitError expError eitherSubmit
+
+  -- Tx.submitTx era localNodeConnectInfo signedTx2
+  -- let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
+  -- resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress"
+  -- txOutHasAdaValue <- Q.txOutHasValue resultTxOut (C.lovelaceToValue 1_000_000)
+  -- H.assert txOutHasAdaValue
+  -- return Nothing
 
 -- TODO: tx to produce error: InsufficientCollateral
 -- TODO: collateral input at script address error

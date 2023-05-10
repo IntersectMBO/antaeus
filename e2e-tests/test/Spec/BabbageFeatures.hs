@@ -17,7 +17,6 @@ import Data.Map qualified as Map
 
 import Hedgehog qualified as H
 
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as Time
@@ -25,8 +24,7 @@ import Hedgehog.Internal.Property (MonadTest)
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
-import Helpers.TestData (TestParams (..))
-import Helpers.TestResults (TestInfo (..))
+import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -51,7 +49,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction
 
@@ -127,7 +125,7 @@ referenceScriptMintTest :: (MonadTest m, MonadIO m) =>
 referenceScriptMintTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -184,7 +182,7 @@ referenceScriptInlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
 referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -243,7 +241,7 @@ referenceScriptDatumHashSpendTest :: (MonadIO m , MonadTest m) =>
 referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -303,7 +301,7 @@ inlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
 inlineDatumSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold inline datum at script address
 
@@ -358,7 +356,7 @@ referenceInputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
 referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -391,7 +389,7 @@ referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
 referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -425,7 +423,7 @@ inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
 inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -458,7 +456,7 @@ returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
 returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -520,7 +518,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest :: (MonadIO m , Mona
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 

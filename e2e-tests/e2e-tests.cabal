@@ -107,7 +107,6 @@ test-suite antaeus-test
   main-is:        Spec.hs
   hs-source-dirs: test
   other-modules:
-    CardanoTestnet
     Helpers.Common
     Helpers.Query
     Helpers.ScriptUtils

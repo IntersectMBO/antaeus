@@ -1,8 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
 module Helpers.TestData where
+
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Data.Time.Clock.POSIX (POSIXTime)
 import Hedgehog (MonadTest)

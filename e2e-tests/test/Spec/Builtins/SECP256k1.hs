@@ -15,15 +15,12 @@ module Spec.Builtins.SECP256k1 where
 import Cardano.Api qualified as C
 import Data.Map qualified as Map
 
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
 import Hedgehog.Internal.Property (annotate)
-import Hedgehog.Internal.Property qualified as H
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
-import Helpers.TestData (TestParams (..))
-import Helpers.TestResults (TestInfo (..))
+import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -41,7 +38,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   pv <- TN.pvFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
 -- build a transaction
 
