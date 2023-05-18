@@ -12,11 +12,11 @@ import Codec.Serialise (serialise)
 import Data.ByteString qualified as BS (ByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
-import Plutus.V1.Ledger.Api (MintingPolicy, Validator, unMintingPolicyScript, unValidatorScript)
-import Plutus.V1.Ledger.Api qualified as PlutusV1
-import Plutus.V1.Ledger.Bytes qualified as P (bytes, fromHex)
-import Plutus.V1.Ledger.Scripts (Datum (Datum), Redeemer (Redeemer))
-import Plutus.V1.Ledger.Value (CurrencySymbol)
+import OldPlutus.Scripts (MintingPolicy, Validator, unMintingPolicyScript, unValidatorScript)
+import PlutusLedgerApi.V1 qualified as PlutusV1
+import PlutusLedgerApi.V1.Bytes qualified as P (bytes, fromHex)
+import PlutusLedgerApi.V1.Scripts (Datum (Datum), Redeemer (Redeemer))
+import PlutusLedgerApi.V1.Value (CurrencySymbol)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
 
@@ -33,14 +33,14 @@ defExecutionUnits :: C.ExecutionUnits
 defExecutionUnits = C.ExecutionUnits {C.executionSteps = 0, C.executionMemory = 0 }
 
 -- | Any data to ScriptData. Used for script datum and redeemer.
-toScriptData :: PlutusTx.ToData a => a -> C.ScriptData
-toScriptData a = C.fromPlutusData $ PlutusTx.toData a
+toScriptData :: PlutusTx.ToData a => a -> C.HashableScriptData
+toScriptData = C.unsafeHashableScriptData . C.fromPlutusData . PlutusTx.toData
 
 asRedeemer :: PlutusTx.ToData a => a -> Redeemer
-asRedeemer a = Redeemer $ PlutusTx.dataToBuiltinData $ PlutusTx.toData a
+asRedeemer = Redeemer . PlutusTx.dataToBuiltinData . PlutusTx.toData
 
 asDatum :: PlutusTx.ToData a => a -> Datum
-asDatum a = Datum $ PlutusTx.dataToBuiltinData $ PlutusTx.toData a
+asDatum = Datum . PlutusTx.dataToBuiltinData . PlutusTx.toData
 
 plutusL1 :: C.ScriptLanguage C.PlutusScriptV1
 plutusL1 = C.PlutusScriptLanguage C.PlutusScriptV1
@@ -54,7 +54,7 @@ plutusL2 = C.PlutusScriptLanguage C.PlutusScriptV2
 mintScriptWitness :: C.CardanoEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
-  -> C.ScriptData
+  -> C.HashableScriptData
   -> C.ScriptWitness C.WitCtxMint era
 -- V1 script
 mintScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV1) eScript redeemer =
@@ -72,7 +72,7 @@ mintScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Right refT
 mintScriptWitness' :: C.CardanoEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
-  -> C.ScriptData
+  -> C.HashableScriptData
   -> C.ExecutionUnits
   -> C.ScriptWitness C.WitCtxMint era
 -- V1 script
@@ -92,7 +92,7 @@ spendScriptWitness :: C.CardanoEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.ScriptDatum C.WitCtxTxIn
-  -> C.ScriptData
+  -> C.HashableScriptData
   -> C.ScriptWitness C.WitCtxTxIn era
   -- V1 script
 spendScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV1) (Left script) datumWit redeemer = do

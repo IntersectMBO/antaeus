@@ -26,9 +26,9 @@ import Cardano.Api qualified as C
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Helpers.TypeConverters (fromCardanoPaymentKeyHash, fromCardanoScriptData, fromCardanoTxIn,
                                fromCardanoTxOutToPV1TxInfoTxOut, fromCardanoTxOutToPV1TxInfoTxOut', fromCardanoValue)
-import Plutus.V1.Ledger.Api (mkMintingPolicyScript)
-import Plutus.V1.Ledger.Api qualified as PlutusV1
-import Plutus.V1.Ledger.Interval qualified as P
+import OldPlutus.Scripts (MintingPolicy, mkMintingPolicyScript)
+import PlutusLedgerApi.V1 qualified as PlutusV1
+import PlutusLedgerApi.V1.Interval qualified as P
 import PlutusScripts.Helpers (mintScriptWitness', plutusL1, policyIdV1, policyScript, toScriptData)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as P
@@ -50,7 +50,7 @@ PlutusTx.unstableMakeIsData ''V1TxInfo
 
 checkV1TxInfoRedeemer :: [PlutusV1.TxInInfo] -> [PlutusV1.TxOut] -> PlutusV1.Value ->
   PlutusV1.Value -> [PlutusV1.DCert] -> [(PlutusV1.StakingCredential, Integer)] ->
-  PlutusV1.POSIXTimeRange -> [PlutusV1.PubKeyHash] -> [(PlutusV1.DatumHash, PlutusV1.Datum)] -> C.ScriptData
+  PlutusV1.POSIXTimeRange -> [PlutusV1.PubKeyHash] -> [(PlutusV1.DatumHash, PlutusV1.Datum)] -> C.HashableScriptData
 checkV1TxInfoRedeemer expIns expOuts expFee expMint expDCert expWdrl expRange expSigs expData =
   toScriptData $ V1TxInfo expIns expOuts expFee expMint expDCert expWdrl  expRange expSigs expData
 
@@ -72,7 +72,7 @@ txInfoMint = fromCardanoValue
 txInfoSigs :: [C.VerificationKey C.PaymentKey] -> [PlutusV1.PubKeyHash]
 txInfoSigs = map (fromCardanoPaymentKeyHash . C.verificationKeyHash)
 
-txInfoData :: [C.ScriptData] -> [(PlutusV1.DatumHash, PlutusV1.Datum)]
+txInfoData :: [C.HashableScriptData] -> [(PlutusV1.DatumHash, PlutusV1.Datum)]
 txInfoData = map (\ datum ->
   (PlutusV1.DatumHash $ PlutusV1.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptData datum,
   PlutusV1.Datum $ fromCardanoScriptData datum))
@@ -107,7 +107,7 @@ mkCheckV1TxInfo V1TxInfo{..} ctx =
   checkTxInfoData = expTxInfoData P.== PlutusV1.txInfoData info
   checkTxInfoId = P.equalsInteger 32 (P.lengthOfByteString P.$ PlutusV1.getTxId P.$ PlutusV1.txInfoId info)
 
-checkV1TxInfoV1 :: PlutusV1.MintingPolicy
+checkV1TxInfoV1 :: MintingPolicy
 checkV1TxInfoV1 = mkMintingPolicyScript
   $$(PlutusTx.compile [|| wrap ||])
   where
@@ -120,7 +120,7 @@ checkV1TxInfoAssetIdV1 :: C.AssetId
 checkV1TxInfoAssetIdV1 = C.AssetId (policyIdV1 checkV1TxInfoV1) "V1TxInfo"
 
 checkV1TxInfoMintWitnessV1 :: C.CardanoEra era
-  -> C.ScriptData
+  -> C.HashableScriptData
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 checkV1TxInfoMintWitnessV1 era redeemer exunits =

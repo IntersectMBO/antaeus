@@ -17,7 +17,6 @@ import Data.Map qualified as Map
 
 import Hedgehog qualified as H
 
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as Time
@@ -25,18 +24,18 @@ import Hedgehog.Internal.Property (MonadTest)
 import Helpers.Common (makeAddress)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
-import Helpers.TestData (TestParams (..))
-import Helpers.TestResults (TestInfo (..))
+import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
-import Plutus.V1.Ledger.Interval qualified as PlutusV1
-import Plutus.V1.Ledger.Time qualified as PlutusV1
-import Plutus.V2.Ledger.Api qualified as PlutusV2
+import PlutusLedgerApi.V1.Interval qualified as P
+import PlutusLedgerApi.V1.Time qualified as P
+import PlutusLedgerApi.V2 qualified as PlutusV2
 import PlutusScripts.Always qualified as PS
 import PlutusScripts.Helpers qualified as PS
-import PlutusScripts.V2TxInfo (checkV2TxInfoAssetIdV2, checkV2TxInfoMintWitnessV2, checkV2TxInfoRedeemer, txInfoData,
-                               txInfoFee, txInfoInputs, txInfoMint, txInfoOutputs, txInfoSigs)
+import PlutusScripts.V2TxInfo qualified as PS (checkV2TxInfoAssetIdV2, checkV2TxInfoMintWitnessV2,
+                                               checkV2TxInfoRedeemer, txInfoData, txInfoFee, txInfoInputs, txInfoMint,
+                                               txInfoOutputs, txInfoSigs)
 
 checkTxInfoV2TestInfo = TestInfo {
     testName = "checkTxInfoV2Test",
@@ -50,7 +49,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction
 
@@ -58,7 +57,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
   txInAsTxOut@(C.TxOut _ txInValue _ _) <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
 
   let
-    tokenValues = C.valueFromList [(checkV2TxInfoAssetIdV2, 1), (PS.alwaysSucceedAssetIdV2, 2)]
+    tokenValues = C.valueFromList [(PS.checkV2TxInfoAssetIdV2, 1), (PS.alwaysSucceedAssetIdV2, 2)]
     executionUnits1 = C.ExecutionUnits {C.executionSteps = 1_000_000_000, C.executionMemory = 10_000_000 }
     executionUnits2 = C.ExecutionUnits {C.executionSteps = 1_000_000_000, C.executionMemory = 4_000_000 }
     collateral = Tx.txInsCollateral era [txIn]
@@ -71,27 +70,27 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
     txOut1 = Tx.txOutWithDatumInTx era (C.lovelaceToValue amountPaid <> tokenValues) w1Address datum
     txOut2 = Tx.txOut era (C.lovelaceToValue amountReturned) w1Address
 
-    lowerBound = PlutusV1.fromMilliSeconds
-      $ PlutusV1.DiffMilliSeconds $ U.posixToMilliseconds $ fromJust mTime -- before slot 1
-    upperBound = PlutusV1.fromMilliSeconds
-      $ PlutusV1.DiffMilliSeconds $ U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
-    timeRange = PlutusV1.interval lowerBound upperBound :: PlutusV1.POSIXTimeRange
+    lowerBound = P.fromMilliSeconds
+      $ P.DiffMilliSeconds $ U.posixToMilliseconds $ fromJust mTime -- before slot 1
+    upperBound = P.fromMilliSeconds
+      $ P.DiffMilliSeconds $ U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
+    timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
-    expTxInfoInputs          = txInfoInputs (txIn, txInAsTxOut)
-    expTxInfoReferenceInputs = txInfoInputs (txIn, txInAsTxOut)
-    expTxInfoOutputs         = txInfoOutputs [ txOut1, txOut2 ]
-    expTxInfoFee             = txInfoFee fee
-    expTxInfoMint            = txInfoMint tokenValues
+    expTxInfoInputs          = PS.txInfoInputs (txIn, txInAsTxOut)
+    expTxInfoReferenceInputs = PS.txInfoInputs (txIn, txInAsTxOut)
+    expTxInfoOutputs         = PS.txInfoOutputs [ txOut1, txOut2 ]
+    expTxInfoFee             = PS.txInfoFee fee
+    expTxInfoMint            = PS.txInfoMint tokenValues
     expDCert                 = []                   -- not testing any staking registration certificate
     expWdrl                  = PlutusV2.fromList [] -- not testing any staking reward withdrawal
-    expTxInfoSigs            = txInfoSigs [w1VKey]
+    expTxInfoSigs            = PS.txInfoSigs [w1VKey]
     expTxInfoRedeemers       = PS.alwaysSucceedPolicyTxInfoRedeemerV2
-    expTxInfoData            = txInfoData [datum]
+    expTxInfoData            = PS.txInfoData [datum]
     expTxInfoValidRange      = timeRange
 
-    redeemer = checkV2TxInfoRedeemer [expTxInfoInputs] [expTxInfoReferenceInputs] expTxInfoOutputs expTxInfoFee expTxInfoMint
+    redeemer = PS.checkV2TxInfoRedeemer [expTxInfoInputs] [expTxInfoReferenceInputs] expTxInfoOutputs expTxInfoFee expTxInfoMint
                expDCert expWdrl expTxInfoValidRange expTxInfoSigs expTxInfoRedeemers expTxInfoData
-    mintWitnesses = Map.fromList [checkV2TxInfoMintWitnessV2 era redeemer executionUnits1, PS.alwaysSucceedMintWitnessV2' era executionUnits2]
+    mintWitnesses = Map.fromList [PS.checkV2TxInfoMintWitnessV2 era redeemer executionUnits1, PS.alwaysSucceedMintWitnessV2' era executionUnits2]
 
     txBodyContent = (Tx.emptyTxBodyContent era pparams)
       { C.txIns = Tx.pubkeyTxIns [txIn]
@@ -126,7 +125,7 @@ referenceScriptMintTest :: (MonadTest m, MonadIO m) =>
 referenceScriptMintTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -183,7 +182,7 @@ referenceScriptInlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
 referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -242,7 +241,7 @@ referenceScriptDatumHashSpendTest :: (MonadIO m , MonadTest m) =>
 referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -302,7 +301,7 @@ inlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
 inlineDatumSpendTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   -- build a transaction to hold inline datum at script address
 
@@ -357,7 +356,7 @@ referenceInputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
 referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -390,7 +389,7 @@ referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
 referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -424,7 +423,7 @@ inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
 inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -457,7 +456,7 @@ returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
 returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -519,7 +518,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest :: (MonadIO m , Mona
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 

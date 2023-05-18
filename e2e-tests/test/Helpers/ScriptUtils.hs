@@ -2,8 +2,8 @@
 
 -- subset of utilities from plutus-script-utils
 module Helpers.ScriptUtils where
-import Plutus.V1.Ledger.Api qualified as PV1
-import Plutus.V2.Ledger.Api qualified as PV2
+import PlutusLedgerApi.V1 qualified as PV1
+import PlutusLedgerApi.V2 qualified as PV2
 import PlutusTx (UnsafeFromData)
 import PlutusTx.Prelude qualified as P
 

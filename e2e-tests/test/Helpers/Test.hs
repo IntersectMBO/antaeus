@@ -6,7 +6,6 @@ module Helpers.Test (
     success
 ) where
 
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.IORef (IORef)
 import Data.Maybe (isNothing)
