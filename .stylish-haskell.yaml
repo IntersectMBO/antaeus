@@ -1,3 +1,4 @@
+---
 steps:
   - simple_align:
       cases: always
@@ -8,6 +9,7 @@ steps:
       post_qualify: true
   - language_pragmas:
       remove_redundant: false
+
   - trailing_whitespace: {}
 columns: 120
 newline: native
