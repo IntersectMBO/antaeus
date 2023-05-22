@@ -22,9 +22,9 @@ module PlutusScripts.SECP256k1 (
 
 import Cardano.Api qualified as C
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
-import Plutus.V1.Ledger.Api (MintingPolicy, mkMintingPolicyScript)
-import Plutus.V1.Ledger.Api qualified as PlutusV1
-import Plutus.V2.Ledger.Api qualified as PlutusV2
+import OldPlutus.Scripts (MintingPolicy, mkMintingPolicyScript)
+import PlutusLedgerApi.V1 qualified as PlutusV1
+import PlutusLedgerApi.V2 qualified as PlutusV2
 import PlutusScripts.Helpers (bytesFromHex, mintScriptWitness, plutusL1, plutusL2, policyIdV1, policyIdV2, policyScript,
                               toScriptData)
 import PlutusTx qualified
@@ -81,7 +81,7 @@ verifySchnorrParams = Secp256Params
     sig  = BI.toBuiltin $ bytesFromHex "5a56da88e6fd8419181dec4d3dd6997bab953d2fc71ab65e23cfc9e7e3d1a310613454a60f6703819a39fdac2a410a094442afd1fc083354443e8d8bb4461a9b"
   }
 
-verifySchnorrRedeemer :: C.ScriptData
+verifySchnorrRedeemer :: C.HashableScriptData
 verifySchnorrRedeemer = toScriptData verifySchnorrParams
 
 verifySchnorrMintWitnessV1 :: C.CardanoEra era
@@ -137,7 +137,7 @@ verifyEcdsaParams = Secp256Params
     sig  = BI.toBuiltin $ bytesFromHex "5fb12954b28be6456feb080cfb8467b6f5677f62eb9ad231de7a575f4b6857512754fb5ef7e0e60e270832e7bb0e2f0dc271012fa9c46c02504aa0e798be6295"
   }
 
-verifyEcdsaRedeemer :: C.ScriptData
+verifyEcdsaRedeemer :: C.HashableScriptData
 verifyEcdsaRedeemer = toScriptData verifyEcdsaParams
 
 verifyEcdsaMintWitnessV1 :: C.CardanoEra era

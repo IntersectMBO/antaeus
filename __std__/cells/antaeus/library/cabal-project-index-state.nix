@@ -2,4 +2,4 @@
 
 { inputs, cell }:
 
-cell.library.antaeus-project.index-state
+cell.library.antaeus-project.index-state-max

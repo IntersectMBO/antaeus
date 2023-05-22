@@ -15,13 +15,12 @@ module Spec.Builtins.SECP256k1 where
 import Cardano.Api qualified as C
 import Data.Map qualified as Map
 
-import CardanoTestnet qualified as TN
 import Control.Monad.IO.Class (MonadIO)
 import Hedgehog (MonadTest)
+import Hedgehog.Internal.Property (annotate)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
-import Helpers.TestData (TestParams (..))
-import Helpers.TestResults (TestInfo (..))
+import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -39,25 +38,27 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   pv <- TN.pvFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
 -- build a transaction
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
   let
-    (verifySchnorrAssetId, verifyEcdsaAssetId, verifySchnorrMintWitness, verifyEcdsaMintWitness) =
+    (verifySchnorrAssetId, verifyEcdsaAssetId, verifySchnorrMintWitness, verifyEcdsaMintWitness, plutusVersion) =
       case era of
         C.AlonzoEra  ->
           ( PS.verifySchnorrAssetIdV1,
             PS.verifyEcdsaAssetIdV1,
             PS.verifySchnorrMintWitnessV1 era,
-            PS.verifyEcdsaMintWitnessV1 era )
+            PS.verifyEcdsaMintWitnessV1 era,
+            "PlutusV1" )
         C.BabbageEra ->
           ( PS.verifySchnorrAssetIdV2,
             PS.verifyEcdsaAssetIdV2,
             PS.verifySchnorrMintWitnessV2 era,
-            PS.verifyEcdsaMintWitnessV2 era )
+            PS.verifyEcdsaMintWitnessV2 era,
+            "PlutusV2" )
 
     tokenValues = C.valueFromList [(verifySchnorrAssetId, 4), (verifyEcdsaAssetId, 2)]
     txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
@@ -74,9 +75,10 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
     True -> do
       -- Assert that "forbidden" error occurs when attempting to use either SECP256k1 builtin
       eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
+      annotate $ show eitherTx
       let
-        expErrorSchnorr = "Forbidden builtin function: (builtin verifySchnorrSecp256k1Signature)"
-        expErrorEcdsa = "Forbidden builtin function: (builtin verifyEcdsaSecp256k1Signature)"
+        expErrorSchnorr = "Builtin function VerifySchnorrSecp256k1Signature is not available in language " ++ plutusVersion ++ " at and protocol version " ++ show pv
+        expErrorEcdsa = "Builtin function VerifyEcdsaSecp256k1Signature is not available in language " ++ plutusVersion ++ " at and protocol version " ++ show pv
       a1 <- assert expErrorSchnorr $ Tx.isTxBodyScriptExecutionError expErrorSchnorr eitherTx
       a2 <- assert expErrorEcdsa $ Tx.isTxBodyScriptExecutionError expErrorEcdsa eitherTx
       U.concatMaybes [a1, a2]

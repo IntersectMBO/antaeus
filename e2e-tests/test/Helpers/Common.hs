@@ -3,7 +3,7 @@ module Helpers.Common where
 import Cardano.Api qualified as C
 
 -- | Any CardanoEra with CardanoMode
-toEraInCardanoMode :: C.CardanoEra era -> (C.EraInMode era C.CardanoMode)
+toEraInCardanoMode :: C.CardanoEra era -> C.EraInMode era C.CardanoMode
 toEraInCardanoMode era = fromMaybe $ C.toEraInMode era C.CardanoMode
   where
     fromMaybe Nothing    = error $ "No mode for this era " ++ show era ++ " in CardanoMode"

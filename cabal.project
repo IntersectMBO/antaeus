@@ -11,12 +11,10 @@ repository cardano-haskell-packages
     c00aae8461a256275598500ea0e187588c35a5d5d7454fb57eac18d9edb86a56
     d4a35cd3121aa00d18544bb0ac01c3e1691d618f462c46129271bccf39f7e8ee
 
-index-state: 2023-02-28T00:00:00Z
-
 -- See CONTRIBUTING.adoc for how to update index-state
 index-state:
-  , hackage.haskell.org 2023-02-28T00:00:00Z
-  , cardano-haskell-packages 2023-03-13T07:15:21Z
+  , hackage.haskell.org 2023-05-11T00:00:00Z
+  , cardano-haskell-packages 2023-05-11T00:00:00Z
 packages: e2e-tests
 
 -- We never, ever, want this.
@@ -29,82 +27,6 @@ benchmarks: true
 -- The only sensible test display option, since it allows us to have colourized
 -- 'tasty' output.
 test-show-details: direct
-
-allow-newer:
-  -- cardano-ledger packages need aeson >2, the following packages have a
-  -- too restictive upper bounds on aeson, so we relax them here. The hackage
-  -- trustees can make a revision to these packages cabal file to solve the
-  -- issue permanently.
-  , ekg:aeson
-  , ekg-json:aeson
-  , openapi3:aeson
-  , servant:aeson
-  , servant-client-core:aeson
-  , servant-server:aeson
-  , servant-foreign:lens
-
-allow-older:
-  -- freer-extras works with lens-5.2 (rather than 5.2.1)
-  , freer-extras:lens
-  -- freer-extras works with resource-pool-0.3.1.0 (rather than 0.4.0.0)
-  , freer-extras:resource-pool
-  -- plutus-ledger works with lens-5.2 (rather than 5.2.1)
-  , plutus-ledger:lens
-
-constraints:
-  -- cardano-prelude-0.1.0.0 needs
-  , protolude <0.3.1
-
-  -- cardano-ledger-byron-0.1.0.0 needs
-  , cardano-binary <1.5.0.1
-
-  -- plutus-core-1.0.0.1 needs
-  , cardano-crypto-class >2.0.0.0
-  , algebraic-graphs <0.7
-
-  , cardano-data == 0.1.0.0
-
-  -- cardano-ledger-core-0.1.0.0 needs
-  , cardano-crypto-class <2.0.0.1
-
-  -- cardano-crypto-class-2.0.0.0.1 needs
-  , cardano-prelude <0.1.0.1
-
-  -- dbvar from cardano-wallet needs
-  , io-classes <0.3.0.0
-
-  -- newer typed-protocols need io-classes>=0.3.0.0 which is incompatible with dbvar's constraint above
-  , typed-protocols==0.1.0.0
-
-  , aeson >= 2
-
-  , hedgehog >= 1.1
-
-  , resource-pool <0.4.0.0
-
-  , http2 <4.0.0
-
-  -- ouroboros-consensus-shelley-0.1.0.1 needs
-  , ouroboros-consensus-protocol==0.1.0.1
-
-  -- ledger packages:
-  , cardano-ledger-alonzo == 0.1.0.0
-  , cardano-ledger-babbage == 0.1.0.0
-  , cardano-ledger-byron == 0.1.0.0
-  , cardano-ledger-byron-test == 1.3.0
-  , cardano-ledger-conway == 0.1.0.0
-  , cardano-ledger-core == 0.1.0.0
-  , cardano-ledger-pretty == 0.1.0.0
-  , cardano-ledger-shelley == 0.1.0.0
-  , cardano-ledger-shelley-ma == 0.1.0.0
-  , cardano-crypto-test == 1.3.0
-  , cardano-crypto-wrapper == 1.3.0
-  , byron-spec-chain == 0.1.0.0
-  , byron-spec-ledger == 0.1.0.0
-  , set-algebra == 0.1.0.0
-  , small-steps == 0.1.0.0
-  , small-steps-test == 0.1.0.0
-  , vector-map == 0.1.0.0
 
 -- These packages appear in our dependency tree and are very slow to build.
 -- Empirically, turning off optimization shaves off ~50% build time.
@@ -119,3 +41,26 @@ package ouroboros-consensus-cardano
 package cardano-api
   optimization: False
 
+package cardano-crypto-praos
+  flags: -external-libsodium-vrf
+
+-- Pin to the master with 8.0.0 version (not an official release)
+source-repository-package
+    type: git
+    location: https://github.com/input-output-hk/cardano-node
+    tag: a158a679690ed8b003ee06e1216ac8acd5ab823d
+    subdir:
+      cardano-api
+      cardano-cli
+      cardano-node
+      trace-forward
+      trace-dispatcher
+      trace-resources
+
+-- Fork for improvements to Babbage testnet - see https://github.com/input-output-hk/cardano-node/pull/5224 
+source-repository-package
+    type: git
+    location: https://github.com/james-iohk/cardano-node
+    tag: adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c
+    subdir:
+      cardano-testnet

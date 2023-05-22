@@ -7,7 +7,7 @@
 
 module Helpers.Tx where
 
-import Cardano.Api (QueryConvenienceError)
+import Cardano.Api (QueryConvenienceError, SubmitResult (SubmitFail, SubmitSuccess))
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -18,7 +18,8 @@ import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (toEraInCardanoMode)
-import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult (SubmitFail, SubmitSuccess))
+import Helpers.Utils qualified as U
+--import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult (SubmitFail, SubmitSuccess))
 
 deriving instance Show QueryConvenienceError
 
@@ -66,13 +67,10 @@ txOut ::
   C.TxOut C.CtxTx era
 txOut era value address =
   C.TxOut
-    (maybeAnyAddressInEra $ C.anyAddressInEra era $ C.toAddressAny address)
+    (U.unsafeFromRight $ C.anyAddressInEra era $ C.toAddressAny address)
     (C.TxOutValue (multiAssetSupportedInEra era) value)
     C.TxOutDatumNone
     C.ReferenceScriptNone
-  where
-    maybeAnyAddressInEra Nothing    = error $ "Era must be ShelleyBased"
-    maybeAnyAddressInEra (Just aie) = aie
 
 -- | Build TxOut with a reference script
 txOutWithRefScript ::
@@ -89,7 +87,7 @@ txOutWithInlineDatum,
     C.CardanoEra era ->
     C.Value ->
     C.Address C.ShelleyAddr ->
-    C.ScriptData ->
+    C.HashableScriptData ->
     C.TxOut C.CtxTx era
 -- | Build TxOut with inline datum
 txOutWithInlineDatum era value address datum = withInlineDatum era datum $ txOut era value address
@@ -111,7 +109,7 @@ withInlineDatum,
   withDatumHash,
   withDatumInTx ::
     C.CardanoEra era ->
-    C.ScriptData ->
+    C.HashableScriptData ->
     C.TxOut C.CtxTx era ->
     C.TxOut C.CtxTx era
 -- | Add inline datum to TxOut
@@ -119,7 +117,7 @@ withInlineDatum era datum (C.TxOut e v _ rs) =
   C.TxOut e v (C.TxOutDatumInline (refInsScriptsAndInlineDatsSupportedInEra era) datum) rs
 -- | Add datum hash to TxOut
 withDatumHash era datum (C.TxOut e v _ rs) =
-  C.TxOut e v (C.TxOutDatumHash (scriptDataSupportedInEra era) (C.hashScriptData datum)) rs
+  C.TxOut e v (C.TxOutDatumHash (scriptDataSupportedInEra era) (C.hashScriptDataBytes datum)) rs
 -- | Add datum hash to TxOut whilst including datum value in txbody
 withDatumInTx era datum (C.TxOut e v _ rs) =
   C.TxOut e v (C.TxOutDatumInTx (scriptDataSupportedInEra era) datum) rs
@@ -275,13 +273,12 @@ buildTx' era txBody changeAddress sKey networkId = do
   return $
     withIsShelleyBasedEra era $
       C.constructBalancedTx
-        (toEraInCardanoMode era)
         txBody
         (C.shelleyAddressInEra changeAddress)
         Nothing -- Override key witnesses
         nodeEraUtxo -- tx inputs
         pparams
-        eraHistory
+        (C.toLedgerEpochInfo eraHistory)
         systemStart
         stakePools
         [C.WitnessPaymentKey sKey]
@@ -304,7 +301,7 @@ buildRawTx :: (MonadTest m) =>
   C.CardanoEra era ->
   C.TxBodyContent C.BuildTx era ->
   m (C.TxBody era)
-buildRawTx era = withIsShelleyBasedEra era $ HE.leftFail . C.makeTransactionBody -- TODO: handle error
+buildRawTx era = withIsShelleyBasedEra era $ HE.leftFail . C.createAndValidateTransactionBody -- TODO: handle error
 
 -- | Witness txbody with signing key when not using convenience build function
 signTx :: (MonadIO m) =>
