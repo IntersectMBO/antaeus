@@ -2214,11 +2214,11 @@
         "tullia": "tullia"
       },
       "locked": {
-        "lastModified": 1684927791,
-        "narHash": "sha256-E58djkiIydUr/GkaIViAcsknsyyICDeiKkrIStny6u0=",
+        "lastModified": 1684930764,
+        "narHash": "sha256-yABttJ8ZItzV72f2HAgwaLmrukOsx/lWtlytLG1iZzo=",
         "owner": "zeme-wana",
         "repo": "iogx",
-        "rev": "6b46dc2da84d3e400a2cca0c93d9394cc4bf5dca",
+        "rev": "5b8396bfd7c1577ddc2701560a54cb6feb78661d",
         "type": "github"
       },
       "original": {
