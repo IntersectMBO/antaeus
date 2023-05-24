@@ -74,6 +74,11 @@ pkgs.haskell-nix.cabalProject' (_: {
     "https://input-output-hk.github.io/cardano-haskell-packages" = inputs.CHaP;
   };
 
+  sha256map = {
+    "https://github.com/input-output-hk/cardano-node"."a158a679690ed8b003ee06e1216ac8acd5ab823d" = "sha256-uY7wPyCgKuIZcGu0+vGacjGw2kox8H5ZsVGsfTNtU0c=";
+    "https://github.com/james-iohk/cardano-node"."adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c" = "18yhmfa95sfry9jsgv9rg1giv73235wwjvw7qr3jximj88gprakn";
+  };
+
   # Configuration settings needed for cabal configure to work when cross compiling
   # for windows. We can't use `modules` for these as `modules` are only applied
   # after cabal has been configured.
