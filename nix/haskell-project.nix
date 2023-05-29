@@ -16,14 +16,10 @@ let
     packages = {
       # Things that need plutus-tx-plugin
       freer-extras.package.buildable = !isCross;
-      cardano-node-emulator.package.buildable = !isCross;
-      cardano-streaming.package.buildable = !isCross;
       e2e-tests.package.buildable = !isCross;
       # These need R
       plutus-core.components.benchmarks.cost-model-test.buildable = lib.mkForce (!isCross);
       plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce (!isCross);
-
-      plutus-pab-executables.components.tests.plutus-pab-test-full-long-running.buildable = lib.mkForce (!isDarwin);
 
       e2e-tests.doHaddock = deferPluginErrors;
       e2e-tests.flags.defer-plugin-errors = deferPluginErrors;

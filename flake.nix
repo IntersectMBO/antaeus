@@ -12,8 +12,8 @@
       repoRoot = ./.;
       flakeOutputsPrefix = "";
       systems = [ "x86_64-darwin" "x86_64-linux" ];
-      haskellCompilers = [ "ghc8107" ];
-      defaultHaskellCompiler = "ghc8107";
+      haskellCompilers = [ "ghc927" ];
+      defaultHaskellCompiler = "ghc927";
       haskellCrossSystem = null;
       haskellProjectFile = ./nix/haskell-project.nix;
       perSystemOutputsFile = null;

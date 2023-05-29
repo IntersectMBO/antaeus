@@ -95,7 +95,6 @@ common lang
     , text
     , time
     , transformers-except
-    , unlift
     , unliftio
     , unordered-containers
 
