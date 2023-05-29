@@ -14,7 +14,7 @@
     # If you need to, you can override them like this instead:
     # 
     #   iogx.inputs.hackage.url = "github:input-output-hk/hackage/my-branch" 
-    iogx.url = "github:zeme-iohk/iogx";
+    iogx.url = "github:zeme-wana/iogx";
 
     # Other inputs can be defined as usual.
     # foobar.url = "github:foo/bar";
