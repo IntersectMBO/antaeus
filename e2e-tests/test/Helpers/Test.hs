@@ -15,8 +15,8 @@ import GHC.Stack (HasCallStack, callStack, prettyCallStack, withFrozenCallStack)
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
 import Helpers.TestData (TestInfo (..), TestParams (..))
-import Helpers.TestResults (TestResult (..))
 import Helpers.Testnet qualified as TN
+import Helpers.TestResults (TestResult (..))
 import Text.Printf (printf)
 
 runTest :: (MonadIO m, MonadTest m) =>
