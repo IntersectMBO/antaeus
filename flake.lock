@@ -564,11 +564,11 @@
         "sphinxcontrib-haddock": "sphinxcontrib-haddock"
       },
       "locked": {
-        "lastModified": 1685364416,
-        "narHash": "sha256-rlcgXoXg9Gf2n+aF6Qal7iWJ+1p6OjnKiDYc/9zqJNo=",
+        "lastModified": 1685367785,
+        "narHash": "sha256-RX5f/72HJUvLaciIRciGerMzz9LILsF1BkzqXd16p8k=",
         "owner": "zeme-wana",
         "repo": "iogx",
-        "rev": "32164dbd484042e0fa5d42463fe1b2995cc6e949",
+        "rev": "d6c58865f3f53f2b9f2d988e7b53e4b913477cf3",
         "type": "github"
       },
       "original": {
