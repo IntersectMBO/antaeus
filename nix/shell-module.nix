@@ -34,6 +34,11 @@
 }:
 
 {
+  packages = [
+    haskell-nix-project.hsPkgs.cardano-cli.components.exes.cardano-cli
+    haskell-nix-project.hsPkgs.cardano-node.components.exes.cardano-node
+  ];
+
   env.CARDANO_CLI = "${haskell-nix-project.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli";
   env.CARDANO_NODE = "${haskell-nix-project.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node";
 }
