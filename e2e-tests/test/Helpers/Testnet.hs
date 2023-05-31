@@ -84,7 +84,7 @@ instance Error TimedOut where
 
 testnetOptionsAlonzo6, testnetOptionsBabbage7, testnetOptionsBabbage8 :: Either LocalNodeOptions TestnetOptions
 testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
-testnetOptionsBabbage7 = Right $defBabbageTestnetOptions 7
+testnetOptionsBabbage7 = Right $ defBabbageTestnetOptions 7
 testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
 
 eraFromOptions :: (MonadTest m) => Either LocalNodeOptions TestnetOptions -> m C.AnyCardanoEra

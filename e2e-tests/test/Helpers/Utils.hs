@@ -14,9 +14,9 @@ import Hedgehog.Extras qualified as HE
 import Hedgehog.Extras.Stock.CallStack qualified as H
 import System.Directory qualified as IO
 import System.Environment qualified as IO
+import System.Info qualified as IO
 import System.IO qualified as IO
 import System.IO.Temp qualified as IO
-import System.Info qualified as IO
 
 -- | Right from Either or throw Left error
 unsafeFromRight :: Show l => Either l r -> r

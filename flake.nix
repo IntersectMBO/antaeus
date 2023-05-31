@@ -1,164 +1,169 @@
-# The flake.nix is the entrypoint of all nix code.
-#
-# This repository uses the standard tool https://github.com/divnix/std.
-# Familiarity with std is required to be able to contribute effectively.
-# While official documentation for std can be found in its GitHub, this flake
-# has been thoroughly commented so as to quickstart new maintainers.
-# This flake can also be used as a template for new std-based projects.
-# Further documentation can be found in nix/README.md
-#
-# You may want to refer to the standard glossary as you go along:
-# https://divnix.github.io/std/glossary.html
 {
-  description = "Antaeus End-to-End Testing Framework";
+  description = "";
 
   inputs = {
-    nixpkgs = {
-      url = "github:NixOS/nixpkgs";
-    };
-    std = {
-      url = "github:divnix/std";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    flake-compat = {
-      url = "github:input-output-hk/flake-compat";
-      flake = false;
-    };
-    haskell-nix = {
-      url = "github:input-output-hk/haskell.nix";
-      inputs = {
-        hackage.follows = "hackage-nix";
-        nixpkgs.follows = "nixpkgs";
-      };
-    };
-    hackage-nix = {
-      url = "github:input-output-hk/hackage.nix";
-      flake = false;
-    };
-    sphinxcontrib-haddock = {
-      url = "github:michaelpj/sphinxcontrib-haddock";
-      flake = false;
-    };
-    gitignore-nix = {
-      url = "github:hercules-ci/gitignore.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    iohk-nix = {
-      url = "github:input-output-hk/iohk-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    pre-commit-hooks-nix = {
-      url = "github:cachix/pre-commit-hooks.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    CHaP = {
-      url = "github:input-output-hk/cardano-haskell-packages?ref=repo";
-      flake = false;
-    };
-    haskell-language-server = {
-      # TODO Bump to 1.9.0.0 once antaeus hits GHC 9.2
-      url = "github:haskell/haskell-language-server?ref=1.8.0.0";
-      flake = false;
-    };
-    plutus-core = {
-      url = "github:input-output-hk/plutus";
-    };
 
+    # The following inputs are managed by iogx:
+    # 
+    #   CHaP, flake-utils, haskell.nix, nixpkgs, hackage, 
+    #   iohk-nix, sphinxcontrib-haddock, pre-commit-hooks-nix, 
+    #   haskell-language-server, nosys, std, bitte-cells, tullia.
+    # 
+    # They will be available in both systemized and desystemized flavours.
+    # Do not re-add those inputs again here. 
+    # If you need to, you can override them like this instead:
+    # 
+    #   iogx.inputs.hackage.url = "github:input-output-hk/hackage/my-branch" 
+    iogx.url = "github:zeme-wana/iogx";
+
+    # Other inputs can be defined as usual.
+    # foobar.url = "github:foo/bar";
   };
 
-  # The flake outputs are managed by std.
-  outputs = inputs:
+  outputs = inputs: inputs.iogx.mkFlake {
 
-    # The growOn function takes care of producing the flake outputs.
-    inputs.std.growOn
-      {
-        # Boilerplate
-        inherit inputs;
+    # Boilerplate: simply pass your unmodified inputs here.
+    inherit inputs;
 
-        # All nix files will reside inside this folder, no exception.
-        # Each subfolder of cellsFrom is a "cell".
-        # Cell names are arbitrary; a cell name is its folder name.
-        # Cells are for highest-level organization and grouping of nix code.
-        #
-        # In this repository we have two cells:
-        #   automation
-        #     Hydra jobsets and GHA tasks
-        #   antaeus
-        #     devcontainer, devshells, library and packages for antaeus and its documentation
-        cellsFrom = ./__std__/cells;
+    # Trace debugging information in the `mkFlake` function.
+    debug = true;
 
-        # Each cell contains "cell blocks".
-        # Block names are arbitrary.
-        # Each block can be thought of as providing a "feature" to its cell.
-        # Cell blocks have types.
-        # Each cell block must be either:
-        #   A nix file named after the cell block
-        #   A directory named after the cell block and containing a default.nix
-        # Not all cells have the same cell blocks.
-        # All cell blocks belong in a cell.
-        #
-        # In this repository we have six cell blocks, listed below with their type:
-        #   devshells :: devshells
-        #     Development shells available via nix develop
-        #   packages :: installables
-        #     Derivations available via nix build
-        #   devcontainer :: installables
-        #     Docker image for creating a VS Code development environment
-        #   library :: functions
-        #     Everything that is not a derivation goes here
-        #     Includes functions, attrsets and simple literal values shared across cells
-        #     These are not exposed to the flake
-        #   hydra-jobs :: installables
-        #     Jobsets for our Hydra CI
-        #
-        # std provides a TUI to interact with the cell blocks.
-        # Available interactions are determined by the cell block's type.
-        # Because this repository does not yet use the TUI, the type is mostly irrelevant.
-        cellBlocks = [
-          (inputs.std.devshells "devshells")
-          (inputs.std.installables "packages")
-          (inputs.std.installables "devcontainer")
-          (inputs.std.functions "library")
-          (inputs.std.installables "hydra-jobs")
-        ];
-      }
+    # While migrating to IOGX, you might want to keep the old flake outputs
+    # alongside the new ones. An easy way to do this is to prefix (nest) 
+    # each output group { packages, apps, devShells, <nonstandard>, ... } 
+    # with a custom name. 
+    # For example, if `flakeOutputsPrefix = "__foo__"` then the flake will 
+    # have outputs like these:
+    #   outputs.devShells.x86_64-darwin.__foo__.baz
+    #   outputs.nonstandard.x86_64-linux.__foo__.bar
+    # A value of "" means: do not nest.
+    flakeOutputsPrefix = "";
 
-      # The growOn function will then accept an arbitrary number of "soil" attrs.
-      # This is where we translate cells and cell blocks into a standard nix flake
-      # outputs attrs.
-      #
-      # This is where we also decide which cells and which cell blocks will
-      # make it into the flake. To exclude stuff from the flake, we simply
-      # do not "harvest" it.
-      #
-      # The attrs will be recursively merged in the order in which they appear.
-      {
-        # Here we say that we want the "devshells" cell block of the antaeus cell
-        # (which contains a number of shell-able derivations) to be exposed
-        # by the flake and accessible via nix develop.
-        devShells = inputs.std.harvest inputs.self [ "antaeus" "devshells" ];
-        packages = inputs.std.harvest inputs.self [ "antaeus" "packages" ];
-      }
-      {
-        # Here we say that we want the "devcontainer" cell block of the antaeus cell
-        # (which contains a number of buildable derivations) to be exposed
-        # by the flake and accessible via nix build (or nix run).
-        packages = inputs.std.harvest inputs.self [ "antaeus" "devcontainer" ];
-      }
-      {
-        hydraJobs = inputs.std.harvest inputs.self [ "automation" "hydra-jobs" ];
-      };
+    # The root of the repository.
+    # The path *must* contain the cabal.project file. 
+    repoRoot = ./.;
+
+    # The nonempty list of supported systems.
+    systems = [ "x86_64-linux" "x86_64-darwin" ];
+
+    # The nonempty list of supported GHC versions.
+    # Available versions are: ghc8107, ghc927
+    haskellCompilers = [ "ghc927" ];
+
+    # The default GHC compiler, it must be one of haskellCompilers above.
+    # When running `nix develop` this is the compiler that will be available
+    # in the shell.
+    defaultHaskellCompiler = "ghc927";
+
+    # The host system for cross-compiling on migwW64, usually x86_64-linux.
+    # A value of null means: do not cross-compile.
+    haskellCrossSystem = null;
+
+    # A file evaluating to a haskell.nix project.
+    # For documentation, refer to the file ./nix/haskell-project.nix
+    # generated by the template.
+    haskellProjectFile = ./nix/haskell-project.nix;
+
+    # A file evaluating to system-dependent flake outputs.
+    # For documentation, refer to the file ./nix/per-system-outputs.nix 
+    # generated by the template.
+    # A value of null means: no custom outputs.
+    perSystemOutputsFile = null;
+
+    # Shell prompt i.e. the value of the `PS1` evnvar. 
+    # Not that because this is a nix string that will be embedded in a bash
+    # string, you need to double-escape the left slashes:
+    # Example: 
+    #   bash: "\n\[\033[1;32m\][nix-shell:\w]\$\[\033[0m\] "
+    #   shellPrompt: "\n\\[\\033[1;32m\\][nix-shell:\\w]\\$\\[\\033[0m\\] "
+    shellPrompt = "\n\\[\\033[1;32m\\][antaeus]\\$\\[\\033[0m\\] ";
+
+    # Only for cosmetic purposes, the shell welcome message will be printed 
+    # when you enter the shell. 
+    shellWelcomeMessage = "🤟 \\033[1;31mWelcome to antaeus\\033[0m 🤟";
+
+    # A file evaluating to your development shell.
+    # For documentation, refer to the file ./nix/shell-module.nix
+    # generated by the template.
+    # A value of null means: no need to augment the default shell.
+    shellModuleFile = ./nix/shell-module.nix;
+
+    # Whether to populate `hydraJobs` with the haskell artifacts.
+    # In general you want to set this to true.
+    # If this field is set to false, then the following fields have no
+    # effect: 
+    #   excludeProfiledHaskellFromHydraJobs
+    #   blacklistedHydraJobs
+    #   enableHydraPreCommitCheck
+    includeHydraJobs = true;
+
+    # Whether to exclude profiled haskell builds from CI.
+    # In general you don't want to run profiled builds in CI.
+    excludeProfiledHaskellFromHydraJobs = true;
+
+    # A list of derivations to be excluded from CI.
+    # Each item in the list is an attribute path inside `hydraJobs` in the 
+    # form of a dot-string. For example:
+    #   [ "packages.my-attrs.my-nested-attr.my-pkg" "checks.exclude-me" ]
+    blacklistedHydraJobs = [ ];
+
+    # Whether to run the pre-commit-check in CI, which mostly runs the
+    # formatters. In general you want this to be true, but you can disable 
+    # it temporarily while migrating to IOGX if you find that the formatters 
+    # are producing large diffs on the source files.
+    enableHydraPreCommitCheck = true;
+
+    # The folder containing the read-the-docs python project.
+    # You should set this value to something like:
+    #   `readTheDocsSiteDir = ./doc/read-the-docs-site`
+    # A value of null means: read-the-docs not available.
+    # If this value is null, then the following fields have no effect: 
+    #   readTheDocsHaddockPrologue
+    #   readTheDocsExtraHaddockPackages
+    readTheDocsSiteDir = null;
+
+    # A string to be appended to your haddock index page.
+    # Haddock is included in the read-the-docs site.
+    # A value of "" means: do not add a prologue.
+    readTheDocsHaddockPrologue = "";
+
+    # A function taking the project's haskell.nix package set and returning 
+    # a possibly empty attrset of extra haskell packages.
+    # The haddock for the returned packages will be included in the final 
+    # haddock for this project. 
+    # The returned attrset must be of the form: 
+    #   `{ haskell-package-name: haskell-package }`
+    # In general you want to include IOG-specific haskell dependencies here.
+    # For example, in the haddock for plutus-apps you will want to include
+    # the haddock for some plutus-core components, in which case you would 
+    # set this value like this:
+    #   readTheDocsExtraHaddockPackages = hsPkgs: {
+    #     inherit (hsPkgs) 
+    #       plutus-core plutus-tx plutus-tx-plugin 
+    #       plutus-ledger-api quickcheck-contractmodel
+    #   }
+    # A value of null means: do not add extra packages.
+    readTheDocsExtraHaddockPackages = null;
+  };
+
 
   nixConfig = {
+
+    # Do not remove these two substitures, but add to them if you wish.
     extra-substituters = [
       "https://cache.iog.io"
       "https://cache.zw3rk.com"
     ];
+
+    # Do not remove these two public-keys, but add to them if you wish.
     extra-trusted-public-keys = [
       "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
       "loony-tools:pr9m4BkM/5/eSTZlkQyRt57Jz7OMBxNSUiMC4FkcNfk="
     ];
-    allow-import-from-derivation = true;
+
     accept-flake-config = true;
+
+    # Do not remove this: it's needed by haskell.nix.
+    allow-import-from-derivation = true;
   };
 }

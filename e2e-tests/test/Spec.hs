@@ -17,9 +17,9 @@ import Hedgehog qualified as H
 import Hedgehog.Extras qualified as HE
 import Helpers.Test (runTest)
 import Helpers.TestData (TestParams (..))
+import Helpers.Testnet qualified as TN
 import Helpers.TestResults (TestResult (..), TestSuiteResults (..), allFailureMessages, suiteFailureMessages,
                             testSuitesToJUnit)
-import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
