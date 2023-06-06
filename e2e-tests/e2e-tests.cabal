@@ -126,6 +126,15 @@ test-suite antaeus-test
     PlutusScripts.Hashing.V_1_0
     PlutusScripts.Hashing.V_1_1
     PlutusScripts.BLS
+    PlutusScripts.BLS.AggregateSigWithMultipleKeys
+    PlutusScripts.BLS.AggregateSigWithSameKey
+    PlutusScripts.BLS.Common
+    PlutusScripts.BLS.Groth16
+    PlutusScripts.BLS.SchnorrG1
+    PlutusScripts.BLS.SchnorrG2
+    PlutusScripts.BLS.SimpleSignAndVerify
+    PlutusScripts.BLS.VerifyOverG1
+    PlutusScripts.BLS.Vrf
     PlutusScripts.Helpers
     PlutusScripts.SECP256k1.Common
     PlutusScripts.SECP256k1.V_1_0
