@@ -54,7 +54,8 @@ cardanoStakingCredential (C.AddressInEra _ (C.ShelleyAddress _ _ stakeAddressRef
       $ PV1.PubKeyHash
       $ PlutusTx.toBuiltin
       $ C.serialiseToRawBytes stakeKeyHash
-    fromCardanoStakeCredential (C.StakeCredentialByScript scriptHash) = ScriptCredential $ fromCardanoScriptHash scriptHash
+    fromCardanoStakeCredential (C.StakeCredentialByScript scriptHash) =
+      ScriptCredential $ fromCardanoScriptHash scriptHash
 
 toPlutusAddress :: C.AddressInEra era -> Address
 toPlutusAddress address = Address (cardanoAddressCredential address) (cardanoStakingCredential address)

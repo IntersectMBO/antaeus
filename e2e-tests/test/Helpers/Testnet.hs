@@ -80,7 +80,8 @@ localNodeOptionsPreview = Left $ LocalNodeOptions
 data TimedOut = ProcessExitTimedOut Int PHANDLE deriving Show
 
 instance Error TimedOut where
-  displayError (ProcessExitTimedOut t pid) = "Timeout. Waited " ++ show t ++ "s in `cleanupTestnet` for process to exit. pid=" ++ show pid
+  displayError (ProcessExitTimedOut t pid) = "Timeout. Waited " ++ show t ++
+                                             "s in `cleanupTestnet` for process to exit. pid=" ++ show pid
 
 testnetOptionsAlonzo6, testnetOptionsBabbage7, testnetOptionsBabbage8 :: Either LocalNodeOptions TestnetOptions
 testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
@@ -106,7 +107,8 @@ startTestnet ::
   H.Integration (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
 startTestnet era testnetOptions base tempAbsBasePath' = do
   configurationTemplate <- H.noteShow $ base </> "configuration/defaults/byron-mainnet/configuration.yaml"
-  conf :: CTN.Conf <- HE.noteShowM $ CTN.mkConf (CTN.ProjectBase base) (CTN.YamlFilePath configurationTemplate) (tempAbsBasePath' <> "/") Nothing
+  conf :: CTN.Conf <- HE.noteShowM $
+    CTN.mkConf (CTN.ProjectBase base) (CTN.YamlFilePath configurationTemplate) (tempAbsBasePath' <> "/") Nothing
   tn <- CTN.testnet (testnetCardanoOptions testnetOptions) conf
 
   -- Boilerplate codecs used for protocol serialisation. The number of epochSlots is specific
@@ -122,15 +124,20 @@ startTestnet era testnetOptions base tempAbsBasePath' = do
           }
       networkId = getNetworkId tn
   pparams <- getProtocolParams era localNodeConnectInfo
-  liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs -- set node socket environment for Cardano.Api.Convenience.Query
+  -- set node socket environment for Cardano.Api.Convenience.Query
+  liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs
   pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
 cleanupTestnet mPoolNodes = case mPoolNodes of
     Just poolNodes -> do
-      liftIO $ mapM_ (\ (CTN.PoolNode poolRuntime _) -> cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)) poolNodes -- graceful SIGTERM all nodes
+      liftIO (mapM_ (\ (CTN.PoolNode poolRuntime _) ->
+         -- graceful SIGTERM all nodes
+        cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime))
+        poolNodes)
       if not OS.isWin32 then -- do no process kill signalling on windows
-        liftIO $ mapM (\node -> killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node) poolNodes -- kill signal for any node unix handles still open
+        -- kill signal for any node unix handles still open
+        liftIO $ mapM (\node -> killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node) poolNodes
         else return []
     _ ->     return []
     where
@@ -173,7 +180,8 @@ connectToLocalNode era localNodeOptions tempAbsPath = do
             C.localNodeSocketPath = socketPathAbs
           }
   pparams <- getProtocolParams era localNodeConnectInfo
-  liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs -- set node socket environment for Cardano.Api.Convenience.Query
+  -- set node socket environment for Cardano.Api.Convenience.Query
+  liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
 -- | Start testnet with cardano-testnet or use local node that's already
@@ -207,11 +215,15 @@ getPoolSocketPathAbs conf tn = do
   H.note =<< (liftIO $ IO.canonicalizePath $ tempAbsPath </> socketPath)
 
 -- | Query network's protocol parameters
-getProtocolParams :: (MonadIO m, MonadTest m) => C.CardanoEra era -> C.LocalNodeConnectInfo C.CardanoMode -> m C.ProtocolParameters
+getProtocolParams :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m C.ProtocolParameters
 getProtocolParams era localNodeConnectInfo =
   H.leftFailM . H.leftFailM . liftIO $
     C.queryNodeLocalState localNodeConnectInfo Nothing $
-      C.QueryInEra (toEraInCardanoMode era) $ C.QueryInShelleyBasedEra (cardanoEraToShelleyBasedEra era) C.QueryProtocolParameters
+      C.QueryInEra (toEraInCardanoMode era) $
+      C.QueryInShelleyBasedEra (cardanoEraToShelleyBasedEra era) C.QueryProtocolParameters
 
 -- | Signing key and address for wallet 1
 --   Handles two key types: GenesisUTxOKey and PaymentKey

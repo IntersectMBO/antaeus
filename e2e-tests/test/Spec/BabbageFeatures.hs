@@ -54,7 +54,8 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
   -- build a transaction
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-  txInAsTxOut@(C.TxOut _ txInValue _ _) <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
+  txInAsTxOut@(C.TxOut _ txInValue _ _) <-
+    Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
 
   let
     tokenValues = C.valueFromList [(PS.checkV2TxInfoAssetIdV2, 1), (PS.alwaysSucceedAssetIdV2, 2)]
@@ -72,8 +73,9 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
 
     lowerBound = P.fromMilliSeconds
       $ P.DiffMilliSeconds $ U.posixToMilliseconds $ fromJust mTime -- before slot 1
-    upperBound = P.fromMilliSeconds
-      $ P.DiffMilliSeconds $ U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
+    upperBound = P.fromMilliSeconds $
+      P.DiffMilliSeconds $
+      U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
     timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
     expTxInfoInputs          = PS.txInfoInputs (txIn, txInAsTxOut)
@@ -88,9 +90,12 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
     expTxInfoData            = PS.txInfoData [datum]
     expTxInfoValidRange      = timeRange
 
-    redeemer = PS.checkV2TxInfoRedeemer [expTxInfoInputs] [expTxInfoReferenceInputs] expTxInfoOutputs expTxInfoFee expTxInfoMint
-               expDCert expWdrl expTxInfoValidRange expTxInfoSigs expTxInfoRedeemers expTxInfoData
-    mintWitnesses = Map.fromList [PS.checkV2TxInfoMintWitnessV2 era redeemer executionUnits1, PS.alwaysSucceedMintWitnessV2' era executionUnits2]
+    redeemer =
+      PS.checkV2TxInfoRedeemer [expTxInfoInputs] [expTxInfoReferenceInputs] expTxInfoOutputs expTxInfoFee expTxInfoMint
+        expDCert expWdrl expTxInfoValidRange expTxInfoSigs expTxInfoRedeemers expTxInfoData
+    mintWitnesses =
+      Map.fromList
+        [PS.checkV2TxInfoMintWitnessV2 era redeemer executionUnits1, PS.alwaysSucceedMintWitnessV2' era executionUnits2]
 
     txBodyContent = (Tx.emptyTxBodyContent era pparams)
       { C.txIns = Tx.pubkeyTxIns [txIn]
@@ -99,7 +104,9 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
       , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
       , C.txOuts = [txOut1, txOut2]
       , C.txFee = Tx.txFee era fee
-      , C.txValidityRange = Tx.txValidityRange era 1 2700 -- ~9min range (200ms slots). Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch).
+      , C.txValidityRange = Tx.txValidityRange era 1 2700
+      -- ^ ~9min range (200ms slots)
+      -- ^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
       , C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
       }
   txbody <- Tx.buildRawTx era txBodyContent
@@ -109,7 +116,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
   Tx.submitTx era localNodeConnectInfo signedTx
 
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
-  resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress "
+  resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress"
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
   assert "txOut has tokens" txOutHasTokenValue
 
@@ -173,7 +180,8 @@ referenceScriptMintTest networkOptions TestParams{..} = do
 
 referenceScriptInlineDatumSpendTestInfo = TestInfo {
     testName = "referenceScriptInlineDatumSpendTest",
-    testDescription = "Spend funds locked by script by using inline datum and referencing an input containing a Plutus script as witness",
+    testDescription = "Spend funds locked by script by using inline datum and referencing an input containing a " ++
+                      "Plutus script as witness",
     test = referenceScriptInlineDatumSpendTest}
 referenceScriptInlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -232,7 +240,8 @@ referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
 
 referenceScriptDatumHashSpendTestInfo = TestInfo {
     testName = "referenceScriptDatumHashSpendTest",
-    testDescription = "Spend funds locked by script by providing datum in txbody and referencing an input containing a Plutus script as witness",
+    testDescription = "Spend funds locked by script by providing datum in txbody and referencing an input " ++
+                      "containing a Plutus script as witness",
     test = referenceScriptDatumHashSpendTest}
 referenceScriptDatumHashSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -292,7 +301,8 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
 
 inlineDatumSpendTestInfo = TestInfo {
     testName = "inlineDatumSpendTest",
-    testDescription = "Spend funds locked by script by using inline datum and providing Plutus script in transaction as witness",
+    testDescription = "Spend funds locked by script by using inline datum and providing Plutus script in " ++
+                      "transaction as witness",
     test = inlineDatumSpendTest}
 inlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -326,7 +336,8 @@ inlineDatumSpendTest networkOptions TestParams{..} = do
   -- build a transaction to mint token using reference script
 
   let
-    scriptTxIn = Tx.txInWitness txInAtScript (PS.alwaysSucceedSpendWitnessV2 era Nothing Nothing)  -- without reference script
+    -- without reference script
+    scriptTxIn = Tx.txInWitness txInAtScript (PS.alwaysSucceedSpendWitnessV2 era Nothing Nothing)
     collateral = Tx.txInsCollateral era [otherTxIn]
     adaValue = C.lovelaceToValue 4_200_000
     txOut = Tx.txOut era adaValue w1Address
@@ -376,11 +387,13 @@ referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
 
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   let expError = "ReferenceInputsNotSupported"
-  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+  -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
 
 referenceScriptOutputWithV1ScriptErrorTestInfo = TestInfo {
     testName = "referenceScriptOutputWithV1ScriptErrorTest",
-    testDescription = "ReferenceScriptsNotSupported error occurs when executing a V1 script whilst creating an output including a reference script",
+    testDescription = "ReferenceScriptsNotSupported error occurs when executing a V1 script whilst creating " ++
+                      "an output including a reference script",
     test = referenceScriptOutputWithV1ScriptErrorTest}
 referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -410,11 +423,13 @@ referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   H.annotate $ show eitherTx
   let expError = "ReferenceScriptsNotSupported"
-  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+  -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
 
 inlineDatumOutputWithV1ScriptErrorTestInfo = TestInfo {
     testName = "inlineDatumOutputWithV1ScriptErrorTest",
-    testDescription = "InlineDatumsNotSupported error occurs when executing a V1 script whilst creating an output including an inline datum",
+    testDescription = "InlineDatumsNotSupported error occurs when executing a V1 script whilst creating" ++
+                      "an output including an inline datum",
     test = inlineDatumOutputWithV1ScriptErrorTest}
 inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -443,11 +458,13 @@ inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
   eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
   H.annotate $ show eitherTx
   let expError = "InlineDatumsNotSupported"
-  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+  -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+  assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
 
 returnCollateralWithTokensValidScriptTestInfo = TestInfo {
     testName = "returnCollateralWithTokensValidScriptTest",
-    testDescription = "Check it is possible to provide collateral input containing tokens if return collateral is being used to return them",
+    testDescription = "Check it is possible to provide collateral input containing tokens if return collateral" ++
+                      "is being used to return them",
     test = returnCollateralWithTokensValidScriptTest}
 returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->

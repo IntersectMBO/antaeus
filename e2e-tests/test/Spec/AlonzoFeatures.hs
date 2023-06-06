@@ -53,7 +53,8 @@ checkTxInfoV1Test networkOptions TestParams{..} = do
   -- build a transaction
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-  txInAsTxOut@(C.TxOut _ txInValue _ _) <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
+  txInAsTxOut@(C.TxOut _ txInValue _ _) <-
+    Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
 
   let
     tokenValues = C.valueFromList [(PS.checkV1TxInfoAssetIdV1, 1)]
@@ -71,7 +72,8 @@ checkTxInfoV1Test networkOptions TestParams{..} = do
     lowerBound = P.fromMilliSeconds
       $ P.DiffMilliSeconds $ U.posixToMilliseconds $ fromJust mTime -- before slot 1
     upperBound = P.fromMilliSeconds
-      $ P.DiffMilliSeconds $ U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
+      -- ~10mins after slot 1 (to account for testnet init time)
+      $ P.DiffMilliSeconds $ U.posixToMilliseconds startTime + 600_000
     timeRange = P.interval lowerBound upperBound :: PlutusV1.POSIXTimeRange
 
     expTxInfoInputs     = PS.txInfoInputs (txIn, txInAsTxOut)
@@ -94,7 +96,9 @@ checkTxInfoV1Test networkOptions TestParams{..} = do
       , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
       , C.txOuts = [txOut1, txOut2]
       , C.txFee = Tx.txFee era fee
-      , C.txValidityRange = Tx.txValidityRange era 1 2700 -- ~9min range (200ms slots). Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch).
+      , C.txValidityRange = Tx.txValidityRange era 1 2700
+      -- ^ ~9min range (200ms slots)
+      -- ^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
       , C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
       }
   txbody <- Tx.buildRawTx era txBodyContent
@@ -104,7 +108,7 @@ checkTxInfoV1Test networkOptions TestParams{..} = do
   Tx.submitTx era localNodeConnectInfo signedTx
 
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
-  resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress "
+  resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress"
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
   assert "txOut has tokens" txOutHasTokenValue
 
@@ -166,7 +170,8 @@ datumHashSpendTest networkOptions TestParams{..} = do
   let
     expectedTxIn1 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains expected ada value
-  resultTxOut1 <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn1 "resultTxOut1 <- getTxOutAtAddress"
+  resultTxOut1 <-
+    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn1 "resultTxOut1 <- getTxOutAtAddress"
   txOutHasAdaValue <- Q.txOutHasValue resultTxOut1 adaValue
   H.assert txOutHasAdaValue
 
@@ -174,7 +179,8 @@ datumHashSpendTest networkOptions TestParams{..} = do
 
 mintBurnTestInfo = TestInfo {
     testName = "mintBurnTest",
-    testDescription = "Mint some tokens with Plutus policy in one transaction and then burn some of them in second transaction",
+    testDescription = "Mint some tokens with Plutus policy in one transaction and then burn some of " ++
+                      "them in second transaction",
     test = mintBurnTest}
 mintBurnTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -230,7 +236,8 @@ mintBurnTest networkOptions TestParams{..} = do
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn2 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains tokens remaining after burn
-  resultTxOut2 <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn2 "resultTxOut2 <- getTxOutAtAddress"
+  resultTxOut2 <-
+    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn2 "resultTxOut2 <- getTxOutAtAddress"
   txOutHasTokenValue2 <- Q.txOutHasValue resultTxOut2 tokenValues2
   assert "txOut has tokens" txOutHasTokenValue2
 
@@ -298,7 +305,8 @@ collateralContainsTokenErrorTest networkOptions TestParams{..} = do
 
 missingCollateralInputErrorTestInfo = TestInfo {
     testName = "missingCollateralInputErrorTest",
-    testDescription = "TxBodyEmptyTxInsCollateral error occurs when collateral input is required but txbody's txInsCollateral is missing",
+    testDescription = "TxBodyEmptyTxInsCollateral error occurs when collateral input is required but txbody's " ++
+                      "txInsCollateral is missing",
     test = missingCollateralInputErrorTest}
 missingCollateralInputErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -330,7 +338,8 @@ missingCollateralInputErrorTest networkOptions TestParams{..} = do
 
 noCollateralInputsErrorTestInfo = TestInfo {
     testName = "noCollateralInputsErrorTest",
-    testDescription = "NoCollateralInputs error occurs when collateral is required but txbody's txInsCollateral is empty",
+    testDescription = "NoCollateralInputs error occurs when collateral is required but txbody's " ++
+                      "txInsCollateral is empty",
     test = noCollateralInputsErrorTest}
 noCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -366,7 +375,8 @@ noCollateralInputsErrorTest networkOptions TestParams{..} = do
 
 tooManyCollateralInputsErrorTestInfo = TestInfo {
     testName = "tooManyCollateralInputsErrorTest",
-    testDescription = "TooManyCollateralInputs error occurs when number of collateral inputs exceed protocol param 'maxCollateralInputs'",
+    testDescription = "TooManyCollateralInputs error occurs when number of collateral inputs exceed " ++
+                      "protocol param 'maxCollateralInputs'",
     test = tooManyCollateralInputsErrorTest}
 tooManyCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -412,13 +422,6 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{..} = do
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
   let expError = "TooManyCollateralInputs"
   assert expError $ Tx.isSubmitError expError eitherSubmit
-
-  -- Tx.submitTx era localNodeConnectInfo signedTx2
-  -- let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
-  -- resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "resultTxOut <- getTxOutAtAddress"
-  -- txOutHasAdaValue <- Q.txOutHasValue resultTxOut (C.lovelaceToValue 1_000_000)
-  -- H.assert txOutHasAdaValue
-  -- return Nothing
 
 -- TODO: tx to produce error: InsufficientCollateral
 -- TODO: collateral input at script address error
