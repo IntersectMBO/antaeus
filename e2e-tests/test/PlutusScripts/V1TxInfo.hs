@@ -35,16 +35,26 @@ import PlutusTx.Builtins qualified as P
 import PlutusTx.Prelude qualified as P
 
 data V1TxInfo = V1TxInfo
-  { expTxInfoInputs      :: [PlutusV1.TxInInfo] -- ^ Transaction inputs; cannot be an empty list
-  , expTxInfoOutputs     :: [PlutusV1.TxOut] -- ^ Transaction outputs
-  , expTxInfoFee         :: PlutusV1.Value -- ^ The fee paid by this transaction.
-  , expTxInfoMint        :: PlutusV1.Value -- ^ The 'Value' minted by this transaction.
-  , expTxInfoDCert       :: [PlutusV1.DCert] -- ^ Digests of certificates included in this transaction
-  , expTxInfoWdrl        :: [(PlutusV1.StakingCredential, Integer)] -- ^ Withdrawals
-  , expTxInfoValidRange  :: PlutusV1.POSIXTimeRange -- ^ The valid range for the transaction.
-  , expTxInfoSignatories :: [PlutusV1.PubKeyHash] -- ^ Signatures provided with the transaction, attested that they all signed the tx
-  , expTxInfoData        :: [(PlutusV1.DatumHash, PlutusV1.Datum)] -- ^ The lookup table of datums attached to the transaction
-  -- , expTxInfoId          :: PlutusV1.TxId  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses). Cannot be verified onchain.
+  { expTxInfoInputs      :: [PlutusV1.TxInInfo]
+  -- ^ Transaction inputs; cannot be an empty list
+  , expTxInfoOutputs     :: [PlutusV1.TxOut]
+  -- ^ Transaction outputs
+  , expTxInfoFee         :: PlutusV1.Value
+  -- ^ The fee paid by this transaction.
+  , expTxInfoMint        :: PlutusV1.Value
+  -- ^ The 'Value' minted by this transaction.
+  , expTxInfoDCert       :: [PlutusV1.DCert]
+  -- ^ Digests of certificates included in this transaction
+  , expTxInfoWdrl        :: [(PlutusV1.StakingCredential, Integer)]
+  -- ^ Withdrawals
+  , expTxInfoValidRange  :: PlutusV1.POSIXTimeRange
+  -- ^ The valid range for the transaction.
+  , expTxInfoSignatories :: [PlutusV1.PubKeyHash]
+  -- ^ Signatures provided with the transaction, attested that they all signed the tx
+  , expTxInfoData        :: [(PlutusV1.DatumHash, PlutusV1.Datum)]
+  -- ^ The lookup table of datums attached to the transaction
+  -- , expTxInfoId          :: PlutusV1.TxId
+  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses). Cannot be verified onchain.
   }
 PlutusTx.unstableMakeIsData ''V1TxInfo
 

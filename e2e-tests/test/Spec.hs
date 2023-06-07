@@ -60,7 +60,8 @@ pv6Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
        , run Alonzo.collateralContainsTokenErrorTestInfo
        , run Alonzo.noCollateralInputsErrorTestInfo
        , run Alonzo.missingCollateralInputErrorTestInfo
-       , run Alonzo.tooManyCollateralInputsErrorTestInfo -- fails, see https://github.com/input-output-hk/cardano-node/issues/5228
+       , run Alonzo.tooManyCollateralInputsErrorTestInfo
+       -- ^ fails, see https://github.com/input-output-hk/cardano-node/issues/5228
        , run Builtins.verifySchnorrAndEcdsaTestInfo
       ]
 

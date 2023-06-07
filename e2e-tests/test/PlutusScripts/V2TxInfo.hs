@@ -37,18 +37,30 @@ import PlutusTx.Builtins qualified as P
 import PlutusTx.Prelude qualified as P
 
 data V2TxInfo = V2TxInfo
-  { expTxInfoInputs          :: [PlutusV2.TxInInfo] -- ^ Transaction inputs; cannot be an empty list
-  , expTxInfoReferenceInputs :: [PlutusV2.TxInInfo] -- ^ /Added in V2:/ Transaction reference inputs
-  , expTxInfoOutputs         :: [PlutusV2.TxOut] -- ^ Transaction outputs
-  , expTxInfoFee             :: PlutusV2.Value -- ^ The fee paid by this transaction.
-  , expTxInfoMint            :: PlutusV2.Value -- ^ The 'Value' minted by this transaction.
-  , expTxInfoDCert           :: [PlutusV2.DCert] -- ^ Digests of certificates included in this transaction
-  , expTxInfoWdrl            :: PlutusV2.Map PlutusV2.StakingCredential Integer -- ^ Withdrawals
-  , expTxInfoValidRange      :: PlutusV2.POSIXTimeRange -- ^ The valid range for the transaction.
-  , expTxInfoSignatories     :: [PlutusV2.PubKeyHash] -- ^ Signatures provided with the transaction, attested that they all signed the tx
+  { expTxInfoInputs          :: [PlutusV2.TxInInfo]
+  -- ^ Transaction inputs; cannot be an empty list
+  , expTxInfoReferenceInputs :: [PlutusV2.TxInInfo]
+  -- ^ Added in V2: Transaction reference inputs
+  , expTxInfoOutputs         :: [PlutusV2.TxOut]
+  -- ^ Transaction outputs
+  , expTxInfoFee             :: PlutusV2.Value
+  -- ^ The fee paid by this transaction.
+  , expTxInfoMint            :: PlutusV2.Value
+  -- ^ The 'Value' minted by this transaction.
+  , expTxInfoDCert           :: [PlutusV2.DCert]
+  -- ^ Digests of certificates included in this transaction
+  , expTxInfoWdrl            :: PlutusV2.Map PlutusV2.StakingCredential Integer
+  -- ^ Withdrawals
+  , expTxInfoValidRange      :: PlutusV2.POSIXTimeRange
+  -- ^ The valid range for the transaction.
+  , expTxInfoSignatories     :: [PlutusV2.PubKeyHash]
+  -- ^ Signatures provided with the transaction, attested that they all signed the tx
   , expTxInfoRedeemers       :: PlutusV2.Map PlutusV2.ScriptPurpose PlutusV2.Redeemer
-  , expTxInfoData            :: PlutusV2.Map PlutusV2.DatumHash PlutusV2.Datum -- ^ The lookup table of datums attached to the transaction
-  -- , expTxInfoId          :: PlutusV2.TxId  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses). Cannot be verified onchain.
+  -- ^ Added in V2: a table of redeemers attached to the transaction
+  , expTxInfoData            :: PlutusV2.Map PlutusV2.DatumHash PlutusV2.Datum
+  -- ^ The lookup table of datums attached to the transaction
+  -- , expTxInfoId          :: PlutusV2.TxId
+  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses). Cannot be verified onchain.
   }
 PlutusTx.unstableMakeIsData ''V2TxInfo
 

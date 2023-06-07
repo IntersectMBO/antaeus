@@ -2,14 +2,14 @@
 
 {
   # Desystemized merged inputs.
-  # All the inputs from iogx (e.g. CHaP, haskell-nix, etc..) unioned with the 
+  # All the inputs from iogx (e.g. CHaP, haskell-nix, etc..) unioned with the
   # inputs defined in your flake. You will also find the `self` attribute here.
   # These inputs have been desystemized against the current system.
   inputs
 
   # Non-desystemized merged inputs.
-  # All the inputs from iogx (e.g. CHaP, haskell-nix, etc..) unioned with the 
-  # inputs defined in your flake. You will also find the `self` argument here. 
+  # All the inputs from iogx (e.g. CHaP, haskell-nix, etc..) unioned with the
+  # inputs defined in your flake. You will also find the `self` argument here.
   # These inputs have not been desystemized, they are the original `inputs` from
   # iogx and your `flake.nix`.
 , systemized-inputs
@@ -29,7 +29,7 @@
   # when the build has to include haddock.
 , deferPluginErrors
 
-  # Whether to enable haskell profiling. 
+  # Whether to enable haskell profiling.
 , enableProfiling
 }:
 
@@ -85,40 +85,53 @@ let
     };
   };
 
+  # TODO this is temporary and will be done automatically by IOGX in the next version
+  cardano-node-gitrev = "a158a679690ed8b003ee06e1216ac8acd5ab823d";
+
+
+  project = pkgs.haskell-nix.cabalProject' (_: {
+
+    compiler-nix-name = ghc;
+
+    src = flakeopts.repoRoot;
+
+    # Reccomended, otherwise you'll have to build haddock for the entire haskell
+    # dependecy tree.
+    shell.withHoogle = false;
+
+    inputMap = {
+      "https://input-output-hk.github.io/cardano-haskell-packages" = inputs.CHaP;
+    };
+
+    sha256map = {
+      "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-uY7wPyCgKuIZcGu0+vGacjGw2kox8H5ZsVGsfTNtU0c=";
+      "https://github.com/james-iohk/cardano-node"."adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c" = "18yhmfa95sfry9jsgv9rg1giv73235wwjvw7qr3jximj88gprakn";
+    };
+
+    # Configuration settings needed for cabal configure to work when cross compiling
+    # for windows. We can't use `modules` for these as `modules` are only applied
+    # after cabal has been configured.
+    cabalProjectLocal = lib.optionalString pkgs.stdenv.hostPlatform.isWindows ''
+      -- When cross compiling for windows we don't have a `ghc` package, so use
+      -- the `plutus-ghc-stub` package instead.
+      package plutus-tx-plugin
+        flags: +use-ghc-stub
+
+      -- Exlcude test that use `doctest`.  They will not work for windows
+      -- cross compilation and `cabal` will not be able to make a plan.
+      package prettyprinter-configurable
+        tests: False
+    '';
+
+    modules = [ antaeus-module ] ++ pkgs.lib.optional enableProfiling { enableProfiling = true; };
+  });
 in
-pkgs.haskell-nix.cabalProject' (_: {
-
-  compiler-nix-name = ghc;
-
-  src = flakeopts.repoRoot;
-
-  # Reccomended, otherwise you'll have to build haddock for the entire haskell
-  # dependecy tree.
-  shell.withHoogle = false;
-
-  inputMap = {
-    "https://input-output-hk.github.io/cardano-haskell-packages" = inputs.CHaP;
-  };
-
-  sha256map = {
-    "https://github.com/input-output-hk/cardano-node"."a158a679690ed8b003ee06e1216ac8acd5ab823d" = "sha256-uY7wPyCgKuIZcGu0+vGacjGw2kox8H5ZsVGsfTNtU0c=";
-    "https://github.com/james-iohk/cardano-node"."adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c" = "18yhmfa95sfry9jsgv9rg1giv73235wwjvw7qr3jximj88gprakn";
-  };
-
-  # Configuration settings needed for cabal configure to work when cross compiling
-  # for windows. We can't use `modules` for these as `modules` are only applied
-  # after cabal has been configured.
-  cabalProjectLocal = lib.optionalString pkgs.stdenv.hostPlatform.isWindows ''
-    -- When cross compiling for windows we don't have a `ghc` package, so use
-    -- the `plutus-ghc-stub` package instead.
-    package plutus-tx-plugin
-      flags: +use-ghc-stub
-
-    -- Exlcude test that use `doctest`.  They will not work for windows
-    -- cross compilation and `cabal` will not be able to make a plan.
-    package prettyprinter-configurable
-      tests: False
-  '';
-
-  modules = [ antaeus-module ] ++ pkgs.lib.optional enableProfiling { enableProfiling = true; };
-})
+project.appendOverlays [
+  (final: prev: {
+    hsPkgs = pkgs.pkgsBuildBuild.setGitRevForPaths cardano-node-gitrev [
+      "cardano-cli.components.exes.cardano-cli"
+      "cardano-node.components.exes.cardano-node"
+    ]
+      prev.hsPkgs;
+  })
+]

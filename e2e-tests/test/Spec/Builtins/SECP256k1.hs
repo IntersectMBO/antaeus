@@ -28,7 +28,9 @@ import PlutusScripts.SECP256k1 qualified as PS
 
 verifySchnorrAndEcdsaTestInfo = TestInfo {
     testName = "verifySchnorrAndEcdsaTest",
-    testDescription = "SECP256k1 builtin verify functions verifySchnorrSecp256k1Signature and verifyEcdsaSecp256k1Signature can only be used to mint in Babbage era protocol version 8 and beyond.",
+    testDescription = "SECP256k1 builtin verify functions verifySchnorrSecp256k1Signature and " ++
+                      "verifyEcdsaSecp256k1Signature can only be used to mint in Babbage era protocol version 8 " ++
+                      "and beyond.",
     test = verifySchnorrAndEcdsaTest}
 verifySchnorrAndEcdsaTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
@@ -77,8 +79,10 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
       eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
       annotate $ show eitherTx
       let
-        expErrorSchnorr = "Builtin function VerifySchnorrSecp256k1Signature is not available in language " ++ plutusVersion ++ " at and protocol version " ++ show pv
-        expErrorEcdsa = "Builtin function VerifyEcdsaSecp256k1Signature is not available in language " ++ plutusVersion ++ " at and protocol version " ++ show pv
+        expErrorSchnorr = "Builtin function VerifySchnorrSecp256k1Signature is not available in language " ++
+                          plutusVersion ++ " at and protocol version " ++ show pv
+        expErrorEcdsa = "Builtin function VerifyEcdsaSecp256k1Signature is not available in language " ++
+                        plutusVersion ++ " at and protocol version " ++ show pv
       a1 <- assert expErrorSchnorr $ Tx.isTxBodyScriptExecutionError expErrorSchnorr eitherTx
       a2 <- assert expErrorEcdsa $ Tx.isTxBodyScriptExecutionError expErrorEcdsa eitherTx
       U.concatMaybes [a1, a2]
