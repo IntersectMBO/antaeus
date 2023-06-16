@@ -30,15 +30,15 @@
   #   haskell-nix-project.hsPkgs.cardano-node.components.exes.cardano-node
   # ];
   # Be careful not to refence the project's own haskell packages.
-, projects
+, project
 }:
 
 {
   packages = [
-    projects.default.hsPkgs.cardano-cli.components.exes.cardano-cli
-    projects.default.hsPkgs.cardano-node.components.exes.cardano-node
+    project.hsPkgs.cardano-cli.components.exes.cardano-cli
+    project.hsPkgs.cardano-node.components.exes.cardano-node
   ];
 
-  env.CARDANO_CLI = "${projects.default.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli";
-  env.CARDANO_NODE = "${projects.default.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node";
+  env.CARDANO_CLI = "${project.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli";
+  env.CARDANO_NODE = "${project.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node";
 }
