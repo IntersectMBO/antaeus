@@ -32,7 +32,7 @@ let
   };
 
   # TODO this is temporary and will be done automatically by IOGX in the next version
-  cardano-node-gitrev = "a158a679690ed8b003ee06e1216ac8acd5ab823d";
+  cardano-node-gitrev = "6b601db8c7fcd3b55e78244c21aca2d17ca3aeaa";
 
   shellWithHoogle = false;
 

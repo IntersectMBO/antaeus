@@ -224,7 +224,7 @@ getProtocolParams era localNodeConnectInfo =
 w1 ::
   (MonadIO m, MonadTest m) =>
   Either LocalNodeOptions TestnetOptions ->
-  FilePath ->
+  C.File ->
   C.NetworkId ->
   m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
 w1 networkOptions tempAbsPath' networkId = do

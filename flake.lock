@@ -306,7 +306,6 @@
           "hackage"
         ],
         "hls-1.10": "hls-1.10",
-        "hls-2.0": "hls-2.0",
         "hpc-coveralls": "hpc-coveralls",
         "hydra": "hydra",
         "iserv-proxy": "iserv-proxy",
