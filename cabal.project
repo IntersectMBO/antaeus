@@ -66,10 +66,10 @@ source-repository-package
       cardano-api
 
 
--- Fork for improvements to Babbage testnet - see https://github.com/input-output-hk/cardano-node/pull/5224
---source-repository-package
---    type: git
---    location: https://github.com/james-iohk/cardano-node
---    tag: adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c
---    subdir:
---      cardano-testnet
+-- Fork for improvements to Babbage testnet - see TODO: UPDATE URL: https://github.com/input-output-hk/cardano-node/pull/5224
+source-repository-package
+    type: git
+    location: https://github.com/james-iohk/cardano-node
+    tag: 4ef9c0cba628307c70b24206d28b0a44fc9162bd
+    subdir:
+      cardano-testnet
