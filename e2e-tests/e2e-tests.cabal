@@ -118,9 +118,6 @@ test-suite antaeus-test
     Helpers.Tx
     Helpers.TypeConverters
     Helpers.Utils
-    OldPlutus.CBOR.Extras
-    OldPlutus.Prettyprinter.Extras
-    OldPlutus.Scripts
     PlutusScripts.Always
     PlutusScripts.Helpers
     PlutusScripts.SECP256k1

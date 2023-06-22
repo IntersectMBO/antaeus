@@ -59,9 +59,9 @@ readAs as path = do
 
 -- | Same as readAs but return Nothing on error
 maybeReadAs :: (C.HasTextEnvelope a, MonadIO m, MonadTest m) => C.AsType a -> C.File content C.In -> m (Maybe a)
-maybeReadAs as path = do
-  H.annotate $ C.unFile path
-  maybeEither . liftIO $ C.readFileTextEnvelope as path
+maybeReadAs as file@(C.File fp) = do
+  H.annotate fp
+  maybeEither . liftIO $ C.readFileTextEnvelope as file
   where
     maybeEither m = m >>= return . either (const Nothing) Just
 
