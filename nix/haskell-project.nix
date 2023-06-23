@@ -5,7 +5,7 @@ let
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   isCross = pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform;
 
-  module = { config, ... }: {
+  module = { config, src, ... }: {
     packages = {
       # Things that need plutus-tx-plugin
       freer-extras.package.buildable = !isCross;
@@ -31,7 +31,7 @@ let
       e2e-tests.components.tests.antaeus-test.preCheck = "
         export CARDANO_CLI=${config.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli${pkgs.stdenv.hostPlatform.extensions.executable}
         export CARDANO_NODE=${config.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node${pkgs.stdenv.hostPlatform.extensions.executable}
-        export CARDANO_NODE_SRC=${config.src}
+        export CARDANO_NODE_SRC=${src}
       ";
 
       # FIXME: Haddock mysteriously gives a spurious missing-home-modules warning
