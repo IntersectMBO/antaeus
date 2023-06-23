@@ -9,27 +9,8 @@
 
   editorconfig-checker.enable = true;
 
-  fourmolu.enable = true;
-  fourmolu.extraOptions = "--ghc-opt -XTypeApplications";
+  fourmolu.enable = false;
+  fourmolu.extraOptions = "--ghc-opt -XTypeApplications --ghc-opt -XQuasiQuotes";
 
-  hlint.enable = true;
+  hlint.enable = false;
 }
-
-
-  # - DataKinds
-  # - DeriveAnyClass
-  # - DeriveGeneric
-  # - DerivingStrategies
-  # - DerivingVia
-  # - ExistentialQuantification
-  # - ExplicitNamespaces
-  # - FlexibleContexts
-  # - GeneralizedNewtypeDeriving
-  # - MultiParamTypeClasses
-  # - NamedFieldPuns
-  # - PackageImports
-  # - QuasiQuotes
-  # - ScopedTypeVariables
-  # - TemplateHaskell
-  # - TypeApplications
-  # - ImportQualifiedPost
