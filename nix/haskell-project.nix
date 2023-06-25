@@ -45,10 +45,6 @@ let
       # Honestly not sure why we need this, it has a mysterious unused dependency on "m"
       # This will go away when we upgrade nixpkgs and things use ieee754 anyway.
       ieee.components.library.libs = lib.mkForce [ ];
-
-      # See https://github.com/input-output-hk/iohk-nix/pull/488
-      cardano-crypto-praos.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf ] ];
-      cardano-crypto-class.components.library.pkgconfig = lib.mkForce [ [ pkgs.libsodium-vrf pkgs.secp256k1 ] ];
     };
   };
 
@@ -71,7 +67,7 @@ let
     package plutus-tx-plugin
       flags: +use-ghc-stub
 
-    -- Exlcude test that use `doctest`.  They will not work for windows
+    -- Exclude test that use `doctest`.  They will not work for windows
     -- cross compilation and `cabal` will not be able to make a plan.
     package prettyprinter-configurable
       tests: False
