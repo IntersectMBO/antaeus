@@ -105,7 +105,7 @@ let
 
     sha256map = {
       "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-X8iZZMs0LepgTf1Mjh2mW/r5ttlVDSSjQ8GrrxMkHWY=";
-      "https://github.com/james-iohk/cardano-node"."4ef9c0cba628307c70b24206d28b0a44fc9162bd" = "sha256-nhnYN49K2aS06MWmTxmzwnAcqINSA4yJsSTI7y9gRlI=";
+      "https://github.com/james-iohk/cardano-node"."40602980e695b90b2137c9b4564a09c263b600cc" = "sha256-CdqECClyzPaXhXqXbkpxeIkk4ztnkF/9eHQ1GWwehE8=";
       "https://github.com/input-output-hk/cardano-api"."89fd11781d8ba19ce50f516ecef30607d2e704e8" = "sha256-jiPYLSV8/c/Qu44ekYlM6LT7cuGt0Tr8wVgh3GYQSdg=";
     };
 

@@ -7,6 +7,8 @@
 {-# LANGUAGE TypeApplications    #-}
 -- Not using all CardanoEra
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
+-- use target-version when plutus >=1.6
+-- {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module PlutusScripts.Always
   ( alwaysSucceedPolicyScriptV1,
@@ -50,6 +52,7 @@ import PlutusTx.Prelude qualified as P
 
 -- AlwaysSucceeds minting policy --
 
+{-# INLINABLE mkAlwaysSucceedPolicy #-}
 mkAlwaysSucceedPolicy :: BuiltinData -> BuiltinData -> ()
 mkAlwaysSucceedPolicy _datum _sc = ()
 
@@ -127,6 +130,7 @@ alwaysSucceedMintWitnessV2' era exunits =
 
 -- AlwaysSucceeds validator --
 
+{-# INLINABLE mkAlwaysSucceedSpend #-}
 mkAlwaysSucceedSpend :: BuiltinData -> BuiltinData -> BuiltinData -> ()
 mkAlwaysSucceedSpend _datum _redeemer _sc = ()
 
@@ -175,6 +179,7 @@ alwaysSucceedSpendWitnessV2 era mRefScript mDatum =
 
 -- AlwaysFails minting policy --
 
+{-# INLINABLE mkAlwaysFailsPolicy #-}
 mkAlwaysFailsPolicy :: BuiltinData -> BuiltinData -> ()
 mkAlwaysFailsPolicy _datum _sc = P.error ()
 

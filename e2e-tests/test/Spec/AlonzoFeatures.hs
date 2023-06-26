@@ -189,7 +189,6 @@ mintBurnTest :: (MonadTest m, MonadIO m) =>
   TestParams ->
   m (Maybe String)
 mintBurnTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-
   let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId

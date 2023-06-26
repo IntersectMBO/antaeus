@@ -63,6 +63,17 @@ defBabbageTestnetOptions protocolVersion = TestnetOptions
       }
   }
 
+defConwayTestnetOptions :: TestnetOptions
+defConwayTestnetOptions = TestnetOptions
+  { testnetEra = C.AnyCardanoEra C.ConwayEra
+  , testnetProtocolVersion = 9
+  , testnetCardanoOptions = C.ConwayOnlyTestnetOptions CTN.babbageDefaultTestnetOptions
+      { CTN.babbageProtocolVersion = 9
+      , CTN.babbageSlotDuration = 200
+      , CTN.babbageEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+      }
+  }
+
 data LocalNodeOptions = LocalNodeOptions
   { localNodeEra             :: C.AnyCardanoEra
   , localNodeProtocolVersion :: Int
@@ -84,10 +95,12 @@ instance Error TimedOut where
   displayError (ProcessExitTimedOut t pid) = "Timeout. Waited " ++ show t ++
                                              "s in `cleanupTestnet` for process to exit. pid=" ++ show pid
 
-testnetOptionsAlonzo6, testnetOptionsBabbage7, testnetOptionsBabbage8 :: Either LocalNodeOptions TestnetOptions
+testnetOptionsAlonzo6, testnetOptionsBabbage7, testnetOptionsBabbage8, testnetOptionsConway9
+  :: Either LocalNodeOptions TestnetOptions
 testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
 testnetOptionsBabbage7 = Right $ defBabbageTestnetOptions 7
 testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
+testnetOptionsConway9 = Right defConwayTestnetOptions
 
 eraFromOptions :: (MonadTest m) => Either LocalNodeOptions TestnetOptions -> m C.AnyCardanoEra
 eraFromOptions = return . either localNodeEra testnetEra
