@@ -20,16 +20,17 @@ module PlutusScripts.SECP256k1 (
   , verifyEcdsaMintWitnessV2
   ) where
 
-import Cardano.Api qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
-import OldPlutus.Scripts (MintingPolicy, mkMintingPolicyScript)
-import PlutusLedgerApi.V1 qualified as PlutusV1
-import PlutusLedgerApi.V2 qualified as PlutusV2
-import PlutusScripts.Helpers (bytesFromHex, mintScriptWitness, plutusL1, plutusL2, policyIdV1, policyIdV2, policyScript,
-                              toScriptData)
-import PlutusTx qualified
-import PlutusTx.Builtins qualified as BI
-import PlutusTx.Prelude qualified as P
+import qualified Cardano.Api           as C
+import           Helpers.ScriptUtils   (IsScriptContext (mkUntypedMintingPolicy))
+import           OldPlutus.Scripts     (MintingPolicy, mkMintingPolicyScript)
+import qualified PlutusLedgerApi.V1    as PlutusV1
+import qualified PlutusLedgerApi.V2    as PlutusV2
+import           PlutusScripts.Helpers (bytesFromHex, mintScriptWitness,
+                                        plutusL1, plutusL2, policyIdV1,
+                                        policyIdV2, policyScript, toScriptData)
+import qualified PlutusTx
+import qualified PlutusTx.Builtins     as BI
+import qualified PlutusTx.Prelude      as P
 
 ---- SECP256k1 ----
 
@@ -77,10 +78,10 @@ verifySchnorrParams :: Secp256Params
 verifySchnorrParams = Secp256Params
   {
     vkey = BI.toBuiltin $ bytesFromHex "599de3e582e2a3779208a210dfeae8f330b9af00a47a7fb22e9bb8ef596f301b",
-    msg  = BI.toBuiltin $ bytesFromHex "3030303030303030303030303030303030303030303030303030303030303030" <>
-                                       "3030303030303030303030303030303030303030303030303030303030303030",
-    sig  = BI.toBuiltin $ bytesFromHex "5a56da88e6fd8419181dec4d3dd6997bab953d2fc71ab65e23cfc9e7e3d1a310" <>
-                                       "613454a60f6703819a39fdac2a410a094442afd1fc083354443e8d8bb4461a9b"
+    msg  = BI.toBuiltin $ bytesFromHex ("3030303030303030303030303030303030303030303030303030303030303030" <>
+                                       "3030303030303030303030303030303030303030303030303030303030303030"),
+    sig  = BI.toBuiltin $ bytesFromHex ("5a56da88e6fd8419181dec4d3dd6997bab953d2fc71ab65e23cfc9e7e3d1a310" <>
+                                       "613454a60f6703819a39fdac2a410a094442afd1fc083354443e8d8bb4461a9b")
   }
 
 verifySchnorrRedeemer :: C.HashableScriptData
@@ -136,8 +137,8 @@ verifyEcdsaParams = Secp256Params
   {
     vkey = BI.toBuiltin $ bytesFromHex "0392d7b94bc6a11c335a043ee1ff326b6eacee6230d3685861cd62bce350a172e0",
     msg  = BI.toBuiltin $ bytesFromHex "16e0bf1f85594a11e75030981c0b670370b3ad83a43f49ae58a2fd6f6513cde9",
-    sig  = BI.toBuiltin $ bytesFromHex "5fb12954b28be6456feb080cfb8467b6f5677f62eb9ad231de7a575f4b685751" <>
-                                       "2754fb5ef7e0e60e270832e7bb0e2f0dc271012fa9c46c02504aa0e798be6295"
+    sig  = BI.toBuiltin $ bytesFromHex ("5fb12954b28be6456feb080cfb8467b6f5677f62eb9ad231de7a575f4b685751" <>
+                                       "2754fb5ef7e0e60e270832e7bb0e2f0dc271012fa9c46c02504aa0e798be6295")
   }
 
 verifyEcdsaRedeemer :: C.HashableScriptData
