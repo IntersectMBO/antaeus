@@ -6,7 +6,7 @@
 
 
   inputs = {
-    iogx.url = "github:input-output-hk/iogx";
+    iogx.url = "github:input-output-hk/iogx?ref=xwindows";
   };
 
 
