@@ -11,11 +11,11 @@ import Cardano.Api (Error)
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad (forM_, forM)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
-import Hedgehog.Extras.Stock.OS qualified as OS
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoMode)
@@ -129,22 +129,25 @@ startTestnet era testnetOptions base tempAbsBasePath' = do
   pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
-cleanupTestnet mPoolNodes = case mPoolNodes of
-    Just poolNodes -> do
-      liftIO (mapM_ (\ (CTN.PoolNode poolRuntime _) ->
-        -- graceful SIGTERM all nodes
-        cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime))
-        poolNodes)
+cleanupTestnet mPoolNodes = 
+    liftIO $ 
+      case mPoolNodes of
+        Just poolNodes -> do
+          forM_ poolNodes $ \(CTN.PoolNode poolRuntime _) -> do 
+            -- graceful SIGTERM all nodes
+            cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
 #if defined(mingw32_HOST_OS)
-        -- kill signal for any node unix handles still open
-        liftIO $ mapM (\node -> killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node) poolNodes
+          -- do no process kill signalling on windows
+          return []
 #else 
-        -- do no process kill signalling on windows
-        return []
+          forM poolNodes $ \node -> -- kill signal for any node unix handles still open
+            killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node
 #endif
-    _ ->     
-      return []
+        _ ->     
+          return []
     where
+#if defined(mingw32_HOST_OS)
+#else 
       killUnixHandle ph = liftIO $ withProcessHandle ph $ \case
           OpenHandle pid    -> do
             signalProcess sigKILL pid -- send kill signal if handle still open
@@ -154,6 +157,7 @@ cleanupTestnet mPoolNodes = case mPoolNodes of
                 Right _ -> return $ Right ()
           OpenExtHandle _ _ -> return $ Right () -- do nothing on Windows
           ClosedHandle _    -> return $ Right () -- do nothing if already closed
+#endif 
 
 connectToLocalNode ::
   C.CardanoEra era ->
