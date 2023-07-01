@@ -143,7 +143,10 @@ cleanupTestnet mPoolNodes = case mPoolNodes of
     where
       killUnixHandle ph = liftIO $ withProcessHandle ph $ \case
           OpenHandle pid    -> do
+            #if defined(mingw32_HOST_OS)
+            #else
             signalProcess sigKILL pid -- send kill signal if handle still open
+            #endif
             eTimeOut <- waitSecondsForProcess 60 ph  -- wait 60s for process to exit
             case eTimeOut of
                 Left _  -> return $ Left $ ProcessExitTimedOut 60 pid
