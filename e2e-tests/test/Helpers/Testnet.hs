@@ -13,10 +13,10 @@ import Cardano.Api (Error)
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad (forM_)
+import Control.Monad (forM_, forM)
+import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
-import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
@@ -24,15 +24,13 @@ import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoM
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.Environment qualified as IO
-
+import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 import System.FilePath ((</>))
 
 #if defined(mingw32_HOST_OS)
   -- do no process kill signalling on windows
 #else
-import Control.Monad (forM)
 import System.Posix.Signals (sigKILL, signalProcess)
-import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 #endif
 
 import Cardano.Testnet qualified as C
