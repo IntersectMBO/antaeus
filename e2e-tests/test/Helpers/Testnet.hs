@@ -1,9 +1,11 @@
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Helpers.Testnet where
 
@@ -11,7 +13,7 @@ import Cardano.Api (Error)
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad (forM_, forM)
+import Control.Monad (forM_)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
@@ -28,13 +30,14 @@ import System.FilePath ((</>))
 #if defined(mingw32_HOST_OS)
   -- do no process kill signalling on windows
 #else
+import Control.Monad (forM)
 import System.Posix.Signals (sigKILL, signalProcess)
+import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 #endif
 
 import Cardano.Testnet qualified as C
 import Cardano.Testnet qualified as CTN hiding (testnetMagic)
 import System.Process (cleanupProcess)
-import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 import Testnet.Util.Runtime qualified as CTN
 
 data TestnetOptions = TestnetOptions
