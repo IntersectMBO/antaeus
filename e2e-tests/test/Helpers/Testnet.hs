@@ -141,6 +141,7 @@ cleanupTestnet mPoolNodes = case mPoolNodes of
 #else 
         -- do no process kill signalling on windows
         return []
+#endif
     _ ->     
       return []
     where
