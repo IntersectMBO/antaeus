@@ -132,14 +132,17 @@ cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
 cleanupTestnet mPoolNodes = case mPoolNodes of
     Just poolNodes -> do
       liftIO (mapM_ (\ (CTN.PoolNode poolRuntime _) ->
-         -- graceful SIGTERM all nodes
+        -- graceful SIGTERM all nodes
         cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime))
         poolNodes)
-      if not OS.isWin32 then -- do no process kill signalling on windows
+#if defined(mingw32_HOST_OS)
         -- kill signal for any node unix handles still open
         liftIO $ mapM (\node -> killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node) poolNodes
-        else return []
-    _ ->     return []
+#else 
+        -- do no process kill signalling on windows
+        return []
+    _ ->     
+      return []
     where
       killUnixHandle ph = liftIO $ withProcessHandle ph $ \case
           OpenHandle pid    -> do
