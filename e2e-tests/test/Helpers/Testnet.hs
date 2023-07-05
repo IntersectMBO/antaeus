@@ -138,8 +138,8 @@ cleanupTestnet mPoolNodes =
             -- graceful SIGTERM all nodes
             cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
 #if defined(mingw32_HOST_OS)
-          -- do no process kill signalling on windows
           return []
+          -- do no process kill signalling on windows
 #else 
           forM poolNodes $ \node -> -- kill signal for any node unix handles still open
             killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node
