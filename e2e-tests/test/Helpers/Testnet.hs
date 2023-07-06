@@ -26,13 +26,7 @@ import System.Directory qualified as IO
 import System.Environment qualified as IO
 import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 import System.FilePath ((</>))
-
-#if defined(mingw32_HOST_OS)
-  -- do no process kill signalling on windows
-#else
 import System.Posix.Signals (sigKILL, signalProcess)
-#endif
-
 import Cardano.Testnet qualified as C
 import Cardano.Testnet qualified as CTN hiding (testnetMagic)
 import System.Process (cleanupProcess)
@@ -137,18 +131,11 @@ cleanupTestnet mPoolNodes =
           forM_ poolNodes $ \(CTN.PoolNode poolRuntime _) -> do 
             -- graceful SIGTERM all nodes
             cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
-#if defined(mingw32_HOST_OS)
-          return []
-          -- do no process kill signalling on windows
-#else 
           forM poolNodes $ \node -> -- kill signal for any node unix handles still open
             killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node
-#endif
         _ ->     
           return []
     where
-#if defined(mingw32_HOST_OS)
-#else 
       killUnixHandle ph = liftIO $ withProcessHandle ph $ \case
           OpenHandle pid    -> do
             signalProcess sigKILL pid -- send kill signal if handle still open
@@ -158,7 +145,6 @@ cleanupTestnet mPoolNodes =
                 Right _ -> return $ Right ()
           OpenExtHandle _ _ -> return $ Right () -- do nothing on Windows
           ClosedHandle _    -> return $ Right () -- do nothing if already closed
-#endif 
 
 connectToLocalNode ::
   C.CardanoEra era ->

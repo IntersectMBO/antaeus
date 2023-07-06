@@ -98,9 +98,6 @@ common lang
     , unliftio
     , unordered-containers
 
-  if (os(osx) || os(linux))
-    build-depends: unix
-
 test-suite antaeus-test
   import:         lang
   ghc-options:    -Wno-unused-packages

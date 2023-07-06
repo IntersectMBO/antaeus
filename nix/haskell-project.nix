@@ -4,19 +4,23 @@
 { inputs, inputs', meta, config, pkgs, lib }:
 
 let
-  isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   isCross = pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform;
 
   packages = {
-    # Things that need plutus-tx-plugin
-    freer-extras.package.buildable = !isCross;
-    e2e-tests.package.buildable = !isCross;
-    # These need R
-    plutus-core.components.benchmarks.cost-model-test.buildable = lib.mkForce (!isCross);
-    plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce (!isCross);
 
+    # # These need R
+    # plutus-core.components.benchmarks.cost-model-test.buildable = lib.mkForce (!isCross);
+    # plutus-core.components.benchmarks.update-cost-model.buildable = lib.mkForce (!isCross);
+
+    # # FIXME: Haddock mysteriously gives a spurious missing-home-modules warning
+    # plutus-tx-plugin.doHaddock = false;
+
+    # Things that need plutus-tx-plugin
+    e2e-tests.package.buildable = !isCross;
+    e2e-tests.ghcOptions = [ "-Werror" ];
     e2e-tests.doHaddock = meta.enableHaddock;
     e2e-tests.flags.defer-plugin-errors = meta.enableHaddock;
+
 
     # The lines `export CARDANO_NODE=...` and `export CARDANO_CLI=...`
     # is necessary to prevent the error
@@ -34,18 +38,6 @@ let
       export CARDANO_NODE=${config.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node${pkgs.stdenv.hostPlatform.extensions.executable}
       export CARDANO_NODE_SRC=${../.}
     ";
-
-    # FIXME: Haddock mysteriously gives a spurious missing-home-modules warning
-    plutus-tx-plugin.doHaddock = false;
-
-    # Relies on cabal-doctest, just turn it off in the Nix build
-    prettyprinter-configurable.components.tests.prettyprinter-configurable-doctest.buildable = lib.mkForce false;
-
-    e2e-tests.ghcOptions = [ "-Werror" ];
-
-    # Honestly not sure why we need this, it has a mysterious unused dependency on "m"
-    # This will go away when we upgrade nixpkgs and things use ieee754 anyway.
-    ieee.components.library.libs = lib.mkForce [ ];
   };
 
   # TODO this is temporary and will be done automatically by IOGX in the next version
@@ -57,21 +49,6 @@ let
     "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-uY7wPyCgKuIZcGu0+vGacjGw2kox8H5ZsVGsfTNtU0c=";
     "https://github.com/james-iohk/cardano-node"."adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c" = "18yhmfa95sfry9jsgv9rg1giv73235wwjvw7qr3jximj88gprakn";
   };
-
-  # Configuration settings needed for cabal configure to work when cross compiling
-  # for windows. We can't use `modules` for these as `modules` are only applied
-  # after cabal has been configured.
-  cabalProjectLocal = lib.optionalString pkgs.stdenv.hostPlatform.isWindows ''
-    -- When cross compiling for windows we don't have a `ghc` package, so use
-    -- the `plutus-ghc-stub` package instead.
-    package plutus-tx-plugin
-      flags: +use-ghc-stub
-
-    -- Exclude test that use `doctest`.  They will not work for windows
-    -- cross compilation and `cabal` will not be able to make a plan.
-    package prettyprinter-configurable
-      tests: False
-  '';
 
   modules = [{ inherit packages; }];
 
