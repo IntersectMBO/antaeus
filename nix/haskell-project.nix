@@ -62,7 +62,7 @@ let
 
 in  
   {
-    inherit shellWithHoogle modules sha256map cabalProjectLocal overlays;
+    inherit shellWithHoogle modules sha256map overlays;
   }
 
 
