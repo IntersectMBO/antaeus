@@ -98,7 +98,8 @@ common lang
     , unliftio
     , unordered-containers
     , unix 
-
+  if (os(osx) || os(linux))
+    build-depends: unix
 
 test-suite antaeus-test
   import:         lang
