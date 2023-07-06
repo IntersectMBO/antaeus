@@ -97,6 +97,8 @@ common lang
     , transformers-except
     , unliftio
     , unordered-containers
+    , unix 
+
 
 test-suite antaeus-test
   import:         lang

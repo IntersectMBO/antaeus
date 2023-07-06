@@ -15,12 +15,10 @@ let
     # # FIXME: Haddock mysteriously gives a spurious missing-home-modules warning
     # plutus-tx-plugin.doHaddock = false;
 
-    # Things that need plutus-tx-plugin
     e2e-tests.package.buildable = !isCross;
     e2e-tests.ghcOptions = [ "-Werror" ];
     e2e-tests.doHaddock = meta.enableHaddock;
     e2e-tests.flags.defer-plugin-errors = meta.enableHaddock;
-
 
     # The lines `export CARDANO_NODE=...` and `export CARDANO_CLI=...`
     # is necessary to prevent the error
