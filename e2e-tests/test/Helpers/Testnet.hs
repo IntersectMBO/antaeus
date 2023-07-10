@@ -125,12 +125,11 @@ startTestnet era testnetOptions base tempAbsBasePath' = do
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
 cleanupTestnet mPoolNodes = 
-    liftIO $ 
       case mPoolNodes of
         Just poolNodes -> do
           forM_ poolNodes $ \(CTN.PoolNode poolRuntime _) -> do 
             -- graceful SIGTERM all nodes
-            cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
+            liftIO $ cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
           forM poolNodes $ \node -> -- kill signal for any node unix handles still open
             killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node
         _ ->     
