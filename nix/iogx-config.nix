@@ -2,7 +2,6 @@
 # https://www.github.com/input-output-hk/iogx#32-nixiogx-confignix
 
 {
-  systems = [ "x86_64-darwin" "x86_64-linux" ];
+  systems = [ "x86_64-darwin" "x86_64-linux" "aarch64-darwin" ];
   haskellCompilers = [ "ghc927" ];
-  shouldCrossCompile = false;
 }

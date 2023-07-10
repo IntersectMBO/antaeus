@@ -1,9 +1,11 @@
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
+
 {-# LANGUAGE CPP                #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Helpers.Testnet where
 
@@ -11,30 +13,23 @@ import Cardano.Api (Error)
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad (forM_, forM)
+import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
-import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
-import Hedgehog.Extras.Stock.OS qualified as OS
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoMode)
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.Environment qualified as IO
-
+import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 import System.FilePath ((</>))
-
-#if defined(mingw32_HOST_OS)
-  -- do no process kill signalling on windows
-#else
 import System.Posix.Signals (sigKILL, signalProcess)
-#endif
-
 import Cardano.Testnet qualified as C
 import Cardano.Testnet qualified as CTN hiding (testnetMagic)
 import System.Process (cleanupProcess)
-import System.Process.Internals (PHANDLE, ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle), withProcessHandle)
 import Testnet.Util.Runtime qualified as CTN
 
 data TestnetOptions = TestnetOptions
@@ -129,17 +124,16 @@ startTestnet era testnetOptions base tempAbsBasePath' = do
   pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
-cleanupTestnet mPoolNodes = case mPoolNodes of
-    Just poolNodes -> do
-      liftIO (mapM_ (\ (CTN.PoolNode poolRuntime _) ->
-         -- graceful SIGTERM all nodes
-        cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime))
-        poolNodes)
-      if not OS.isWin32 then -- do no process kill signalling on windows
-        -- kill signal for any node unix handles still open
-        liftIO $ mapM (\node -> killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node) poolNodes
-        else return []
-    _ ->     return []
+cleanupTestnet mPoolNodes = 
+      case mPoolNodes of
+        Just poolNodes -> do
+          forM_ poolNodes $ \(CTN.PoolNode poolRuntime _) -> do 
+            -- graceful SIGTERM all nodes
+            liftIO $ cleanupProcess (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
+          forM poolNodes $ \node -> -- kill signal for any node unix handles still open
+            killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node
+        _ ->     
+          return []
     where
       killUnixHandle ph = liftIO $ withProcessHandle ph $ \case
           OpenHandle pid    -> do

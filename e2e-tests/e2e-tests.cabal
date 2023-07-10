@@ -97,7 +97,6 @@ common lang
     , transformers-except
     , unliftio
     , unordered-containers
-
   if (os(osx) || os(linux))
     build-depends: unix
 
