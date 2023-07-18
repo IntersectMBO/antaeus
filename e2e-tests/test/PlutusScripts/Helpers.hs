@@ -8,11 +8,8 @@ module PlutusScripts.Helpers where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Codec.Serialise (serialise)
 import Data.ByteString qualified as BS (ByteString)
-import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short qualified as SBS
-import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusLedgerApi.V1 qualified as PlutusV1
 import PlutusLedgerApi.V1.Bytes qualified as P (bytes, fromHex)
 import PlutusLedgerApi.V1.Scripts (Datum (Datum), Redeemer (Redeemer))

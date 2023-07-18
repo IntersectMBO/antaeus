@@ -29,6 +29,7 @@ import System.Exit (exitFailure, ExitCode(ExitSuccess))
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Text.XML.Light (showTopElement)
+import qualified Testnet.Property.Utils as CTN
 
 
 main :: IO ()
@@ -51,19 +52,18 @@ pv6Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
---        runWithPosixTime testInfo = runTest testInfo resultsRef options testParams (Just preTestnetTime)
         run testInfo = runTest testInfo resultsRef options testParams
 
     sequence_
-      [  run Alonzo.checkTxInfoV1TestInfo
-       , run Alonzo.datumHashSpendTestInfo
-       , run Alonzo.mintBurnTestInfo
-       , run Alonzo.collateralContainsTokenErrorTestInfo
-       , run Alonzo.noCollateralInputsErrorTestInfo
-       , run Alonzo.missingCollateralInputErrorTestInfo
-      --  , run Alonzo.tooManyCollateralInputsErrorTestInfo
-       -- ^ FIXME fails, see https://github.com/input-output-hk/cardano-node/issues/5228
-       , run Builtins.verifySchnorrAndEcdsaTestInfo
+      [ run Alonzo.checkTxInfoV1TestInfo
+      , run Alonzo.datumHashSpendTestInfo
+      , run Alonzo.mintBurnTestInfo
+      , run Alonzo.collateralContainsTokenErrorTestInfo
+      , run Alonzo.noCollateralInputsErrorTestInfo
+      , run Alonzo.missingCollateralInputErrorTestInfo
+      -- , run Alonzo.tooManyCollateralInputsErrorTestInfo
+      -- ^ fails, see https://github.com/input-output-hk/cardano-node/issues/5228
+      , run Builtins.verifySchnorrAndEcdsaTestInfo
       ]
 
     failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -81,22 +81,22 @@ pv7Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
 
     -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
     sequence_
-      [--   run Alonzo.checkTxInfoV1TestInfo
-       -- , run Babbage.checkTxInfoV2TestInfo
-       -- , run Alonzo.datumHashSpendTestInfo
-         run Alonzo.mintBurnTestInfo
-       -- , run Alonzo.collateralContainsTokenErrorTestInfo
-       -- , run Alonzo.noCollateralInputsErrorTestInfo
-       -- , run Alonzo.missingCollateralInputErrorTestInfo
-       -- , run Alonzo.tooManyCollateralInputsErrorTestInfo
-       -- , run Builtins.verifySchnorrAndEcdsaTestInfo
-       -- , run Babbage.referenceScriptMintTestInfo
-       -- , run Babbage.referenceScriptInlineDatumSpendTestInfo
-       -- , run Babbage.referenceScriptDatumHashSpendTestInfo
-       -- , run Babbage.inlineDatumSpendTestInfo
-       -- , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-       -- , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-       -- , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+      [  run Alonzo.checkTxInfoV1TestInfo
+       , run Babbage.checkTxInfoV2TestInfo
+       , run Alonzo.datumHashSpendTestInfo
+       , run Alonzo.mintBurnTestInfo
+       , run Alonzo.collateralContainsTokenErrorTestInfo
+       , run Alonzo.noCollateralInputsErrorTestInfo
+       , run Alonzo.missingCollateralInputErrorTestInfo
+       , run Alonzo.tooManyCollateralInputsErrorTestInfo
+       , run Builtins.verifySchnorrAndEcdsaTestInfo
+       , run Babbage.referenceScriptMintTestInfo
+       , run Babbage.referenceScriptInlineDatumSpendTestInfo
+       , run Babbage.referenceScriptDatumHashSpendTestInfo
+       , run Babbage.inlineDatumSpendTestInfo
+       , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+       , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+       , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
       ]
 
     failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -104,7 +104,7 @@ pv7Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 pv8Tests :: IORef [TestResult] -> H.Property
-pv8Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+pv8Tests resultsRef = CTN.integrationRetryWorkspace 2 "pv8" $ \tempAbsPath -> do
     let options = TN.testnetOptionsBabbage8
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
@@ -113,24 +113,24 @@ pv8Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
 
     -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
     sequence_
-      [ -- run Alonzo.checkTxInfoV1TestInfo
-      --  , run Babbage.checkTxInfoV2TestInfo
-      --  , run Alonzo.datumHashSpendTestInfo
-       run Alonzo.mintBurnTestInfo
-      --  , run Alonzo.collateralContainsTokenErrorTestInfo
-      --  , run Alonzo.noCollateralInputsErrorTestInfo
-      --  , run Alonzo.missingCollateralInputErrorTestInfo
-      --  , run Alonzo.tooManyCollateralInputsErrorTestInfo
-      --  , run Builtins.verifySchnorrAndEcdsaTestInfo
-      --  , run Babbage.referenceScriptMintTestInfo
-      --  , run Babbage.referenceScriptInlineDatumSpendTestInfo
-      --  , run Babbage.referenceScriptDatumHashSpendTestInfo
-      --  , run Babbage.inlineDatumSpendTestInfo
-      --  , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-      --  , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-      --  , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
-      --  , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-      --  , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+      [  run Alonzo.checkTxInfoV1TestInfo
+       , run Babbage.checkTxInfoV2TestInfo
+       , run Alonzo.datumHashSpendTestInfo
+       , run Alonzo.mintBurnTestInfo
+       , run Alonzo.collateralContainsTokenErrorTestInfo
+       , run Alonzo.noCollateralInputsErrorTestInfo
+       , run Alonzo.missingCollateralInputErrorTestInfo
+       , run Alonzo.tooManyCollateralInputsErrorTestInfo
+       , run Builtins.verifySchnorrAndEcdsaTestInfo
+       , run Babbage.referenceScriptMintTestInfo
+       , run Babbage.referenceScriptInlineDatumSpendTestInfo
+       , run Babbage.referenceScriptDatumHashSpendTestInfo
+       , run Babbage.inlineDatumSpendTestInfo
+       , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+       , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+       , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+       , run Babbage.returnCollateralWithTokensValidScriptTestInfo
+       , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
       ]
 
     failureMessages <- liftIO $ suiteFailureMessages resultsRef

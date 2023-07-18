@@ -9,6 +9,8 @@
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
+{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
+
 module PlutusScripts.V1TxInfo (
     txInfoInputs
   , txInfoOutputs

@@ -50,18 +50,18 @@ common lang
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api
+    , cardano-api                    ^>=8.8
     , cardano-binary
     , cardano-crypto-class           ==2.1.1.0
     , cardano-crypto-wrapper
     , cardano-ledger-allegra
-    , cardano-ledger-alonzo
-    , cardano-ledger-babbage
+    , cardano-ledger-alonzo          ^>=1.3
+    , cardano-ledger-babbage         ^>=1.4
     , cardano-ledger-binary
     , cardano-ledger-byron
-    , cardano-ledger-conway
+    , cardano-ledger-conway          ^>=1.6
     , cardano-ledger-core
-    , cardano-ledger-mary
+    , cardano-ledger-mary            ^>=1.3
     , cardano-ledger-shelley
     , cardano-protocol-tpraos
     , cardano-slotting
@@ -77,12 +77,13 @@ common lang
   -- Non-IOG dependencies
   ------------------------
   build-depends:
-    , base
+    , base                          >=4.9 && <5
     , bytestring
     , containers
     , filepath
     , lens
     , mwc-random
+    , mtl
     , network
     , optparse-applicative
     , prettyprinter
@@ -130,7 +131,7 @@ test-suite antaeus-test
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api:{cardano-api, gen}
+    , cardano-api:{cardano-api, gen}  ^>=8.8
     , cardano-binary
     , cardano-crypto-class            ==2.1.1.0
     , cardano-ledger-core

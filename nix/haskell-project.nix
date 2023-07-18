@@ -32,14 +32,14 @@ let
   };
 
   # TODO this is temporary and will be done automatically by IOGX in the next version
-  cardano-node-gitrev = "6b601db8c7fcd3b55e78244c21aca2d17ca3aeaa";
+  cardano-node-gitrev = "eb66a54f5d03d96fa9f4899b4f43ebf4e829f2ca";
 
   shellWithHoogle = false;
 
-  sha256map = {
-    "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-uY7wPyCgKuIZcGu0+vGacjGw2kox8H5ZsVGsfTNtU0c=";
-    "https://github.com/james-iohk/cardano-node"."adf50dc5de3d44bdb5c3dc0b28e18b3a5477f36c" = "18yhmfa95sfry9jsgv9rg1giv73235wwjvw7qr3jximj88gprakn";
-  };
+    sha256map = {
+      "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-QYqWuJPk0frnBrcRAv4SzvAckLMBnaKThP5Gl5lHN44=";
+      "https://github.com/james-iohk/cardano-node"."0ce7a9e3149a554152ed18b5d6be902de72889c2" = "sha256-G15L5jLop6NUU3BUlqG3GfXD5g0PEGVzGVZpD9mKTkQ=";
+    };
 
   modules = [{ inherit packages; }];
 

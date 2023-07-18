@@ -59,7 +59,7 @@ checkTxInfoV1Test networkOptions TestParams {localNodeConnectInfo, pparams, netw
 
   let
     tokenValues = C.valueFromList [(PS.checkV1TxInfoAssetIdV1, 1)]
-    executionUnits = C.ExecutionUnits {C.executionSteps = 1_000_000_000, C.executionMemory = 10_000_000 }
+    executionUnits = C.ExecutionUnits {C.executionSteps = 1_000_000_000, C.executionMemory = 15_000_000 }
     collateral = Tx.txInsCollateral era [txIn]
     totalLovelace = C.txOutValueToLovelace txInValue
     fee = 2_000_000 :: C.Lovelace
@@ -123,7 +123,6 @@ datumHashSpendTest :: (MonadIO m , MonadTest m) =>
   m (Maybe String)
 datumHashSpendTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
-  let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
@@ -145,7 +144,7 @@ datumHashSpendTest networkOptions TestParams {localNodeConnectInfo, pparams, net
       , C.txOuts = [scriptTxOut1, scriptTxOut2, otherTxOut]
       }
 
-  signedTx <- Tx.buildTx era nodeSocket txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let txInAtScript1  = Tx.txIn (Tx.txId signedTx) 0
       txInAtScript2  = Tx.txIn (Tx.txId signedTx) 1
@@ -167,7 +166,7 @@ datumHashSpendTest networkOptions TestParams {localNodeConnectInfo, pparams, net
       , C.txOuts = [txOut]
       }
 
-  signedTx2 <- Tx.buildTx era nodeSocket txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let
     expectedTxIn1 = Tx.txIn (Tx.txId signedTx2) 0
@@ -190,7 +189,6 @@ mintBurnTest :: (MonadTest m, MonadIO m) =>
   m (Maybe String)
 mintBurnTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
-  let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
@@ -212,7 +210,7 @@ mintBurnTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId
       , C.txOuts = [txOut, otherTxOut]
       }
 
-  signedTx <- Tx.buildTx era nodeSocket txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn    = Tx.txIn (Tx.txId signedTx) 1
@@ -235,7 +233,7 @@ mintBurnTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId
       , C.txMintValue = Tx.txMintValue era burnValue mintWitnesses
       , C.txOuts = [txOut2]
       }
-  signedTx2 <- Tx.buildTx era nodeSocket txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn2 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains tokens remaining after burn
@@ -255,7 +253,6 @@ collateralContainsTokenErrorTest :: (MonadTest m, MonadIO m) =>
   m (Maybe String)
 collateralContainsTokenErrorTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
-  let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
@@ -277,7 +274,7 @@ collateralContainsTokenErrorTest networkOptions TestParams {localNodeConnectInfo
       , C.txOuts = [txOut, otherTxOut]
       }
 
-  signedTx <- Tx.buildTx era nodeSocket txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
@@ -299,7 +296,7 @@ collateralContainsTokenErrorTest networkOptions TestParams {localNodeConnectInfo
       , C.txOuts = [txOut2]
       }
 
-  signedTx2 <- Tx.buildTx era nodeSocket txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
 
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
   -- Not sure why this ledger error is doesn't occur when balancing (it does with cardano-cli)
@@ -318,7 +315,6 @@ missingCollateralInputErrorTest :: (MonadTest m, MonadIO m) =>
   m (Maybe String)
 missingCollateralInputErrorTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
-  let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
@@ -337,7 +333,7 @@ missingCollateralInputErrorTest networkOptions TestParams {localNodeConnectInfo,
       , C.txOuts = [txOut]
       }
 
-  eitherTx <- Tx.buildTx' era nodeSocket txBodyContent w1Address w1SKey networkId
+  eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
   let expError = "TxBodyEmptyTxInsCollateral"
   assert expError $ Tx.isTxBodyError expError eitherTx
 
@@ -352,7 +348,6 @@ noCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   m (Maybe String)
 noCollateralInputsErrorTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
-  let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
@@ -373,7 +368,7 @@ noCollateralInputsErrorTest networkOptions TestParams {localNodeConnectInfo, ppa
       , C.txOuts = [txOut]
       }
 
-  signedTx <- Tx.buildTx era nodeSocket txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
   let expError = "NoCollateralInputs"
@@ -390,7 +385,6 @@ tooManyCollateralInputsErrorTest :: (MonadTest m, MonadIO m) =>
   m (Maybe String)
 tooManyCollateralInputsErrorTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
-  let nodeSocket = C.localNodeSocketPath localNodeConnectInfo
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
 
@@ -407,7 +401,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams {localNodeConnectInfo
       , C.txOuts = replicate (maxCollateralInputs + 1) txOut -- one more than max
       }
 
-  signedTx <- Tx.buildTx era nodeSocket txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let collateralTxIns = map (\i -> Tx.txIn (Tx.txId signedTx) i) [0 .. maxCollateralInputs]
   Q.waitForTxInAtAddress era localNodeConnectInfo w1Address (head collateralTxIns) "waitForTxInAtAddress"
@@ -423,7 +417,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams {localNodeConnectInfo
       , C.txOuts = [txOut2]
       }
 
-  signedTx2 <- Tx.buildTx era nodeSocket txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
 
   eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
