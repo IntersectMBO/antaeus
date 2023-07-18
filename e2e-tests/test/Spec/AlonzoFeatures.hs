@@ -59,7 +59,7 @@ checkTxInfoV1Test networkOptions TestParams {localNodeConnectInfo, pparams, netw
 
   let
     tokenValues = C.valueFromList [(PS.checkV1TxInfoAssetIdV1, 1)]
-    executionUnits = C.ExecutionUnits {C.executionSteps = 1_000_000_000, C.executionMemory = 15_000_000 }
+    executionUnits = C.ExecutionUnits {C.executionSteps = 1_000_000_000, C.executionMemory = 10_000_000}
     collateral = Tx.txInsCollateral era [txIn]
     totalLovelace = C.txOutValueToLovelace txInValue
     fee = 2_000_000 :: C.Lovelace

@@ -113,11 +113,6 @@ maybeScriptWitness era lang Nothing = error $ "Era " ++ show era
                                     ++ " does not support script language " ++ show lang
 maybeScriptWitness _ _ (Just p) = p
 
--- TODO: REMOVE?s
--- | Serialised plutus script from minting policy
--- plutusScriptSerialised :: SerialisedScript -> C.PlutusScript lang
--- plutusScriptSerialised = C.PlutusScriptSerialised . SBS.toShort . LBS.toStrict . serialise
-
 -- | V1 Plutus Script to general Script, Needed for producing reference script.
 unPlutusScriptV1 :: C.PlutusScript C.PlutusScriptV1 -> C.Script C.PlutusScriptV1
 unPlutusScriptV1 = C.PlutusScript C.PlutusScriptV1

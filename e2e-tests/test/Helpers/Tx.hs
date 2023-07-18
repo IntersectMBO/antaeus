@@ -12,7 +12,6 @@ import Cardano.Api (QueryConvenienceError, SubmitResult (SubmitFail, SubmitSucce
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Trans (MonadTrans (..))
 import Data.List (isInfixOf)
 import Data.Map qualified as Map
 import GHC.Stack qualified as GHC
@@ -21,14 +20,6 @@ import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (toEraInCardanoMode)
 import Helpers.Utils qualified as U
-import Data.Function ((&))
-import Control.Monad.Trans.Except.Extra (onLeft, left)
-import qualified Helpers.Test as H
-import Data.Set (Set)
-import Data.Map (Map)
-import Control.Exception (Exception)
-import Control.Monad.Error (MonadError(throwError))
---import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult (SubmitFail, SubmitSuccess))
 
 deriving instance Show QueryConvenienceError
 

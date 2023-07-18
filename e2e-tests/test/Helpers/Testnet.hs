@@ -26,12 +26,7 @@ import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoMode)
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
-
-import System.FilePath ((</>), splitDirectories, joinPath)
-
-
-
-
+import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
 
 
@@ -128,8 +123,6 @@ startTestnet era testnetOptions tempAbsBasePath = do
           }
       networkId = getNetworkId tn
   pparams <- getProtocolParams era localNodeConnectInfo
-  -- no longer set node socket environment for Cardano.Api.Convenience.Query
-  -- TODO: REMOVE: liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs
   pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
@@ -183,8 +176,6 @@ connectToLocalNode era localNodeOptions tempAbsPath = do
             C.localNodeSocketPath = socketPathAbs
           }
   pparams <- getProtocolParams era localNodeConnectInfo
-  -- No longer set node socket environment for Cardano.Api.Convenience.Query
-  --TODO: REMOVE: liftIO $ IO.setEnv "CARDANO_NODE_SOCKET_PATH" socketPathAbs
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
 -- | Start testnet with cardano-testnet or use local node that's already
