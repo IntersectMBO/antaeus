@@ -36,24 +36,24 @@ let
 
   shellWithHoogle = false;
 
-    sha256map = {
-      "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-QYqWuJPk0frnBrcRAv4SzvAckLMBnaKThP5Gl5lHN44=";
-      "https://github.com/james-iohk/cardano-node"."07e42847a88b0a7346adb4248b855e5bf5bf5548" = "sha256-fe8xZ8aEMBgYvnkKfERVKKz9zqvotFQSvltSsE62jjg=";
-    };
+  sha256map = {
+    "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-QYqWuJPk0frnBrcRAv4SzvAckLMBnaKThP5Gl5lHN44=";
+    "https://github.com/james-iohk/cardano-node"."07e42847a88b0a7346adb4248b855e5bf5bf5548" = "sha256-fe8xZ8aEMBgYvnkKfERVKKz9zqvotFQSvltSsE62jjg=";
+  };
 
   modules = [{ inherit packages; }];
 
-  overlays = [(final: prev: {
-    hsPkgs = pkgs.pkgsBuildBuild.setGitRevForPaths cardano-node-gitrev [
-      "cardano-cli.components.exes.cardano-cli"
-      "cardano-node.components.exes.cardano-node"
-    ]
-      prev.hsPkgs;
-  })];
+  overlays = [
+    (final: prev: {
+      hsPkgs = pkgs.pkgsBuildBuild.setGitRevForPaths cardano-node-gitrev [
+        "cardano-cli.components.exes.cardano-cli"
+        "cardano-node.components.exes.cardano-node"
+      ]
+        prev.hsPkgs;
+    })
+  ];
 
-in  
-  {
-    inherit shellWithHoogle modules sha256map overlays;
-  }
-
-
+in
+{
+  inherit shellWithHoogle modules sha256map overlays;
+}

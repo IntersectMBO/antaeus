@@ -1,8 +1,8 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-
-{-# OPTIONS_GHC -fno-warn-incomplete-patterns #-} -- Not using all CardanoEra
+-- Not using all CardanoEra
+{-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 
 module PlutusScripts.Helpers where
 
@@ -21,22 +21,23 @@ import PlutusTx.Builtins qualified as BI
 bytesFromHex :: BS.ByteString -> BS.ByteString
 bytesFromHex = P.bytes . fromEither . P.fromHex
   where
-    fromEither (Left e)  = error $ show e
+    fromEither (Left e) = error $ show e
     fromEither (Right b) = b
 
--- | Default execution units with zero values. Needed for valid script witness in txbody.
---   Useful when exunits are automatically balanced.
+{- | Default execution units with zero values. Needed for valid script witness in txbody.
+  Useful when exunits are automatically balanced.
+-}
 defExecutionUnits :: C.ExecutionUnits
-defExecutionUnits = C.ExecutionUnits {C.executionSteps = 0, C.executionMemory = 0 }
+defExecutionUnits = C.ExecutionUnits{C.executionSteps = 0, C.executionMemory = 0}
 
 -- | Any data to ScriptData. Used for script datum and redeemer.
-toScriptData :: PlutusTx.ToData a => a -> C.HashableScriptData
+toScriptData :: (PlutusTx.ToData a) => a -> C.HashableScriptData
 toScriptData = C.unsafeHashableScriptData . C.fromPlutusData . PlutusTx.toData
 
-asRedeemer :: PlutusTx.ToData a => a -> Redeemer
+asRedeemer :: (PlutusTx.ToData a) => a -> Redeemer
 asRedeemer = Redeemer . PlutusTx.dataToBuiltinData . PlutusTx.toData
 
-asDatum :: PlutusTx.ToData a => a -> Datum
+asDatum :: (PlutusTx.ToData a) => a -> Datum
 asDatum = Datum . PlutusTx.dataToBuiltinData . PlutusTx.toData
 
 plutusL1 :: C.ScriptLanguage C.PlutusScriptV1
@@ -45,28 +46,41 @@ plutusL1 = C.PlutusScriptLanguage C.PlutusScriptV1
 plutusL2 :: C.ScriptLanguage C.PlutusScriptV2
 plutusL2 = C.PlutusScriptLanguage C.PlutusScriptV2
 
--- | Witness token mint for including in txbody's txMintValue.
---   Provide either the script or TxIn for reference script to include in witness.
---   Zero execution units can only be used with convenience build function.
-mintScriptWitness :: C.CardanoEra era
+{- | Witness token mint for including in txbody's txMintValue.
+  Provide either the script or TxIn for reference script to include in witness.
+  Zero execution units can only be used with convenience build function.
+-}
+mintScriptWitness
+  :: C.CardanoEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.HashableScriptData
   -> C.ScriptWitness C.WitCtxMint era
 -- V1 script
 mintScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV1) eScript redeemer =
-    mintScriptWitness' era lang eScript redeemer defExecutionUnits
+  mintScriptWitness' era lang eScript redeemer defExecutionUnits
 -- V2 script
 mintScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Left script) redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV2 (C.PScript script) C.NoScriptDatumForMint redeemer defExecutionUnits
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV2
+    (C.PScript script)
+    C.NoScriptDatumForMint
+    redeemer
+    defExecutionUnits
 -- V2 reference script
 mintScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Right refTxIn) redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV2 (C.PReferenceScript refTxIn Nothing) C.NoScriptDatumForMint redeemer defExecutionUnits
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV2
+    (C.PReferenceScript refTxIn Nothing)
+    C.NoScriptDatumForMint
+    redeemer
+    defExecutionUnits
 
 -- Witness token mint with explicit execution units. Used when building raw txbody content.
-mintScriptWitness' :: C.CardanoEra era
+mintScriptWitness'
+  :: C.CardanoEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.HashableScriptData
@@ -74,43 +88,76 @@ mintScriptWitness' :: C.CardanoEra era
   -> C.ScriptWitness C.WitCtxMint era
 -- V1 script
 mintScriptWitness' era lang@(C.PlutusScriptLanguage C.PlutusScriptV1) (Left script) redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV1 (C.PScript script) C.NoScriptDatumForMint redeemer
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV1
+    (C.PScript script)
+    C.NoScriptDatumForMint
+    redeemer
 -- V2 script
 mintScriptWitness' era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Left script) redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV2 (C.PScript script) C.NoScriptDatumForMint redeemer
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV2
+    (C.PScript script)
+    C.NoScriptDatumForMint
+    redeemer
 -- V2 reference script
 mintScriptWitness' era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Right refTxIn) redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV2 (C.PReferenceScript refTxIn Nothing) C.NoScriptDatumForMint redeemer
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV2
+    (C.PReferenceScript refTxIn Nothing)
+    C.NoScriptDatumForMint
+    redeemer
 
-spendScriptWitness :: C.CardanoEra era
+spendScriptWitness
+  :: C.CardanoEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.ScriptDatum C.WitCtxTxIn
   -> C.HashableScriptData
   -> C.ScriptWitness C.WitCtxTxIn era
-  -- V1 script
+-- V1 script
 spendScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV1) (Left script) datumWit redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV1 (C.PScript script) datumWit redeemer defExecutionUnits
-    -- V2 script
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV1
+    (C.PScript script)
+    datumWit
+    redeemer
+    defExecutionUnits
+-- V2 script
 spendScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Left script) datumWit redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV2 (C.PScript script) datumWit redeemer defExecutionUnits
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV2
+    (C.PScript script)
+    datumWit
+    redeemer
+    defExecutionUnits
 -- V2 reference script
 spendScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV2) (Right refTxIn) datumWit redeemer = do
-    C.PlutusScriptWitness (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
-      C.PlutusScriptV2 (C.PReferenceScript refTxIn Nothing) datumWit redeemer defExecutionUnits
+  C.PlutusScriptWitness
+    (maybeScriptWitness era lang $ C.scriptLanguageSupportedInEra era lang)
+    C.PlutusScriptV2
+    (C.PReferenceScript refTxIn Nothing)
+    datumWit
+    redeemer
+    defExecutionUnits
 
 -- | Produce ScriptLanguageInEra. Throw error when era doesn't support the script language.
-maybeScriptWitness :: C.CardanoEra era
-    -> C.ScriptLanguage l
-    -> Maybe (C.ScriptLanguageInEra l era)
-    -> C.ScriptLanguageInEra l era
-maybeScriptWitness era lang Nothing = error $ "Era " ++ show era
-                                    ++ " does not support script language " ++ show lang
+maybeScriptWitness
+  :: C.CardanoEra era
+  -> C.ScriptLanguage l
+  -> Maybe (C.ScriptLanguageInEra l era)
+  -> C.ScriptLanguageInEra l era
+maybeScriptWitness era lang Nothing =
+  error $
+    "Era "
+      ++ show era
+      ++ " does not support script language "
+      ++ show lang
 maybeScriptWitness _ _ (Just p) = p
 
 -- | V1 Plutus Script to general Script, Needed for producing reference script.

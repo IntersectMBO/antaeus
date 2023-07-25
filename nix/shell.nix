@@ -3,7 +3,7 @@
 
 { inputs, inputs', pkgs, project }:
 
-let 
+let
   cardano-cli = project.hsPkgs.cardano-cli.components.exes.cardano-cli;
   cardano-node = project.hsPkgs.cardano-node.components.exes.cardano-node;
 in
