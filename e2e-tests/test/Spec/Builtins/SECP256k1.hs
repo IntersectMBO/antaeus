@@ -9,6 +9,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# LANGUAGE NamedFieldPuns      #-}
 
 module Spec.Builtins.SECP256k1 where
 
@@ -36,7 +37,7 @@ verifySchnorrAndEcdsaTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
+verifySchnorrAndEcdsaTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   pv <- TN.pvFromOptions networkOptions
@@ -76,7 +77,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
   case pv < 8 of
     True -> do
       -- Assert that "forbidden" error occurs when attempting to use either SECP256k1 builtin
-      eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
+      eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
       annotate $ show eitherTx
       let
         expErrorSchnorr = "Builtin function VerifySchnorrSecp256k1Signature is not available in language " ++
@@ -89,7 +90,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{..} = do
 
     False -> do
       -- Build and submit transaction
-      signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+      signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
       Tx.submitTx era localNodeConnectInfo signedTx
       let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
 

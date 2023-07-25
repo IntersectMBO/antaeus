@@ -6,7 +6,6 @@
 
 module Main(main) where
 
-import Cardano.Testnet qualified as CTN
 import Control.Monad (when)
 import Control.Exception.Base (try)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -14,8 +13,7 @@ import Data.IORef (IORef, readIORef)
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.IORef (newIORef)
 import Hedgehog qualified as H
-import Hedgehog.Extras qualified as HE
-import Helpers.Test (runTest)
+import Helpers.Test (runTest, integrationRetryWorkspace)
 import Helpers.TestData (TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.TestResults (TestResult (..), TestSuiteResults (..), allFailureMessages, suiteFailureMessages,
@@ -35,7 +33,6 @@ main :: IO ()
 main = do
   runTestsWithResults
 
-
 tests :: IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] ->  TestTree
 tests pv6ResultsRef pv7ResultsRef pv8ResultsRef = testGroup "Plutus E2E Tests" [
     testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
@@ -46,24 +43,23 @@ tests pv6ResultsRef pv7ResultsRef pv8ResultsRef = testGroup "Plutus E2E Tests" [
   ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
-pv6Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+pv6Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     let options = TN.testnetOptionsAlonzo6
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
---        runWithPosixTime testInfo = runTest testInfo resultsRef options testParams (Just preTestnetTime)
         run testInfo = runTest testInfo resultsRef options testParams
 
     sequence_
-      [  run Alonzo.checkTxInfoV1TestInfo
-       , run Alonzo.datumHashSpendTestInfo
-       , run Alonzo.mintBurnTestInfo
-       , run Alonzo.collateralContainsTokenErrorTestInfo
-       , run Alonzo.noCollateralInputsErrorTestInfo
-       , run Alonzo.missingCollateralInputErrorTestInfo
-      --  , run Alonzo.tooManyCollateralInputsErrorTestInfo
-       -- ^ FIXME fails, see https://github.com/input-output-hk/cardano-node/issues/5228
-       , run Builtins.verifySchnorrAndEcdsaTestInfo
+      [ run Alonzo.checkTxInfoV1TestInfo
+      , run Alonzo.datumHashSpendTestInfo
+      , run Alonzo.mintBurnTestInfo
+      , run Alonzo.collateralContainsTokenErrorTestInfo
+      , run Alonzo.noCollateralInputsErrorTestInfo
+      , run Alonzo.missingCollateralInputErrorTestInfo
+      -- , run Alonzo.tooManyCollateralInputsErrorTestInfo
+      -- ^ fails, see https://github.com/input-output-hk/cardano-node/issues/5228
+      , run Builtins.verifySchnorrAndEcdsaTestInfo
       ]
 
     failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -72,7 +68,7 @@ pv6Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
 
 
 pv7Tests :: IORef [TestResult] ->  H.Property
-pv7Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     let options = TN.testnetOptionsBabbage7
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
@@ -81,22 +77,22 @@ pv7Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
 
     -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
     sequence_
-      [   run Alonzo.checkTxInfoV1TestInfo
-        , run Babbage.checkTxInfoV2TestInfo
-        , run Alonzo.datumHashSpendTestInfo
-        , run Alonzo.mintBurnTestInfo
-        , run Alonzo.collateralContainsTokenErrorTestInfo
-        , run Alonzo.noCollateralInputsErrorTestInfo
-        , run Alonzo.missingCollateralInputErrorTestInfo
-        , run Alonzo.tooManyCollateralInputsErrorTestInfo
-        , run Builtins.verifySchnorrAndEcdsaTestInfo
-        , run Babbage.referenceScriptMintTestInfo
-        , run Babbage.referenceScriptInlineDatumSpendTestInfo
-        , run Babbage.referenceScriptDatumHashSpendTestInfo
-        , run Babbage.inlineDatumSpendTestInfo
-        , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-        , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-        , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+      [  run Alonzo.checkTxInfoV1TestInfo
+       , run Babbage.checkTxInfoV2TestInfo
+       , run Alonzo.datumHashSpendTestInfo
+       , run Alonzo.mintBurnTestInfo
+       , run Alonzo.collateralContainsTokenErrorTestInfo
+       , run Alonzo.noCollateralInputsErrorTestInfo
+       , run Alonzo.missingCollateralInputErrorTestInfo
+       , run Alonzo.tooManyCollateralInputsErrorTestInfo
+       , run Builtins.verifySchnorrAndEcdsaTestInfo
+       , run Babbage.referenceScriptMintTestInfo
+       , run Babbage.referenceScriptInlineDatumSpendTestInfo
+       , run Babbage.referenceScriptDatumHashSpendTestInfo
+       , run Babbage.inlineDatumSpendTestInfo
+       , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+       , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+       , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
       ]
 
     failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -104,7 +100,7 @@ pv7Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 pv8Tests :: IORef [TestResult] -> H.Property
-pv8Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     let options = TN.testnetOptionsBabbage8
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
@@ -138,7 +134,7 @@ pv8Tests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tem
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 debugTests :: IORef [TestResult] -> H.Property
-debugTests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+debugTests resultsRef = integrationRetryWorkspace 0 "debug" $ \tempAbsPath -> do
     let options = TN.testnetOptionsAlonzo6
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing
@@ -149,7 +145,7 @@ debugTests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \t
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 localNodeTests :: IORef [TestResult] -> Either TN.LocalNodeOptions TN.TestnetOptions -> H.Property
-localNodeTests resultsRef options = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+localNodeTests resultsRef options = integrationRetryWorkspace 0 "local" $ \tempAbsPath -> do
     --preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing

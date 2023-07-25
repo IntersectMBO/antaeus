@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Helpers.Tx where
 
@@ -19,7 +20,6 @@ import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (toEraInCardanoMode)
 import Helpers.Utils qualified as U
---import Ouroboros.Network.Protocol.LocalTxSubmission.Type (SubmitResult (SubmitFail, SubmitSuccess))
 
 deriving instance Show QueryConvenienceError
 
@@ -162,7 +162,9 @@ emptyTxBodyContent era pparams =
       C.txCertificates = C.TxCertificatesNone,
       C.txUpdateProposal = C.TxUpdateProposalNone,
       C.txMintValue = C.TxMintNone,
-      C.txScriptValidity = C.TxScriptValidityNone
+      C.txScriptValidity = C.TxScriptValidityNone,
+      C.txGovernanceActions = C.TxGovernanceActionsNone,
+      C.txVotes = C.TxVotesNone
     }
   where
     fromNoUpperBoundMaybe Nothing    = error "Era must support no upper bound"
@@ -245,15 +247,15 @@ txMintValue ::
 txMintValue era tv m = C.TxMintValue (multiAssetSupportedInEra era) tv (C.BuildTxWith m)
 
 buildTx ::
-  (MonadIO m, MonadTest m) =>
+  (MonadIO m) =>
   C.CardanoEra era ->
+  C.LocalNodeConnectInfo C.CardanoMode ->
   C.TxBodyContent C.BuildTx era ->
   C.Address C.ShelleyAddr ->
   C.SigningKey C.PaymentKey ->
-  C.NetworkId ->
   m (C.Tx era)
-buildTx era txBody changeAddress sKey networkId = do
-  eitherTx <- buildTx' era txBody changeAddress sKey networkId
+buildTx era localNodeConnectInfo txBody changeAddress sKey = do
+  eitherTx <- buildTx' era localNodeConnectInfo txBody changeAddress sKey
   return $ fromEither eitherTx
   where
     fromEither (Left e)   = error $ show e
@@ -262,17 +264,20 @@ buildTx era txBody changeAddress sKey networkId = do
 -- | Maybe build signed transaction using convenience functions for calculating fees and exunits.
 --   Useful for asserting for error.
 buildTx' ::
-  (MonadIO m, MonadTest m) =>
+  (MonadIO m) =>
   C.CardanoEra era ->
+  C.LocalNodeConnectInfo C.CardanoMode ->
   C.TxBodyContent C.BuildTx era ->
   C.Address C.ShelleyAddr ->
   C.SigningKey C.PaymentKey ->
-  C.NetworkId ->
   m (Either C.TxBodyErrorAutoBalance (C.Tx era))
-buildTx' era txBody changeAddress sKey networkId = do
-  (nodeEraUtxo, pparams, eraHistory, systemStart, stakePools) <-
-    H.leftFailM . liftIO $
-      C.queryStateForBalancedTx era networkId allInputs
+buildTx' era localNodeConnectInfo txBody changeAddress sKey = do
+  result <- liftIO (C.executeLocalStateQueryExpr localNodeConnectInfo Nothing $ C.queryStateForBalancedTx era allInputs [])
+  (nodeEraUtxo, pparams, eraHistory, systemStart, stakePools, stakeValueMap) <- case result of
+    Left afe -> error $ show afe
+    Right localStateQueryResult -> case localStateQueryResult of
+      Left qce -> error $ show qce
+      Right queryBalancedTxResult -> return queryBalancedTxResult
 
   return $
     withIsShelleyBasedEra era $
@@ -285,6 +290,7 @@ buildTx' era txBody changeAddress sKey networkId = do
         (C.toLedgerEpochInfo eraHistory)
         systemStart
         stakePools
+        stakeValueMap
         [C.WitnessPaymentKey sKey]
   where
     allInputs :: [C.TxIn]

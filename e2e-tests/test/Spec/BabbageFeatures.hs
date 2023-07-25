@@ -9,6 +9,7 @@
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
+{-# LANGUAGE NamedFieldPuns      #-}
 
 module Spec.BabbageFeatures where
 
@@ -129,7 +130,7 @@ referenceScriptMintTest :: (MonadTest m, MonadIO m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-referenceScriptMintTest networkOptions TestParams{..} = do
+referenceScriptMintTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -148,7 +149,7 @@ referenceScriptMintTest networkOptions TestParams{..} = do
       , C.txOuts = [refScriptTxOut, otherTxOut]
       }
 
-  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let refScriptTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn   = Tx.txIn (Tx.txId signedTx) 1
@@ -170,7 +171,7 @@ referenceScriptMintTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
@@ -187,7 +188,8 @@ referenceScriptInlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
+referenceScriptInlineDatumSpendTest networkOptions
+  TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -208,7 +210,7 @@ referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
       , C.txOuts = [refTxOut, otherTxOut, scriptTxOut]
       }
 
-  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let refScriptTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn     = Tx.txIn (Tx.txId signedTx) 1
@@ -230,7 +232,7 @@ referenceScriptInlineDatumSpendTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
@@ -247,7 +249,7 @@ referenceScriptDatumHashSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
+referenceScriptDatumHashSpendTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -269,7 +271,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
       , C.txOuts = [refTxOut, otherTxOut, scriptTxOut]
       }
 
-  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let refScriptTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn     = Tx.txIn (Tx.txId signedTx) 1
@@ -291,7 +293,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
@@ -308,7 +310,7 @@ inlineDatumSpendTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-inlineDatumSpendTest networkOptions TestParams{..} = do
+inlineDatumSpendTest networkOptions TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -327,7 +329,7 @@ inlineDatumSpendTest networkOptions TestParams{..} = do
       , C.txOuts = [scriptTxOut, otherTxOut]
       }
 
-  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let txInAtScript  = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn     = Tx.txIn (Tx.txId signedTx) 1
@@ -348,7 +350,7 @@ inlineDatumSpendTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
@@ -364,7 +366,8 @@ referenceInputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
+referenceInputWithV1ScriptErrorTest networkOptions
+  TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -385,7 +388,7 @@ referenceInputWithV1ScriptErrorTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
+  eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
   let expError = "ReferenceInputsNotSupported"
   -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
   assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
@@ -399,7 +402,8 @@ referenceScriptOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
+referenceScriptOutputWithV1ScriptErrorTest networkOptions
+  TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -420,7 +424,7 @@ referenceScriptOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
+  eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
   H.annotate $ show eitherTx
   let expError = "ReferenceScriptsNotSupported"
   -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -435,7 +439,8 @@ inlineDatumOutputWithV1ScriptErrorTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
+inlineDatumOutputWithV1ScriptErrorTest networkOptions
+  TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -455,7 +460,7 @@ inlineDatumOutputWithV1ScriptErrorTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  eitherTx <- Tx.buildTx' era txBodyContent w1Address w1SKey networkId
+  eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
   H.annotate $ show eitherTx
   let expError = "InlineDatumsNotSupported"
   -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -470,7 +475,8 @@ returnCollateralWithTokensValidScriptTest :: (MonadIO m , MonadTest m) =>
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
+returnCollateralWithTokensValidScriptTest networkOptions
+  TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -492,7 +498,7 @@ returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
       , C.txOuts = [txOut]
       }
 
-  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let txIn2 = Tx.txIn (Tx.txId signedTx) 0
   Q.waitForTxInAtAddress era localNodeConnectInfo w1Address txIn2 "waitForTxInAtAddress"
@@ -514,7 +520,7 @@ returnCollateralWithTokensValidScriptTest networkOptions TestParams{..} = do
       , C.txReturnCollateral = Tx.txReturnCollateral era colReturnTxOut
       }
 
-  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
@@ -532,7 +538,8 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest :: (MonadIO m , Mona
   Either TN.LocalNodeOptions TN.TestnetOptions ->
   TestParams ->
   m (Maybe String)
-submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestParams{..} = do
+submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions
+  TestParams {localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
 
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
@@ -555,7 +562,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestP
       , C.txOuts = [txOut]
       }
 
-  signedTx <- Tx.buildTx era txBodyContent w1Address w1SKey networkId
+  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx
   let collateralTxIn = Tx.txIn (Tx.txId signedTx) 0
   Q.waitForTxInAtAddress era localNodeConnectInfo w1Address collateralTxIn "waitForTxInAtAddress"
@@ -585,7 +592,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest networkOptions TestP
       , C.txScriptValidity = Tx.txScriptValidity era C.ScriptInvalid
       }
 
-  signedTx2 <- Tx.buildTx era txBodyContent2 w1Address w1SKey networkId
+  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx2
 
   -- Query for return collateral txo and assert presence of ada and tokens from the first tx
