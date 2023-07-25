@@ -6,7 +6,6 @@
 
 module Main(main) where
 
-import Cardano.Testnet qualified as CTN
 import Control.Monad (when)
 import Control.Exception.Base (try)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -14,8 +13,7 @@ import Data.IORef (IORef, readIORef)
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.IORef (newIORef)
 import Hedgehog qualified as H
-import Hedgehog.Extras qualified as HE
-import Helpers.Test (runTest)
+import Helpers.Test (runTest, integrationRetryWorkspace)
 import Helpers.TestData (TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.TestResults (TestResult (..), TestSuiteResults (..), allFailureMessages, suiteFailureMessages,
@@ -29,13 +27,11 @@ import System.Exit (exitFailure, ExitCode(ExitSuccess))
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Text.XML.Light (showTopElement)
-import qualified Testnet.Property.Utils as CTN
 
 
 main :: IO ()
 main = do
   runTestsWithResults
-
 
 tests :: IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] ->  TestTree
 tests pv6ResultsRef pv7ResultsRef pv8ResultsRef = testGroup "Plutus E2E Tests" [
@@ -47,7 +43,7 @@ tests pv6ResultsRef pv7ResultsRef pv8ResultsRef = testGroup "Plutus E2E Tests" [
   ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
-pv6Tests resultsRef = CTN.integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
+pv6Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     let options = TN.testnetOptionsAlonzo6
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
@@ -72,7 +68,7 @@ pv6Tests resultsRef = CTN.integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
 
 
 pv7Tests :: IORef [TestResult] ->  H.Property
-pv7Tests resultsRef = CTN.integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
+pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     let options = TN.testnetOptionsBabbage7
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
@@ -104,7 +100,7 @@ pv7Tests resultsRef = CTN.integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 pv8Tests :: IORef [TestResult] -> H.Property
-pv8Tests resultsRef = CTN.integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
+pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     let options = TN.testnetOptionsBabbage8
     preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
@@ -138,7 +134,7 @@ pv8Tests resultsRef = CTN.integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 debugTests :: IORef [TestResult] -> H.Property
-debugTests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+debugTests resultsRef = integrationRetryWorkspace 0 "debug" $ \tempAbsPath -> do
     let options = TN.testnetOptionsAlonzo6
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing
@@ -149,7 +145,7 @@ debugTests resultsRef = CTN.integration . HE.runFinallies . U.workspace "." $ \t
     U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 localNodeTests :: IORef [TestResult] -> Either TN.LocalNodeOptions TN.TestnetOptions -> H.Property
-localNodeTests resultsRef options = CTN.integration . HE.runFinallies . U.workspace "." $ \tempAbsPath -> do
+localNodeTests resultsRef options = integrationRetryWorkspace 0 "local" $ \tempAbsPath -> do
     --preTestnetTime <- liftIO Time.getPOSIXTime
     (localNodeConnectInfo, pparams, networkId, mPoolNodes) <- TN.setupTestEnvironment options tempAbsPath
     let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing

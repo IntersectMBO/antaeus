@@ -3,7 +3,8 @@ module Helpers.Test (
     runTest,
     assert,
     failure,
-    success
+    success,
+    integrationRetryWorkspace
 ) where
 
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -14,10 +15,25 @@ import GHC.IORef (atomicModifyIORef')
 import GHC.Stack (HasCallStack, callStack, prettyCallStack, withFrozenCallStack)
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
+import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.TestResults (TestResult (..))
 import Text.Printf (printf)
+import qualified GHC.Stack as GHC
+import qualified Cardano.Testnet as CTN
+import qualified System.Info as IO
+import qualified System.Environment as IO
+import Control.Monad (when)
+
+
+integrationRetryWorkspace :: HasCallStack => Int -> FilePath -> (FilePath -> H.Integration ()) -> H.Property
+integrationRetryWorkspace n workspaceName f = GHC.withFrozenCallStack $
+  CTN.integration $ H.retry n $ \i ->
+    (liftIO setDarwinTmpdir >>) $ H.runFinallies $ H.workspace (workspaceName <> "-" <> show i) f
+
+setDarwinTmpdir :: IO ()
+setDarwinTmpdir = when (IO.os == "darwin") $ IO.setEnv "TMPDIR" "/tmp"
 
 runTest :: (MonadIO m, MonadTest m) =>
   TestInfo ->
