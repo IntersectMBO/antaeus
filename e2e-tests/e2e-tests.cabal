@@ -77,13 +77,13 @@ common lang
   -- Non-IOG dependencies
   ------------------------
   build-depends:
-    , base                          >=4.9 && <5
+    , base                  >=4.9 && <5
     , bytestring
     , containers
     , filepath
     , lens
-    , mwc-random
     , mtl
+    , mwc-random
     , network
     , optparse-applicative
     , prettyprinter
@@ -98,6 +98,7 @@ common lang
     , transformers-except
     , unliftio
     , unordered-containers
+
   if (os(osx) || os(linux))
     build-depends: unix
 

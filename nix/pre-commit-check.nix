@@ -10,7 +10,7 @@
 
   editorconfig-checker.enable = true;
 
-  fourmolu.enable = false;
+  fourmolu.enable = true;
   fourmolu.extraOptions = "--ghc-opt -XTypeApplications --ghc-opt -XQuasiQuotes";
 
   hlint.enable = false;
