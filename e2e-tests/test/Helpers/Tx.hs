@@ -59,7 +59,8 @@ withIsShelleyBasedEra era r =
   case era of
     C.AlonzoEra -> r
     C.BabbageEra -> r
-    _ -> error "Must use Alonzo or Babbage era"
+    C.ConwayEra -> r
+    _ -> error "Must use Alonzo, Babbage or Conway era"
 
 -- | Build TxOut for spending or minting with no datum or reference script present
 txOut
