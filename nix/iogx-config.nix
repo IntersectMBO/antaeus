@@ -3,5 +3,5 @@
 
 {
   systems = [ "x86_64-darwin" "x86_64-linux" "aarch64-darwin" ];
-  haskellCompilers = [ "ghc927" ];
+  haskellCompilers = [ "ghc928" ];
 }
