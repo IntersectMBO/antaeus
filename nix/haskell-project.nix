@@ -38,7 +38,8 @@ let
 
   sha256map = {
     "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-QYqWuJPk0frnBrcRAv4SzvAckLMBnaKThP5Gl5lHN44=";
-    "https://github.com/james-iohk/cardano-node"."07e42847a88b0a7346adb4248b855e5bf5bf5548" = "sha256-fe8xZ8aEMBgYvnkKfERVKKz9zqvotFQSvltSsE62jjg=";
+    "https://github.com/james-iohk/cardano-node"."342415aef56d06e9f2bcfc93fcbc466e44a7d497" = "sha256-9/tG/XQvhbBOQ+7LAaCINjDijTzw+v4y3w0WT8+/3cE=";
+    "https://github.com/james-iohk/cardano-api"."022495a1c6b99a881c49ae25f26f1389ab63aaa5" = "sha256-k735IKmhzp4IftzTVwtKCpzwdUFdLfw8Yv0WwgqLYjk=";
   };
 
   modules = [{ inherit packages; }];

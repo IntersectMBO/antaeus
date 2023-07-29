@@ -256,6 +256,7 @@ txInsReference
   -> C.TxInsReference build era
 txInsReference era txIns = case era of
   C.BabbageEra -> C.TxInsReference C.ReferenceTxInsScriptsInlineDatumsInBabbageEra txIns
+  C.ConwayEra -> C.TxInsReference C.ReferenceTxInsScriptsInlineDatumsInConwayEra txIns
 
 txMintValue
   :: C.CardanoEra era

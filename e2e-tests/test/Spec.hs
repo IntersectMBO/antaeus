@@ -37,13 +37,14 @@ main :: IO ()
 main = do
   runTestsWithResults
 
-tests :: IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] -> TestTree
-tests pv6ResultsRef pv7ResultsRef pv8ResultsRef =
+tests
+  :: IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] -> TestTree
+tests pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef =
   testGroup
     "Plutus E2E Tests"
-    [ -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
-      -- , testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
-      testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
+    [ testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
+    , testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
+    , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
     , testProperty "Babbage PV9 Tests" (pv9Tests pv9ResultsRef)
     --  testProperty "debug" (debugTests pv8ResultsRef)
     --  testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
@@ -153,8 +154,9 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ run Alonzo.checkTxInfoV1TestInfo
-    , run Babbage.checkTxInfoV2TestInfo
+    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
+      -- run Alonzo.checkTxInfoV1TestInfo
+      run Babbage.checkTxInfoV2TestInfo
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -166,10 +168,10 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
     , run Babbage.inlineDatumSpendTestInfo
-    , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-    , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-    , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
-    , run Babbage.returnCollateralWithTokensValidScriptTestInfo
+    , -- , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+      -- , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+      -- , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+      run Babbage.returnCollateralWithTokensValidScriptTestInfo
     , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 
@@ -213,29 +215,27 @@ runTestsWithResults = do
   createDirectoryIfMissing False "test-report-xml"
 
   allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef] <-
-    traverse newIORef [[], [], []]
+    traverse newIORef [[], [], [], []]
 
   -- Catch the exception returned by defaultMain to proceed with report generation
   eException <-
     try (defaultMain $ tests pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef)
       :: IO (Either ExitCode ())
 
-  [pv6Results, pv7Results, pv8Results, pv9ResultsRef] <-
+  [pv6Results, pv7Results, pv8Results, pv9Results] <-
     traverse readIORef [pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef]
-  -- putStrLn $ "Debug final results: " ++ show results -- REMOVE
 
   failureMessages <- liftIO $ allFailureMessages allRefs
   liftIO $ putStrLn $ "Total number of test failures: " ++ (show $ length failureMessages)
 
-  let
-    pv6TestSuiteResult = TestSuiteResults "Alonzo PV6 Tests" pv6Results
-    pv7TestSuiteResult = TestSuiteResults "Babbage PV7 Tests" pv7Results
-    pv8TestSuiteResult = TestSuiteResults "Babbage PV8 Tests" pv8Results
-    pv9TestSuiteResult = TestSuiteResults "Babbage PV9 Tests" pv9Results
+  let pv6TestSuiteResult = TestSuiteResults "Alonzo PV6 Tests" pv6Results
+      pv7TestSuiteResult = TestSuiteResults "Babbage PV7 Tests" pv7Results
+      pv8TestSuiteResult = TestSuiteResults "Babbage PV8 Tests" pv8Results
+      pv9TestSuiteResult = TestSuiteResults "Conway PV9 Tests" pv9Results
 
   -- Use 'results' to generate custom JUnit XML report
-  let xml = testSuitesToJUnit [pv6TestSuiteResult, pv7TestSuiteResult, pv8TestSuiteResult]
-  -- putStrLn $ "Debug XML: " ++ showTopElement xml -- REMOVE
+  let xml =
+        testSuitesToJUnit [pv6TestSuiteResult, pv7TestSuiteResult, pv8TestSuiteResult, pv9TestSuiteResult]
   writeFile "test-report-xml/test-results.xml" $ showTopElement xml
 
   when (eException /= Left ExitSuccess || length failureMessages > 0) exitFailure
