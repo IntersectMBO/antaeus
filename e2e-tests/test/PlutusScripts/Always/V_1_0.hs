@@ -9,40 +9,18 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
-module PlutusScripts.Always (
-  alwaysSucceedPolicyScriptV1,
-  alwaysSucceedPolicyScriptV2,
-  alwaysSucceedAssetIdV1,
-  alwaysSucceedAssetIdV2,
-  alwaysSucceedMintWitnessV1,
-  alwaysSucceedMintWitnessV1',
-  alwaysSucceedMintWitnessV2,
-  alwaysSucceedMintWitnessV2',
-  alwaysSucceedPolicyTxInfoRedeemerV2,
-  alwaysSucceedSpendScriptV1,
-  alwaysSucceedSpendScriptV2,
-  alwaysSucceedSpendScriptHashV1,
-  alwaysSucceedSpendScriptHashV2,
-  alwaysSucceedSpendWitnessV1,
-  alwaysSucceedSpendWitnessV2,
-  alwaysFailsPolicyScriptV1,
-  alwaysFailsPolicyScriptV2,
-  alwaysFailsAssetIdV1,
-  alwaysFailsAssetIdV2,
-  alwaysFailsMintWitnessV1,
-  alwaysFailsMintWitnessV1',
-  alwaysFailsMintWitnessV2,
-  alwaysFailsMintWitnessV2',
-  alwaysFailsPolicyTxInfoRedeemerV2,
-)
-where
+module PlutusScripts.Always.V_1_0 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Data.ByteString.Short qualified as SBS
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V1 (BuiltinData, Redeemer, ScriptPurpose (Minting))
+import PlutusLedgerApi.V1 (Redeemer, ScriptPurpose (Minting))
 import PlutusLedgerApi.V2 qualified as PlutusV2 (Map)
+import PlutusScripts.Always.Common (
+  mkAlwaysFailsPolicy,
+  mkAlwaysSucceedPolicy,
+  mkAlwaysSucceedSpend,
+ )
 import PlutusScripts.Helpers (
   asRedeemer,
   fromPolicyId,
@@ -57,14 +35,10 @@ import PlutusScripts.Helpers (
  )
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AMap
-import PlutusTx.Prelude qualified as P
 
 -- AlwaysSucceeds minting policy --
 
-mkAlwaysSucceedPolicy :: BuiltinData -> BuiltinData -> ()
-mkAlwaysSucceedPolicy _datum _sc = ()
-
-alwaysSucceedPolicy :: SBS.ShortByteString
+alwaysSucceedPolicy :: SerialisedScript
 alwaysSucceedPolicy = serialiseCompiledCode $$(PlutusTx.compile [||mkAlwaysSucceedPolicy||])
 
 alwaysSucceedPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
@@ -140,9 +114,6 @@ alwaysSucceedMintWitnessV2' era exunits =
 
 -- AlwaysSucceeds validator --
 
-mkAlwaysSucceedSpend :: BuiltinData -> BuiltinData -> BuiltinData -> ()
-mkAlwaysSucceedSpend _datum _redeemer _sc = ()
-
 alwaysSucceedSpend :: SerialisedScript
 alwaysSucceedSpend = serialiseCompiledCode $$(PlutusTx.compile [||mkAlwaysSucceedSpend||])
 
@@ -187,9 +158,6 @@ alwaysSucceedSpendWitnessV2 era mRefScript mDatum =
       (toScriptData ()) -- redeemer
 
 -- AlwaysFails minting policy --
-
-mkAlwaysFailsPolicy :: BuiltinData -> BuiltinData -> ()
-mkAlwaysFailsPolicy _datum _sc = P.error ()
 
 alwaysFailsPolicy :: SerialisedScript
 alwaysFailsPolicy = serialiseCompiledCode $$(PlutusTx.compile [||mkAlwaysFailsPolicy||])

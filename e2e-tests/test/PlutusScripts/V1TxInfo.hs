@@ -24,7 +24,6 @@ module PlutusScripts.V1TxInfo (
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Data.ByteString.Short qualified as SBS
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Helpers.TypeConverters (
   fromCardanoPaymentKeyHash,
@@ -34,7 +33,7 @@ import Helpers.TypeConverters (
   fromCardanoTxOutToPV1TxInfoTxOut',
   fromCardanoValue,
  )
-import PlutusLedgerApi.Common (serialiseCompiledCode)
+import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1 qualified as PlutusV1
 import PlutusLedgerApi.V1.Interval qualified as P
 import PlutusScripts.Helpers (mintScriptWitness', plutusL1, policyIdV1, toScriptData)
@@ -138,7 +137,7 @@ mkCheckV1TxInfo V1TxInfo{..} ctx =
     checkTxInfoData = expTxInfoData P.== PlutusV1.txInfoData info
     checkTxInfoId = P.equalsInteger 32 (P.lengthOfByteString P.$ PlutusV1.getTxId P.$ PlutusV1.txInfoId info)
 
-checkV1TxInfoV1 :: SBS.ShortByteString
+checkV1TxInfoV1 :: SerialisedScript
 checkV1TxInfoV1 =
   serialiseCompiledCode
     $$(PlutusTx.compile [||wrap||])

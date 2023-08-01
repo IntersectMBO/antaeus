@@ -51,14 +51,19 @@ source-repository-package
     tag: eb66a54f5d03d96fa9f4899b4f43ebf4e829f2ca
     subdir:
       cardano-node
---      trace-forward
---      trace-dispatcher
---      trace-resources
 
 -- Fork for improvements to Babbage testnet - see TODO: insert upstream PR link
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-node
-    tag: 07e42847a88b0a7346adb4248b855e5bf5bf5548
+    tag: 342415aef56d06e9f2bcfc93fcbc466e44a7d497
     subdir:
       cardano-testnet
+
+-- Expose PlutusScriptV3 in cardano-api
+source-repository-package
+    type: git
+    location: https://github.com/james-iohk/cardano-api
+    tag: 022495a1c6b99a881c49ae25f26f1389ab63aaa5
+    subdir:
+      cardano-api

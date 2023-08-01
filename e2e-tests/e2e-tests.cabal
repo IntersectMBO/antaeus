@@ -119,9 +119,13 @@ test-suite antaeus-test
     Helpers.Tx
     Helpers.TypeConverters
     Helpers.Utils
-    PlutusScripts.Always
+    PlutusScripts.Always.Common
+    PlutusScripts.Always.V_1_0
+    PlutusScripts.Always.V_1_1
     PlutusScripts.Helpers
-    PlutusScripts.SECP256k1
+    PlutusScripts.SECP256k1.Common
+    PlutusScripts.SECP256k1.V_1_0
+    PlutusScripts.SECP256k1.V_1_1
     PlutusScripts.V1TxInfo
     PlutusScripts.V2TxInfo
     Spec.AlonzoFeatures
