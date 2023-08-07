@@ -1,13 +1,13 @@
 {
   "nodes": {
-    "CHaP_2": {
+    "CHaP": {
       "flake": false,
       "locked": {
-        "lastModified": 1690191007,
-        "narHash": "sha256-FDgQP/PG+RgiPDBRAtO8XmivQxW4kGPF3QBnR64rkr0=",
+        "lastModified": 1691400306,
+        "narHash": "sha256-8YdXsDhMzLyDcU9LoAbMER2RXJ60ntQ0tpDLIsqvO/k=",
         "owner": "input-output-hk",
         "repo": "cardano-haskell-packages",
-        "rev": "3eaa518d666a643a2169bc8cb3adf6c5ffbfd098",
+        "rev": "8a16db9be7cbf3270de8b9366ab71df8c3359f0f",
         "type": "github"
       },
       "original": {
@@ -155,11 +155,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1687709756,
-        "narHash": "sha256-Y5wKlQSkgEK2weWdOu4J3riRd+kV/VCgHsqLNTTWQ/0=",
+        "lastModified": 1689068808,
+        "narHash": "sha256-6ixXo3wt24N/melDWjq70UuHQLxGV8jZvooRanIHXw0=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "dbabf0ca0c0c4bce6ea5eaf65af5cb694d2082c7",
+        "rev": "919d646de7be200f3bf08cb76ae1f09402b6f9b4",
         "type": "github"
       },
       "original": {
@@ -241,14 +241,14 @@
         "type": "github"
       }
     },
-    "hackage_2": {
+    "hackage": {
       "flake": false,
       "locked": {
-        "lastModified": 1690158464,
-        "narHash": "sha256-GgXtAOc7WutIYNzl5cznwxag8Fo0KfKsOsjf/7uZO98=",
+        "lastModified": 1691195156,
+        "narHash": "sha256-cy5qo3aE/a6lymbzOAcxdW9ZLGRCnanDuu/xQL2dQo8=",
         "owner": "input-output-hk",
         "repo": "hackage.nix",
-        "rev": "b0da1d610cf7fbf48854c92fd73ca7ebca5eb4b7",
+        "rev": "4dcf5a4a045945aa55c1f2be9d2dadce968488fa",
         "type": "github"
       },
       "original": {
@@ -416,11 +416,11 @@
     "iogx": {
       "inputs": {
         "CHaP": [
-          "CHaP_2"
+          "CHaP"
         ],
         "flake-utils": "flake-utils",
         "hackage": [
-          "hackage_2"
+          "hackage"
         ],
         "haskell-language-server-1_8_0_0": "haskell-language-server-1_8_0_0",
         "haskell-language-server-1_9_0_0": "haskell-language-server-1_9_0_0",
@@ -435,11 +435,11 @@
         "sphinxcontrib-haddock": "sphinxcontrib-haddock"
       },
       "locked": {
-        "lastModified": 1689173432,
-        "narHash": "sha256-x/vnkSVB0xyeOmpv+X/cdqN7v/QtvmsJ+iPalnb0UsA=",
+        "lastModified": 1691436259,
+        "narHash": "sha256-3GjwI4oASjhVQD8Z37P4FhB7tCZHq0Hd6qS9EtTmT70=",
         "owner": "input-output-hk",
         "repo": "iogx",
-        "rev": "05225853e4f01456d5239f89f8c2b3aae6a0d505",
+        "rev": "dc16debd3acb624b1e5fac4169785efd1e668a8a",
         "type": "github"
       },
       "original": {
@@ -743,8 +743,8 @@
     },
     "root": {
       "inputs": {
-        "CHaP_2": "CHaP_2",
-        "hackage_2": "hackage_2",
+        "CHaP": "CHaP",
+        "hackage": "hackage",
         "iogx": "iogx"
       }
     },
