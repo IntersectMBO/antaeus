@@ -9,7 +9,6 @@
     iogx.inputs.hackage.follows = "hackage";
     iogx.inputs.CHaP.follows = "CHaP";
 
-
     hackage = {
       url = "github:input-output-hk/hackage.nix";
       flake = false;
