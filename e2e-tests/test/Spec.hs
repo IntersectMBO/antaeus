@@ -26,6 +26,7 @@ import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
+import Spec.Builtins.Hashing qualified as Builtins
 import Spec.Builtins.SECP256k1 qualified as Builtins
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
@@ -69,6 +70,7 @@ pv6Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     , -- , run Alonzo.tooManyCollateralInputsErrorTestInfo
       -- \^ fails, see https://github.com/input-output-hk/cardano-node/issues/5228
       run Builtins.verifySchnorrAndEcdsaTestInfo
+    , run Builtins.verifyHashingFunctionsTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -95,6 +97,7 @@ pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     , run Alonzo.missingCollateralInputErrorTestInfo
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
+    , run Builtins.verifyHashingFunctionsTestInfo
     , run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
@@ -128,6 +131,7 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     , run Alonzo.missingCollateralInputErrorTestInfo
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
+    , run Builtins.verifyHashingFunctionsTestInfo
     , run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
@@ -164,13 +168,14 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Alonzo.missingCollateralInputErrorTestInfo
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
+    , run Builtins.verifyHashingFunctionsTestInfo
     , run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
     , run Babbage.inlineDatumSpendTestInfo
-    , -- , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-      -- , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-      -- , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+    , -- , run Babbage.referenceInputWithV1ScriptErrorTestInfo -- V1 not supported
+      -- , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo -- V1 not supported
+      -- , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo -- V1 not supported
       run Babbage.returnCollateralWithTokensValidScriptTestInfo
     , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]

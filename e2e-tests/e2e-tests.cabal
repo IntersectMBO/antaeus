@@ -122,6 +122,9 @@ test-suite antaeus-test
     PlutusScripts.Always.Common
     PlutusScripts.Always.V_1_0
     PlutusScripts.Always.V_1_1
+    PlutusScripts.Hashing.Common
+    PlutusScripts.Hashing.V_1_0
+    PlutusScripts.Hashing.V_1_1
     PlutusScripts.Helpers
     PlutusScripts.SECP256k1.Common
     PlutusScripts.SECP256k1.V_1_0
@@ -130,6 +133,7 @@ test-suite antaeus-test
     PlutusScripts.V2TxInfo
     Spec.AlonzoFeatures
     Spec.BabbageFeatures
+    Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1
 
   --------------------------
