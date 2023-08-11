@@ -7,7 +7,6 @@
 {-# LANGUAGE TypeApplications #-}
 -- Not using all CardanoEra
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
 module PlutusScripts.SECP256k1.Common where
 

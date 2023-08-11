@@ -62,6 +62,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
           , Map.fromList [PS_1_0.verifySchnorrMintWitnessV2 era, PS_1_0.verifyEcdsaMintWitnessV2 era]
           , "PlutusV2" -- TODO use show?
           )
+        -- TODO: Add V1 once supported
         C.ConwayEra ->
           ( C.valueFromList
               [ (PS_1_0.verifySchnorrAssetIdV2, 4)
