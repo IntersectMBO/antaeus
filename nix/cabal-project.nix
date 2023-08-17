@@ -32,14 +32,13 @@ let
   };
 
   # TODO this is temporary and will be done automatically by IOGX in the next version
-  cardano-node-gitrev = "eb66a54f5d03d96fa9f4899b4f43ebf4e829f2ca";
+  cardano-node-gitrev = "a29ee68ba2c850cd50be39a3105ef191cfbc41d5";
 
   shellWithHoogle = false;
 
   sha256map = {
-    "https://github.com/input-output-hk/cardano-node".${cardano-node-gitrev} = "sha256-QYqWuJPk0frnBrcRAv4SzvAckLMBnaKThP5Gl5lHN44=";
-    "https://github.com/james-iohk/cardano-node"."342415aef56d06e9f2bcfc93fcbc466e44a7d497" = "sha256-9/tG/XQvhbBOQ+7LAaCINjDijTzw+v4y3w0WT8+/3cE=";
-    "https://github.com/james-iohk/cardano-api"."022495a1c6b99a881c49ae25f26f1389ab63aaa5" = "sha256-k735IKmhzp4IftzTVwtKCpzwdUFdLfw8Yv0WwgqLYjk=";
+    "https://github.com/james-iohk/cardano-node"."169703647b7dc5981b1932d10c5f1a239785cc74" = "sha256-/8zm/kuIQTqcnFWEnknH3j/aOKYFV50sTsN27yNg8jA=";
+    "https://github.com/james-iohk/cardano-api"."7e1cef1f9b7f133cd9197d7ecf29b77acd4d8c60" = "sha256-CrHfnih6pkBfgQYJCuy/r0nir4BECZH6YUcuaEBsk20=";
   };
 
   modules = [{ inherit packages; }];

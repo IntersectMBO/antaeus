@@ -52,7 +52,7 @@ tests pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef =
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
-pv6Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
+pv6Tests resultsRef = integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
   let options = TN.testnetOptionsAlonzo6
   preTestnetTime <- liftIO Time.getPOSIXTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
