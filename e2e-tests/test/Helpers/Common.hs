@@ -17,6 +17,12 @@ toShelleyBasedEra era =
     C.ConwayEra -> C.ShelleyBasedEraConway
     _ -> error "Must use Alonzo, Babbage or Conway era"
 
+toConwayEraOnwards :: C.CardanoEra era -> C.ConwayEraOnwards era
+toConwayEraOnwards era =
+  case era of
+    C.ConwayEra -> C.ConwayEraOnwardsConway
+    _ -> error "Must use Conway era"
+
 -- | Make a payment or script address
 makeAddress
   :: Either (C.VerificationKey C.PaymentKey) C.ScriptHash

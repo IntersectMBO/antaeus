@@ -362,10 +362,13 @@ signTx
   :: (MonadIO m)
   => C.ShelleyBasedEra era
   -> C.TxBody era
-  -> C.SigningKey C.PaymentKey
+  -> C.ShelleyWitnessSigningKey
   -> m (C.KeyWitness era)
 signTx era txbody skey =
-  return $ C.makeShelleyKeyWitness era txbody (C.WitnessPaymentKey skey)
+  let witness = case skey of
+        C.WitnessPaymentKey skey' -> C.WitnessPaymentKey skey'
+        C.WitnessStakeKey skey' -> C.WitnessStakeKey skey'
+   in return $ C.makeShelleyKeyWitness era txbody witness
 
 submitTx
   :: (MonadIO m, MonadTest m)

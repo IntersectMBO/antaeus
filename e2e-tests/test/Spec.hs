@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
@@ -28,6 +29,7 @@ import Helpers.Utils qualified as U
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins as Builtins
+import Spec.ConwayFeatures qualified as Conway
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -38,9 +40,16 @@ main :: IO ()
 main = do
   runTestsWithResults
 
-tests
-  :: IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] -> IORef [TestResult] -> TestTree
-tests _pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef =
+data ResultsRefs = ResultsRefs
+  { pv6ResultsRef :: IORef [TestResult]
+  , pv7ResultsRef :: IORef [TestResult]
+  , pv8ResultsRef :: IORef [TestResult]
+  , pv9ResultsRef :: IORef [TestResult]
+  , pv9GovResultsRef :: IORef [TestResult]
+  }
+
+tests :: ResultsRefs -> TestTree
+tests ResultsRefs{..} =
   testGroup
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has become flakey. Can timeout waiting for txo to be created.
@@ -49,6 +58,7 @@ tests _pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef =
       testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
     , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
+    , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
     --  testProperty "debug" (debugTests pv8ResultsRef)
     --  testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
     ]
@@ -160,8 +170,10 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ run Alonzo.checkTxInfoV1TestInfo
-    , run Babbage.checkTxInfoV2TestInfo
+    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
+      -- run Alonzo.checkTxInfoV1TestInfo
+      run Babbage.checkTxInfoV2TestInfo
+    , run Conway.checkTxInfoV3TestInfo -- -- NOTE: Does not yet check V3 TxInfo fields
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -181,6 +193,22 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Babbage.returnCollateralWithTokensValidScriptTestInfo
     , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
+
+  failureMessages <- liftIO $ suiteFailureMessages resultsRef
+  liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
+  U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
+
+-- uses short epochs for testing governance actions
+pv9GovernanceTests :: IORef [TestResult] -> H.Property
+pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \tempAbsPath -> do
+  let options = TN.testnetOptionsConway9Governance
+  preTestnetTime <- liftIO Time.getPOSIXTime
+  (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
+    TN.setupTestEnvironment options tempAbsPath
+  let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
+      run testInfo = runTest testInfo resultsRef options testParams
+
+  sequence_ [run Conway.constitutionProposalAndVoteTestInfo]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
   liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
@@ -224,16 +252,20 @@ runTestsWithResults :: IO ()
 runTestsWithResults = do
   createDirectoryIfMissing False "test-report-xml"
 
-  allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef] <-
-    traverse newIORef [[], [], [], []]
+  allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef, pv9GovResultsRef] <-
+    traverse newIORef [[], [], [], [], []]
 
   -- Catch the exception returned by defaultMain to proceed with report generation
   eException <-
-    try (defaultMain $ tests pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef)
+    try
+      ( defaultMain $
+          tests $
+            ResultsRefs pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef pv9GovResultsRef
+      )
       :: IO (Either ExitCode ())
 
-  [pv6Results, pv7Results, pv8Results, pv9Results] <-
-    traverse readIORef [pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef]
+  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults] <-
+    traverse readIORef [pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef, pv9GovResultsRef]
 
   failureMessages <- liftIO $ allFailureMessages allRefs
   liftIO $ putStrLn $ "Total number of test failures: " ++ (show $ length failureMessages)
@@ -242,10 +274,17 @@ runTestsWithResults = do
       pv7TestSuiteResult = TestSuiteResults "Babbage PV7 Tests" pv7Results
       pv8TestSuiteResult = TestSuiteResults "Babbage PV8 Tests" pv8Results
       pv9TestSuiteResult = TestSuiteResults "Conway PV9 Tests" pv9Results
+      pv9GovernanceTestSuiteResult = TestSuiteResults "Conway PV9 Governanace Tests" pv9GovResults
 
   -- Use 'results' to generate custom JUnit XML report
   let xml =
-        testSuitesToJUnit [pv6TestSuiteResult, pv7TestSuiteResult, pv8TestSuiteResult, pv9TestSuiteResult]
+        testSuitesToJUnit
+          [ pv6TestSuiteResult
+          , pv7TestSuiteResult
+          , pv8TestSuiteResult
+          , pv9TestSuiteResult
+          , pv9GovernanceTestSuiteResult
+          ]
   writeFile "test-report-xml/test-results.xml" $ showTopElement xml
 
   when (eException /= Left ExitSuccess || length failureMessages > 0) exitFailure

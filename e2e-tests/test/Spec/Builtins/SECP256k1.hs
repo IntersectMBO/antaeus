@@ -79,7 +79,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
       collateral = Tx.txInsCollateral era [txIn]
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses

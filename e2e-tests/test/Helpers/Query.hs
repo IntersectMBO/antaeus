@@ -1,17 +1,29 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Used otherwise as a pattern" #-}
 
 module Helpers.Query where
 
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger (Crypto (HASH))
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
-import Control.Monad (when)
+import Cardano.Crypto.Hash (Blake2b_256, Hash)
+import Cardano.Ledger.SafeHash qualified as C
+import Cardano.Ledger.SafeHash qualified as L
+import Control.Concurrent (threadDelay)
+import Control.Monad (void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.ByteString qualified as BS
 import Data.List (isInfixOf, sortBy)
 import Data.Map qualified as Map
+import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
@@ -212,11 +224,64 @@ getProtocolParams
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
-  -> m (C.LedgerProtocolParameters era)
-getProtocolParams era localNodeConnectInfo = do
-  lpp <-
+  -> m C.ProtocolParameters
+getProtocolParams era localNodeConnectInfo =
+  H.leftFailM . H.leftFailM . liftIO $
+    C.queryNodeLocalState localNodeConnectInfo Nothing $
+      C.QueryInEra (toEraInCardanoMode era) $
+        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
+
+-- | Query current epoch
+getCurrentEpoch
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m C.EpochNo
+getCurrentEpoch era localNodeConnectInfo =
+  H.leftFailM . H.leftFailM . liftIO $
+    C.queryNodeLocalState localNodeConnectInfo Nothing $
+      C.QueryInEra (toEraInCardanoMode era) $
+        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
+
+waitForNextEpoch
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.EpochNo
+  -> m C.EpochNo
+waitForNextEpoch era localNodeConnectInfo prevEpochNo = do
+  currentEpochNo <- getCurrentEpoch era localNodeConnectInfo
+  case currentEpochNo - prevEpochNo of
+    0 -> do
+      liftIO $ threadDelay 1000000 -- 1s
+      waitForNextEpoch era localNodeConnectInfo prevEpochNo
+    1 -> return currentEpochNo
+    diff
+      | diff > 1 -> error "Current epoch is more than 1 epoch beyond the previous epoch"
+      | otherwise -> error "Current epoch is less than the previous epoch"
+
+waitForNextEpoch_
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.EpochNo
+  -> m ()
+waitForNextEpoch_ e l n = void (waitForNextEpoch e l n)
+
+-- | Query current constitution hash
+getConstitutionHash
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m (Maybe String) -- (Maybe (C.SafeHash (L.EraCrypto (C.ShelleyLedgerEra era)) BS.ByteString))
+getConstitutionHash era localNodeConnectInfo = do
+  mConstitutionHash <-
     H.leftFailM . H.leftFailM . liftIO $
       C.queryNodeLocalState localNodeConnectInfo Nothing $
         C.QueryInEra (toEraInCardanoMode era) $
-          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
-  return $ C.LedgerProtocolParameters lpp
+          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitutionHash
+  return $ (\ch -> Just $ show $ L.extractHash ch) =<< mConstitutionHash
+
+-- case constitutionHash of
+--   Nothing -> return Nothing
+--   _ -> return $ Just $ show $ L.extractHash (fromJust constitutionHash)

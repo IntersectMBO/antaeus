@@ -20,13 +20,14 @@ import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (makeAddress, toEraInCardanoMode)
+import Helpers.Common (makeAddress, toEraInCardanoMode, toShelleyBasedEra)
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
 
 import Cardano.Testnet qualified as CTN
+import Control.Lens ((&), (.~))
 import Hedgehog qualified as H
 import Helpers.Query qualified as Q
 import System.Process (cleanupProcess)
@@ -85,8 +86,20 @@ defConwayTestnetOptions =
           }
     }
 
-data LocalNodeOptions era = LocalNodeOptions
-  { localNodeEra :: C.CardanoEra era
+shortEpochConwayTestnetOptions :: TestnetOptions
+shortEpochConwayTestnetOptions =
+  defConwayTestnetOptions
+    { testnetCardanoOptions =
+        CTN.ConwayOnlyTestnetOptions
+          CTN.conwayDefaultTestnetOptions
+            { CTN.conwayProtocolVersion = 9
+            , CTN.conwaySlotDuration = 200
+            , CTN.conwayEpochLength = 100 -- 20 second epoch for testing outcome of governance actions
+            }
+    }
+
+data LocalNodeOptions = LocalNodeOptions
+  { localNodeEra :: C.AnyCardanoEra
   , localNodeProtocolVersion :: Int
   , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
   , localNodeTestnetMagic :: Int
@@ -111,7 +124,12 @@ instance Error TimedOut where
       ++ "s in `cleanupTestnet` for process to exit. pid="
       ++ show pid
 
-testnetOptionsAlonzo6 :: Either (LocalNodeOptions C.AlonzoEra) (TestnetOptions C.AlonzoEra)
+testnetOptionsAlonzo6
+  , testnetOptionsBabbage7
+  , testnetOptionsBabbage8
+  , testnetOptionsConway9
+  , testnetOptionsConway9Governance
+    :: Either LocalNodeOptions TestnetOptions
 testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
 
 testnetOptionsBabbage7 :: Either (LocalNodeOptions C.BabbageEra) (TestnetOptions C.BabbageEra)
@@ -122,6 +140,7 @@ testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
 
 testnetOptionsConway9 :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
 testnetOptionsConway9 = Right defConwayTestnetOptions
+testnetOptionsConway9Governance = Right shortEpochConwayTestnetOptions
 
 eraFromOptions
   :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m (C.CardanoEra era)
@@ -296,8 +315,31 @@ w1All tempAbsPath' networkId = do
 
 w1
   :: (MonadIO m, MonadTest m)
-  => FilePath
+  => Either LocalNodeOptions TestnetOptions
+  -> FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 tempAbsPath' networkId =
-  (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath' networkId
+w1 networkOptions tempAbsPath' networkId =
+  (\(sKey, _, address) -> (sKey, address)) <$> w1All networkOptions tempAbsPath' networkId
+
+pool1
+  :: (MonadIO m, MonadTest m)
+  => FilePath
+  -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey, C.Hash C.StakePoolKey)
+pool1 tempAbsPath = do
+  let pool1SKeyFile = C.File $ tempAbsPath </> "pools/cold1.skey"
+  mPool1SKey :: Maybe (C.SigningKey C.StakePoolKey) <-
+    maybeReadAs (C.AsSigningKey C.AsStakePoolKey) pool1SKeyFile
+  let pool1SKey = fromJust mPool1SKey
+
+  let pool1StakingRewardsFile = C.File $ tempAbsPath </> "pools/staking-reward1.vkey"
+  mPool1StakingRewards :: Maybe (C.VerificationKey C.StakeKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsStakeKey) pool1StakingRewardsFile
+  let pool1StakeKeyHash = C.verificationKeyHash (fromJust mPool1StakingRewards)
+
+  let pool1VerificationKeyFile = C.File $ tempAbsPath </> "pools/cold1.vkey"
+  mPool1VKey :: Maybe (C.VerificationKey C.StakePoolKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsStakePoolKey) pool1VerificationKeyFile
+  let stakePoolKeyHash = C.verificationKeyHash (fromJust mPool1VKey)
+
+  return (pool1SKey, pool1StakeKeyHash, stakePoolKeyHash)

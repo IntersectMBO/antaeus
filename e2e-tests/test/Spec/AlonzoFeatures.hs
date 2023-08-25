@@ -115,7 +115,7 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
       mintWitnesses = Map.fromList [PS.checkV1TxInfoMintWitnessV1 era redeemer executionUnits]
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -128,7 +128,7 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx (toShelleyBasedEra era) txbody w1SKey
+  kw <- Tx.signTx (toShelleyBasedEra era) txbody (C.WitnessPaymentKey w1SKey)
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx era localNodeConnectInfo signedTx
@@ -178,7 +178,7 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [scriptTxOut1, scriptTxOut2, otherTxOut]
           }
@@ -206,7 +206,7 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
       txOut = Tx.txOut era adaValue w1Address
 
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = scriptTxins
           , C.txInsCollateral = collateral
           , C.txOuts = [txOut]
@@ -272,7 +272,7 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
       otherTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -314,7 +314,7 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
       collateral2 = Tx.txInsCollateral era [otherTxIn]
       txOut2 = Tx.txOut era (C.lovelaceToValue 5_000_000 <> tokenValues2) w1Address
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn2]
           , C.txInsCollateral = collateral2
           , C.txMintValue = Tx.txMintValue era burnValue mintWitnesses
@@ -378,7 +378,7 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
       otherTxOut = Tx.txOut era (C.lovelaceToValue 8_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -406,7 +406,7 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
       collateral2 = Tx.txInsCollateral era [txInWithToken]
       txOut2 = Tx.txOut era (C.lovelaceToValue 5_000_000 <> tokenValues) w1Address
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [otherTxIn]
           , C.txInsCollateral = collateral2
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -463,7 +463,7 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
           , C.txOuts = [txOut]
@@ -523,7 +523,7 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
           , C.txInsCollateral = collateral -- txInsCollateral exists but with empty list
@@ -566,7 +566,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo,
       txOut = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = replicate (maxCollateralInputs + 1) txOut -- one more than max
           }
@@ -586,7 +586,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo,
   let collateral = Tx.txInsCollateral era collateralTxIns
       txOut2 = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns (take 3 collateralTxIns)
           , C.txInsCollateral = collateral
           , C.txOuts = [txOut2]

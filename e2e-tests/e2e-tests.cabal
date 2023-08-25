@@ -157,6 +157,7 @@ test-suite antaeus-test
     Spec.Builtins.BLS
     Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1
+    Spec.ConwayFeatures
 
   --------------------------
   -- Other IOG dependencies
