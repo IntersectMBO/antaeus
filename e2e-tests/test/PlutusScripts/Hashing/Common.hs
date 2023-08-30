@@ -94,15 +94,15 @@ sha2_256LongIO :: InputOutput
 sha2_256LongIO =
   InputOutput
     { input =
-        BI.toBuiltin $
-          bytesFromHex
-            ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652"
-                <> "e204974207761732064657369676e65642e20546f207377616c6c6f77207573"
+        BI.toBuiltin
+          $ bytesFromHex
+            ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e"
+                <> "204974207761732064657369676e65642e20546f207377616c6c6f7720757320776"
                 <> "2077686f6c652e20497427732061206c6f73696e672067616d652e"
             )
     , output =
-        BI.toBuiltin $
-          bytesFromHex "9da361d772347f07fa9e3e05effe677832a694be685e09d6927819052abb7380"
+        BI.toBuiltin
+          $ bytesFromHex "9da361d772347f07fa9e3e05effe677832a694be685e09d6927819052abb7380"
     }
 
 sha2_256ShortIO :: InputOutput
@@ -110,23 +110,23 @@ sha2_256ShortIO =
   InputOutput
     { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
     , output =
-        BI.toBuiltin $
-          bytesFromHex "198562f9eebef317e911e4064345b3629f5ba51e554e0d10278f18887850df3a"
+        BI.toBuiltin
+          $ bytesFromHex "198562f9eebef317e911e4064345b3629f5ba51e554e0d10278f18887850df3a"
     }
 
 sha3_256LongIO :: InputOutput
 sha3_256LongIO =
   InputOutput
     { input =
-        BI.toBuiltin $
-          bytesFromHex
-            ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652"
-                <> "e204974207761732064657369676e65642e20546f207377616c6c6f77207573"
+        BI.toBuiltin
+          $ bytesFromHex
+            ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e"
+                <> "204974207761732064657369676e65642e20546f207377616c6c6f7720757320776"
                 <> "2077686f6c652e20497427732061206c6f73696e672067616d652e"
             )
     , output =
-        BI.toBuiltin $
-          bytesFromHex "222855a086033ff78b8a076245315586cf11443e4f5366203b6d8e05110b9fe8"
+        BI.toBuiltin
+          $ bytesFromHex "222855a086033ff78b8a076245315586cf11443e4f5366203b6d8e05110b9fe8"
     }
 
 sha3_256ShortIO :: InputOutput
@@ -134,23 +134,23 @@ sha3_256ShortIO =
   InputOutput
     { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
     , output =
-        BI.toBuiltin $
-          bytesFromHex "04ca8799832111c5079b2811412b7666c71fad8782b74dee4f6d42a08ef7d911"
+        BI.toBuiltin
+          $ bytesFromHex "04ca8799832111c5079b2811412b7666c71fad8782b74dee4f6d42a08ef7d911"
     }
 
 blake2b_256LongIO :: InputOutput
 blake2b_256LongIO =
   InputOutput
     { input =
-        BI.toBuiltin $
-          bytesFromHex
+        BI.toBuiltin
+          $ bytesFromHex
             ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e"
                 <> "204974207761732064657369676e65642e20546f207377616c6c6f7720757320776"
-                <> "86f6c652e20497427732061206c6f73696e672067616d652e"
+                <> "2077686f6c652e20497427732061206c6f73696e672067616d652e"
             )
     , output =
-        BI.toBuiltin $
-          bytesFromHex "98dc9ddd0021a431d069c5821ba0824442aba3f01138171af8300151ac401155"
+        BI.toBuiltin
+          $ bytesFromHex "98dc9ddd0021a431d069c5821ba0824442aba3f01138171af8300151ac401155"
     }
 
 blake2b_256ShortIO :: InputOutput
@@ -158,23 +158,23 @@ blake2b_256ShortIO =
   InputOutput
     { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
     , output =
-        BI.toBuiltin $
-          bytesFromHex "62250e24b1842531714afbf8bb8d4f5ecc78874f0c6a63c529c3f601c5c77c0e"
+        BI.toBuiltin
+          $ bytesFromHex "62250e24b1842531714afbf8bb8d4f5ecc78874f0c6a63c529c3f601c5c77c0e"
     }
 
 blake2b_224LongIO :: InputOutput
 blake2b_224LongIO =
   InputOutput
     { input =
-        BI.toBuiltin $
-          bytesFromHex
+        BI.toBuiltin
+          $ bytesFromHex
             ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e20"
                 <> "4974207761732064657369676e65642e20546f207377616c6c6f77207573207768"
                 <> "6f6c652e20497427732061206c6f73696e672067616d652e"
             )
     , output =
-        BI.toBuiltin $
-          bytesFromHex "8ad5493e31e61bace07bf6bfdf7931c5f381b1cd80dc093605ce5c2a"
+        BI.toBuiltin
+          $ bytesFromHex "8ad5493e31e61bace07bf6bfdf7931c5f381b1cd80dc093605ce5c2a"
     }
 
 blake2b_224ShortIO :: InputOutput
@@ -182,23 +182,23 @@ blake2b_224ShortIO =
   InputOutput
     { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
     , output =
-        BI.toBuiltin $
-          bytesFromHex "dbf1eb305849b048232dd0a92d4885c36a1d076dbf652a6cd5459244"
+        BI.toBuiltin
+          $ bytesFromHex "dbf1eb305849b048232dd0a92d4885c36a1d076dbf652a6cd5459244"
     }
 
 keccak256LongIO :: InputOutput
 keccak256LongIO =
   InputOutput
     { input =
-        BI.toBuiltin $
-          bytesFromHex
+        BI.toBuiltin
+          $ bytesFromHex
             ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e204974"
                 <> "207761732064657369676e65642e20546f207377616c6c6f772075732077686f6c652e20"
                 <> "497427732061206c6f73696e672067616d652e"
             )
     , output =
-        BI.toBuiltin $
-          bytesFromHex "4a02afccd1aa14dcab8c6afcd9654ef3cde6e634575aac26bf4e4dd5030a50d0"
+        BI.toBuiltin
+          $ bytesFromHex "4a02afccd1aa14dcab8c6afcd9654ef3cde6e634575aac26bf4e4dd5030a50d0"
     }
 
 keccak256ShortIO :: InputOutput
@@ -206,8 +206,8 @@ keccak256ShortIO =
   InputOutput
     { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
     , output =
-        BI.toBuiltin $
-          bytesFromHex "352c3f362f64da546ec7482811f67d1a201f71cad2dad21dc701277f09ff605f"
+        BI.toBuiltin
+          $ bytesFromHex "352c3f362f64da546ec7482811f67d1a201f71cad2dad21dc701277f09ff605f"
     }
 
 hashingParamsV1V2 :: V1_V2_HashingParams
