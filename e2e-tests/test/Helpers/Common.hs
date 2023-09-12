@@ -14,7 +14,8 @@ cardanoEraToShelleyBasedEra :: C.CardanoEra era -> C.ShelleyBasedEra era
 cardanoEraToShelleyBasedEra cEra = case cEra of
   C.AlonzoEra -> C.ShelleyBasedEraAlonzo
   C.BabbageEra -> C.ShelleyBasedEraBabbage
-  _ -> error "Must use Alonzo or Babbage era"
+  C.ConwayEra -> C.ShelleyBasedEraConway
+  _ -> error "Must use Alonzo, Babbage or Conway era"
 
 -- | Make a payment or script address
 makeAddress

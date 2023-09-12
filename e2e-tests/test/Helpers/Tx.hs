@@ -17,7 +17,7 @@ import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (toEraInCardanoMode)
+import Helpers.Common (cardanoEraToShelleyBasedEra, toEraInCardanoMode)
 import Helpers.Utils qualified as U
 
 deriving instance Show QueryConvenienceError
@@ -292,16 +292,16 @@ buildTx'
   -> C.SigningKey C.PaymentKey
   -> m (Either C.TxBodyErrorAutoBalance (C.Tx era))
 buildTx' era localNodeConnectInfo txBody changeAddress sKey = do
-  result <-
+  localStateQueryResult <-
     liftIO
       ( C.executeLocalStateQueryExpr localNodeConnectInfo Nothing $
           C.queryStateForBalancedTx era allInputs []
       )
-  (nodeEraUtxo, pparams, eraHistory, systemStart, stakePools, stakeValueMap) <- case result of
-    Left afe -> error $ show afe
-    Right localStateQueryResult -> case localStateQueryResult of
-      Left qce -> error $ show qce
-      Right queryBalancedTxResult -> return queryBalancedTxResult
+
+  let (nodeEraUtxo, pparams, eraHistory, systemStart, stakePools, stakeValueMap) =
+        U.unsafeFromRight $ U.unsafeFromRight localStateQueryResult
+
+      ledgerPParams = U.unsafeFromRight $ C.toLedgerPParams (cardanoEraToShelleyBasedEra era) pparams
 
   return $
     withIsShelleyBasedEra era $
@@ -310,7 +310,7 @@ buildTx' era localNodeConnectInfo txBody changeAddress sKey = do
         (C.shelleyAddressInEra changeAddress)
         Nothing -- Override key witnesses
         nodeEraUtxo -- tx inputs
-        pparams
+        ledgerPParams
         (C.toLedgerEpochInfo eraHistory)
         systemStart
         stakePools
