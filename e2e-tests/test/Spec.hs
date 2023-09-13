@@ -26,8 +26,7 @@ import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
-import Spec.Builtins.Hashing qualified as Builtins
-import Spec.Builtins.SECP256k1 qualified as Builtins
+import Spec.Builtins as Builtins
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -171,6 +170,7 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
     , run Builtins.verifyHashingFunctionsTestInfo
+    , run Builtins.verifyBlsFunctionsTestInfo
     , run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo

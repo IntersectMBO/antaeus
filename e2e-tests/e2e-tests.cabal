@@ -122,19 +122,29 @@ test-suite antaeus-test
     PlutusScripts.Always.Common
     PlutusScripts.Always.V_1_0
     PlutusScripts.Always.V_1_1
+    PlutusScripts.BLS
+    PlutusScripts.BLS.AggregateSigWithMultipleKeys.Common
+    PlutusScripts.BLS.AggregateSigWithMultipleKeys.V_1_1
+    PlutusScripts.BLS.AggregateSigWithSingleKey.Common
+    PlutusScripts.BLS.AggregateSigWithSingleKey.V_1_1
+    PlutusScripts.BLS.Common
+    PlutusScripts.BLS.Groth16.Common
+    PlutusScripts.BLS.Groth16.V_1_1
+    PlutusScripts.BLS.SchnorrG1.Common
+    PlutusScripts.BLS.SchnorrG1.V_1_1
+    PlutusScripts.BLS.SchnorrG2.Common
+    PlutusScripts.BLS.SchnorrG2.V_1_1
+    PlutusScripts.BLS.SimpleSignAndVerify.Common
+    PlutusScripts.BLS.SimpleSignAndVerify.V_1_1
+    PlutusScripts.BLS.VerifyOverG1.Common
+    PlutusScripts.BLS.VerifyOverG1.V_1_1
+    PlutusScripts.BLS.VerifyOverG2.Common
+    PlutusScripts.BLS.VerifyOverG2.V_1_1
+    PlutusScripts.BLS.Vrf.Common
+    PlutusScripts.BLS.Vrf.V_1_1
     PlutusScripts.Hashing.Common
     PlutusScripts.Hashing.V_1_0
     PlutusScripts.Hashing.V_1_1
-    PlutusScripts.BLS
-    PlutusScripts.BLS.AggregateSigWithMultipleKeys
-    PlutusScripts.BLS.AggregateSigWithSameKey
-    PlutusScripts.BLS.Common
-    PlutusScripts.BLS.Groth16
-    PlutusScripts.BLS.SchnorrG1
-    PlutusScripts.BLS.SchnorrG2
-    PlutusScripts.BLS.SimpleSignAndVerify
-    PlutusScripts.BLS.VerifyOverG1
-    PlutusScripts.BLS.Vrf
     PlutusScripts.Helpers
     PlutusScripts.SECP256k1.Common
     PlutusScripts.SECP256k1.V_1_0
@@ -143,8 +153,9 @@ test-suite antaeus-test
     PlutusScripts.V2TxInfo
     Spec.AlonzoFeatures
     Spec.BabbageFeatures
-    Spec.Builtins.Hashing
+    Spec.Builtins
     Spec.Builtins.BLS
+    Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1
 
   --------------------------
