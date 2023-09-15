@@ -150,7 +150,7 @@ aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
     calcDsScalars :: [P.BuiltinBLS12_381_G2_Element] -> [Integer] -> [Integer]
     calcDsScalars [] acc = acc
     calcDsScalars (_ : xs) [x'] = calcDsScalars xs [x', x' P.* x']
-    calcDsScalars (_ : xs) acc@(x' : xs') = calcDsScalars xs (acc P.++ [last xs' P.* x'])
+    calcDsScalars (_ : xs) acc@(x' : xs') = calcDsScalars xs (acc P.++ [last' xs' P.* x'])
     calcDsScalars _ _ = P.traceError "calcDsScalars: unexpected"
 
     go
@@ -167,10 +167,10 @@ aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
     calcAggregatedPubkey pk ds = ds `P.bls12_381_G2_scalarMul` pk
 
     -- PlutusTx.Prelude has no last
-    last :: [a] -> a
-    last [] = P.traceError "last: needs at least two elements"
-    last [x] = x
-    last (_ : xs) = last xs
+    last' :: [a] -> a
+    last' [] = P.traceError "last: needs at least two elements"
+    last' [x] = x
+    last' (_ : xs) = last' xs
 
 {- An alternative implementation of calcAggregatedPubkeys which uses a different
 -- means of scalar exponentiation. It results in a slightly smaller script using less CPU but
