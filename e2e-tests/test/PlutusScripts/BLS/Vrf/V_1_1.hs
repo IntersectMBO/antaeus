@@ -17,7 +17,7 @@ import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.Common (blsAssetName)
-import PlutusScripts.BLS.Vrf.Common (VrfProofWithOutput, redeemerParams, verifyBlsVrfScript)
+import PlutusScripts.BLS.Vrf.Common (redeemerParams, verifyBlsVrfScript)
 import PlutusScripts.Helpers qualified as H
 import PlutusTx qualified
 
@@ -32,14 +32,13 @@ verifyBlsVrfPolicyScriptV3 = C.PlutusScriptSerialised verifyBlsVrfPolicyV3
 verifyBlsVrfAssetIdV3 :: C.AssetId
 verifyBlsVrfAssetIdV3 = C.AssetId (H.policyIdV3 verifyBlsVrfPolicyV3) blsAssetName
 
-verifyBlsVrfRedeemer :: VrfProofWithOutput -> C.HashableScriptData
-verifyBlsVrfRedeemer pwo = H.toScriptData $ redeemerParams pwo
+verifyBlsVrfRedeemer :: C.HashableScriptData
+verifyBlsVrfRedeemer = H.toScriptData redeemerParams
 
 verifyBlsVrfMintWitnessV3
   :: C.CardanoEra era
-  -> VrfProofWithOutput
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyBlsVrfMintWitnessV3 era pwo =
+verifyBlsVrfMintWitnessV3 era =
   ( H.policyIdV3 verifyBlsVrfPolicyV3
-  , H.mintScriptWitness era H.plutusL3 (Left verifyBlsVrfPolicyScriptV3) (verifyBlsVrfRedeemer pwo)
+  , H.mintScriptWitness era H.plutusL3 (Left verifyBlsVrfPolicyScriptV3) verifyBlsVrfRedeemer
   )

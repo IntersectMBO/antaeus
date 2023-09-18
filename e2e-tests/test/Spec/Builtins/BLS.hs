@@ -4,6 +4,7 @@
 {-# HLINT ignore "Use if" #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
@@ -15,7 +16,10 @@ module Spec.Builtins.BLS where
 import Cardano.Api qualified as C
 import Data.Map qualified as Map
 
+import Cardano.Api.Shelley qualified as C
+import Control.Monad (forM)
 import Control.Monad.IO.Class (MonadIO)
+import Data.Functor ((<&>))
 import Hedgehog (MonadTest)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
@@ -23,7 +27,41 @@ import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import PlutusScripts.BLS qualified as PS
-import PlutusScripts.BLS.Vrf.Common qualified as VRF
+
+txIxToQuantity :: C.TxIx -> C.Quantity
+txIxToQuantity (C.TxIx wordValue) = fromIntegral wordValue
+
+buildAndSubmit
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.ProtocolParameters
+  -> C.TxIn
+  -> C.TxInsCollateral era
+  -> C.Address C.ShelleyAddr
+  -> C.SigningKey C.PaymentKey
+  -> C.AssetId
+  -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
+  -> m (C.Value, C.TxIn)
+buildAndSubmit era lnci pparams txIn@(C.TxIn _id ix) collateral address skey assetId mintWitness = do
+  let
+    -- use unique asset quantity for each script to assist debugging
+    assetQuantity = txIxToQuantity ix + 1
+    txTokenValue = C.valueFromList [(assetId, assetQuantity)]
+    txMintWitness = Map.fromList [mintWitness]
+    -- use unique lovelace value for each script to assist debugging
+    outputLovelaceValue = C.lovelaceToValue $ 3_000_000 + (C.quantityToLovelace assetQuantity * 100_000)
+    txOut = Tx.txOut era (outputLovelaceValue <> txTokenValue) address
+    txBodyContent =
+      (Tx.emptyTxBodyContent era pparams)
+        { C.txIns = Tx.pubkeyTxIns [txIn]
+        , C.txInsCollateral = collateral
+        , C.txMintValue = Tx.txMintValue era txTokenValue txMintWitness
+        , C.txOuts = [txOut]
+        }
+  signedTx <- Tx.buildTx era lnci txBodyContent address skey
+  Tx.submitTx era lnci signedTx
+  return (txTokenValue, Tx.txIn (Tx.txId signedTx) 0)
 
 verifyBlsFunctionsTestInfo =
   TestInfo
@@ -41,89 +79,65 @@ verifyBlsFunctionsTest
 verifyBlsFunctionsTest networkOptions TestParams{..} = do
   C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
   (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  let numberOfBlsScripts = 9
 
-  -- produce vrf proof for use in minting
-  let vrfProofWithOutput = VRF.generateVrfProofWithOutput VRF.vrfPrivKey VRF.vrfMessage
-
-  -- due to the max tx size constraint we must split use of BLS builtins across two transactions
-
-  -- build and submit tx1
+  -- produce an input for each script to run in its own transaction
 
   tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-
   let
-    tx1TokenValues =
-      C.valueFromList
-        [ (PS.verifyBlsSimpleAssetIdV3, 1)
-        , (PS.verifyBlsVrfAssetIdV3, 2)
-        , (PS.verifyBlsGroth16AssetIdV3, 3)
-        , (PS.verifyBlsSigG1AssetIdV3, 4)
-        , (PS.verifyBlsSigG2AssetIdV3, 5)
-        ]
-    tx1Out = Tx.txOut era (C.lovelaceToValue 3_100_000 <> tx1TokenValues) w1Address
-    tx1MintWitnesses =
-      Map.fromList
-        [ PS.verifyBlsSimpleMintWitnessV3 era
-        , PS.verifyBlsVrfMintWitnessV3 era vrfProofWithOutput
-        , PS.verifyBlsGroth16MintWitnessV3 era
-        , PS.verifyBlsSigG1MintWitnessV3 era
-        , PS.verifyBlsSigG2MintWitnessV3 era
-        ]
-    tx1Collateral = Tx.txInsCollateral era [tx1In]
+    tx1Outs = replicate numberOfBlsScripts (Tx.txOut era (C.lovelaceToValue 10_000_000) w1Address)
     tx1BodyContent =
       (Tx.emptyTxBodyContent era pparams)
         { C.txIns = Tx.pubkeyTxIns [tx1In]
-        , C.txInsCollateral = tx1Collateral
-        , C.txMintValue = Tx.txMintValue era tx1TokenValues tx1MintWitnesses
-        , C.txOuts = [tx1Out]
+        , C.txOuts = tx1Outs
         }
-
   signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
   Tx.submitTx era localNodeConnectInfo signedTx1
-  let expectedTxIn1 = Tx.txIn (Tx.txId signedTx1) 0
+  let expectedTxIns = [0 .. numberOfBlsScripts - 1] <&> Tx.txIn (Tx.txId signedTx1)
+  Q.waitForTxInAtAddress
+    era
+    localNodeConnectInfo
+    w1Address
+    (head expectedTxIns)
+    "waitForTxInAtAddress"
 
-  -- Query for txo and whether it contains newly minting tokens to prove successful use of BLS builtins
-  resultTxOut1 <-
-    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn1 "TN.getTxOutAtAddress"
-  tx1OutHasTokenValue <- Q.txOutHasValue resultTxOut1 tx1TokenValues
-
-  -- build and submit tx1
-
-  tx2In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-
+  -- build and submit a transaction for each BLS script
   let
-    tx2TokenValues =
-      C.valueFromList
-        [ (PS.verifyBlsAggregateSigSingleKeyG1AssetIdV3, 6)
-        , (PS.verifyBlsAggregateSigMultiKeyG1AssetIdV3, 7)
-        , (PS.verifyBlsSchnorrG1AssetIdV3, 8)
-        , (PS.verifyBlsSchnorrG2AssetIdV3, 9)
-        ]
-    tx2Out = Tx.txOut era (C.lovelaceToValue 3_200_000 <> tx2TokenValues) w1Address
-    tx2MintWitnesses =
-      Map.fromList
-        [ PS.verifyBlsAggregateSigSingleKeyG1MintWitnessV3 era
+    tx2Collateral = Tx.txInsCollateral era [Tx.txIn (Tx.txId signedTx1) numberOfBlsScripts]
+    alles =
+      [ (1, PS.verifyBlsSimpleAssetIdV3, PS.verifyBlsSimpleMintWitnessV3 era)
+      , (2, PS.verifyBlsVrfAssetIdV3, PS.verifyBlsVrfMintWitnessV3 era)
+      , (3, PS.verifyBlsGroth16AssetIdV3, PS.verifyBlsGroth16MintWitnessV3 era)
+      , (4, PS.verifyBlsSigG1AssetIdV3, PS.verifyBlsSigG1MintWitnessV3 era)
+      , (5, PS.verifyBlsSigG2AssetIdV3, PS.verifyBlsSigG2MintWitnessV3 era)
+      ,
+        ( 6
+        , PS.verifyBlsAggregateSigSingleKeyG1AssetIdV3
+        , PS.verifyBlsAggregateSigSingleKeyG1MintWitnessV3 era
+        )
+      ,
+        ( 7
+        , PS.verifyBlsAggregateSigMultiKeyG2AssetIdV3
         , PS.verifyBlsAggregateSigMultiKeyG2MintWitnessV3 era
-        , PS.verifyBlsSchnorrG1MintWitnessV3 era
-        , PS.verifyBlsSchnorrG2MintWitnessV3 era
-        ]
-    tx2Collateral = Tx.txInsCollateral era [tx2In]
-    tx2BodyContent =
-      (Tx.emptyTxBodyContent era pparams)
-        { C.txIns = Tx.pubkeyTxIns [tx2In]
-        , C.txInsCollateral = tx2Collateral
-        , C.txMintValue = Tx.txMintValue era tx2TokenValues tx2MintWitnesses
-        , C.txOuts = [tx2Out]
-        }
+        )
+      , (8, PS.verifyBlsSchnorrG1AssetIdV3, PS.verifyBlsSchnorrG1MintWitnessV3 era)
+      , (9, PS.verifyBlsSchnorrG2AssetIdV3, PS.verifyBlsSchnorrG2MintWitnessV3 era)
+      ]
+  tokenValuesAndTxIns <- forM alles $ \(assetCount, assetId, mintWitness) ->
+    buildAndSubmit
+      era
+      localNodeConnectInfo
+      pparams
+      (expectedTxIns !! (assetCount - 1))
+      tx2Collateral
+      w1Address
+      w1SKey
+      assetId
+      mintWitness
 
-  signedTx2 <- Tx.buildTx era localNodeConnectInfo tx2BodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx2
-  let expectedTxIn2 = Tx.txIn (Tx.txId signedTx2) 0
+  -- check that all scripts have minted the expected tokens
+  resultTxOuts <- forM tokenValuesAndTxIns $ \(tokenValue, txIn) -> do
+    resultTxOut <- Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "TN.getTxOutAtAddress"
+    Q.txOutHasValue resultTxOut tokenValue
 
-  -- Query for txo and whether it contains newly minting tokens to prove successful use of BLS builtins
-  resultTxOut2 <-
-    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn2 "TN.getTxOutAtAddress"
-  tx2OutHasTokenValue <- Q.txOutHasValue resultTxOut2 tx2TokenValues
-
-  -- assert both transaction outputs contain expected token values mitned by the use of all BLS builtins
-  assert "txOuts have tokens" (tx1OutHasTokenValue && tx2OutHasTokenValue)
+  assert "all txOuts have expected bls tokens" (and resultTxOuts)

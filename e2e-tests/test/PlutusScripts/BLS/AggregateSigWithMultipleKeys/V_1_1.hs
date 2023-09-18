@@ -37,8 +37,8 @@ verifyBlsAggregateSigMultiKeyG2PolicyV3 =
 verifyBlsAggregateSigMultiKeyG2PolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyBlsAggregateSigMultiKeyG2PolicyScriptV3 = C.PlutusScriptSerialised verifyBlsAggregateSigMultiKeyG2PolicyV3
 
-verifyBlsAggregateSigMultiKeyG1AssetIdV3 :: C.AssetId
-verifyBlsAggregateSigMultiKeyG1AssetIdV3 = C.AssetId (H.policyIdV3 verifyBlsAggregateSigMultiKeyG2PolicyV3) blsAssetName
+verifyBlsAggregateSigMultiKeyG2AssetIdV3 :: C.AssetId
+verifyBlsAggregateSigMultiKeyG2AssetIdV3 = C.AssetId (H.policyIdV3 verifyBlsAggregateSigMultiKeyG2PolicyV3) blsAssetName
 
 verifyBlsAggregateSigMultiKeyG2Redeemer :: C.HashableScriptData
 verifyBlsAggregateSigMultiKeyG2Redeemer = H.toScriptData redeemerParams

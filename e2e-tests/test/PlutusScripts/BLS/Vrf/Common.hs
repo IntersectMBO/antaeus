@@ -49,12 +49,12 @@ data BlsParams = BlsParams
   }
 PlutusTx.unstableMakeIsData ''BlsParams
 
-redeemerParams :: VrfProofWithOutput -> BlsParams
-redeemerParams pwo =
+redeemerParams :: BlsParams
+redeemerParams =
   BlsParams
     { pubKey = P.bls12_381_G2_scalarMul vrfPrivKey P.bls12_381_G2_generator
     , message = vrfMessage
-    , proofWithOutput = pwo -- determined by the test
+    , proofWithOutput = generateVrfProofWithOutput vrfPrivKey vrfMessage
     }
 
 ---- Verify BLS VRF ----
