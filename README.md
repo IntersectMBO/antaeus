@@ -4,14 +4,14 @@
 </div>
 
 
-Antaeus is an end-to-end testing framework designed for Cardano Haskell APIs. It leverages [cardano-testnet](https://github.com/input-output-hk/cardano-node/tree/master/cardano-testnet) to configure and launch a local Cardano testnet, and [cardano-api](https://github.com/input-output-hk/cardano-node/tree/master/cardano-api) to build transactions and query the ledger state. The primary focus of these tests is on functionality involving Plutus scripts.
+Antaeus is a framework for end-to-end testing Cardano Haskell APIs. It leverages [cardano-testnet](https://github.com/input-output-hk/cardano-node/tree/master/cardano-testnet) to configure and launch a local Cardano testnet, and [cardano-api](https://github.com/input-output-hk/cardano-node/tree/master/cardano-api) to build transactions and query the ledger state. The primary focus of these tests is on functionality involving Plutus scripts.
 
 
-Tests can be executed on either private or public testnets. They are grouped by target protocol version (e.g. Babbage PV8) and share each instance of testnet during execution.
+Tests can be executed on either a local private testnet or any public network. They are grouped by target protocol version (e.g. Babbage PV8) and share an instance of private testnet for faster execution.
 
 #### How to run on private testnet
 
-By default, tests are configured to run in a local environment for their supported protocol version.
+By default, tests are configured to run on local private testnet environments with their supported protocol version.
 1. Optionally, enter `nix develop` shell for dependencies.
 2. Run `cabal build all`
 3. Run `cabal test e2e-tests`
@@ -32,9 +32,12 @@ Check these preconditions before following the private testnet steps above.
 
 ### Status
 
-Antaeus is currently under development, with a growing suite of tests covering:
+Antaeus has a growing suite of tests covering:
 
-- Plutus built-in functions `verifySchnorrSecp256k1Signature` and `verifyEcdsaSecp256k1Signature` across different protocol versions and expected outcomes (success or specific errors).
+- Plutus built-in functions:
+  - `verifySchnorrSecp256k1Signature` and `verifyEcdsaSecp256k1Signature` across different protocol versions and expected outcomes (success or specific errors).
+  - All 17 BLS builtin functions (e.g. `bls12_381_finalVerify`)
+  - All builtin hashing functions (e.g. `sha2_256`)
 - Spending locked funds using reference scripts, reference inputs, and providing datum as witness in the transaction body.
 - Minting tokens using reference scripts and providing script witness in the transaction body.
 - Examining each field in Plutus V1 and V2 `TxInfo`.
@@ -50,6 +53,7 @@ Run `allure serve <test-report-xml>` to generate and host the Allure report.
 
 We're working on adding the following features to Antaeus:
 
+- Voltaire governance actions (coming in Conway era using PlutusV3 language version)
 - CI execution with private testnet on commit (nix configuration coming soon).
 - Nightly CI test execution would be useful in public environments.
 

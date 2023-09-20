@@ -24,6 +24,7 @@ import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
+import PlutusLedgerApi.Common qualified as C
 import PlutusScripts.SECP256k1.V_1_0 qualified as PS_1_0
 import PlutusScripts.SECP256k1.V_1_1 qualified as PS_1_1
 
@@ -55,12 +56,12 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.verifySchnorrAssetIdV1, 4), (PS_1_0.verifyEcdsaAssetIdV1, 2)]
           , Map.fromList [PS_1_0.verifySchnorrMintWitnessV1 era, PS_1_0.verifyEcdsaMintWitnessV1 era]
-          , "PlutusV1" -- TODO use show?
+          , show C.PlutusV1
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.verifySchnorrAssetIdV2, 4), (PS_1_0.verifyEcdsaAssetIdV2, 2)]
           , Map.fromList [PS_1_0.verifySchnorrMintWitnessV2 era, PS_1_0.verifyEcdsaMintWitnessV2 era]
-          , "PlutusV2" -- TODO use show?
+          , show C.PlutusV2
           )
         -- TODO: Add V1 once supported
         C.ConwayEra ->
@@ -76,7 +77,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
               , PS_1_1.verifySchnorrMintWitnessV3 era
               , PS_1_1.verifyEcdsaMintWitnessV3 era
               ]
-          , "PlutusV3" -- TODO use show?
+          , show C.PlutusV3
           )
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
       collateral = Tx.txInsCollateral era [txIn]
