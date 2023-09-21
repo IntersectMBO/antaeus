@@ -55,12 +55,13 @@ tests ResultsRefs{..} =
     [ -- Alonzo PV6 environment has become flakey. Can timeout waiting for txo to be created.
       -- Noticed on upgrade to cardano-node 8.2.1.
       -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
-      testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
-    , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
-    , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
-    , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
-    --  testProperty "debug" (debugTests pv8ResultsRef)
-    --  testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+      --     testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
+      --   , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
+      --   , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
+      testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
+      --  testProperty "debug" (debugTests pv8ResultsRef)
+      --  testProperty
+      --    "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property

@@ -31,7 +31,7 @@ txIxToQuantity :: C.TxIx -> C.Quantity
 txIxToQuantity (C.TxIx wordValue) = fromIntegral wordValue
 
 buildAndSubmit
-  :: (MonadIO m, MonadTest m)
+  :: (MonadIO m, MonadTest m, C.IsCardanoEra era)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
   -> C.LedgerProtocolParameters era
@@ -52,7 +52,7 @@ buildAndSubmit era lnci pparams txIn@(C.TxIn _id ix) collateral address skey ass
     outputLovelaceValue = C.lovelaceToValue $ 3_000_000 + (C.quantityToLovelace assetQuantity * 100_000)
     txOut = Tx.txOut era (outputLovelaceValue <> txTokenValue) address
     txBodyContent =
-      (Tx.emptyTxBodyContent era pparams)
+      (Tx.emptyTxBodyContent pparams)
         { C.txIns = Tx.pubkeyTxIns [txIn]
         , C.txInsCollateral = collateral
         , C.txMintValue = Tx.txMintValue era txTokenValue txMintWitness
@@ -86,7 +86,7 @@ verifyBlsFunctionsTest networkOptions TestParams{..} = do
   let
     tx1Outs = replicate numberOfBlsScripts (Tx.txOut era (C.lovelaceToValue 10_000_000) w1Address)
     tx1BodyContent =
-      (Tx.emptyTxBodyContent era pparams)
+      (Tx.emptyTxBodyContent pparams)
         { C.txIns = Tx.pubkeyTxIns [tx1In]
         , C.txOuts = tx1Outs
         }

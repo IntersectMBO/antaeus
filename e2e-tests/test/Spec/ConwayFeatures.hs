@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
@@ -10,11 +11,14 @@
 module Spec.ConwayFeatures where
 
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
+import Cardano.Ledger.SafeHash qualified as L
 import Control.Concurrent (threadDelay)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString qualified as BS
+import Data.Map (singleton)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as Time
@@ -182,14 +186,17 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   H.annotate $ show currentEpoch
 
   -- check no existing constitution hash (why not Nothing?)
-  existingConstitutionHash <- fromJust <$> Q.getConstitutionHash era localNodeConnectInfo
+  existingConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
   existingConstitutionHash === "\"0000000000000000000000000000000000000000000000000000000000000000\""
 
   -- define a new constituion
   let constitutionPath = tempAbsPath <> "/constituion.txt"
   H.writeFile constitutionPath "a new way of life"
   constituionBS <- H.evalIO $ BS.readFile constitutionPath
-  let constituionHash = show (Crypto.hashWith id constituionBS :: Crypto.Hash Crypto.Blake2b_256 BS.ByteString)
+  let
+    constituionHash = show (Crypto.hashWith id constituionBS :: Crypto.Hash Crypto.Blake2b_256 BS.ByteString)
+    constitutionUrl = U.unsafeFromMaybe $ C.textToUrl "https://example.com/constituion.txt"
+    anchor = C.createAnchor constitutionUrl constituionBS
   H.annotate constituionHash
 
   -- build a transaction to propose the constituion
@@ -199,7 +206,13 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   let txOut1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       txOut2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
       proposal =
-        C.createProposalProcedure sbe 1_000_000 pool1StakeKeyHash (C.ProposeNewConstitution constituionBS)
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          1_000_000
+          pool1StakeKeyHash
+          (C.ProposeNewConstitution C.SNothing anchor)
+          anchor
 
       txBodyContent =
         (Tx.emptyTxBodyContent pparams)
@@ -211,7 +224,7 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
   H.annotate $ show signedTx
   Tx.submitTx era localNodeConnectInfo signedTx
-  let txIn1 = Tx.txIn (Tx.txId signedTx) 0
+  let txIn1@(C.TxIn txInId1 _txInIx1) = Tx.txIn (Tx.txId signedTx) 0
       _txIn2 = Tx.txIn (Tx.txId signedTx) 1
       txIn3 = Tx.txIn (Tx.txId signedTx) 2 -- change output
   resultTxOut <-
@@ -220,13 +233,13 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
 
   -- vote on the constituion
   let txOut3 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-      gAID = C.makeGoveranceActionId sbe txIn1
-      vote = C.createVotingProcedure sbe C.Yes (C.VoterSpo stakePoolKeyHash) gAID
+      gAID = C.shelleyBasedEraConstraints sbe $ C.createGovernanceActionId txInId1 0
+      vote = C.createVotingProcedure sbe C.Yes Nothing
 
       txBodyContent2 =
         (Tx.emptyTxBodyContent pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn3]
-          , C.txVotes = C.TxVotes ceo [vote]
+          , C.txVotes = C.TxVotes ceo (singleton (C.VoterSpo stakePoolKeyHash, C.GovernanceActionId gAID) vote)
           , C.txOuts = [txOut3]
           }
 
@@ -252,7 +265,7 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   liftIO $ threadDelay 1_000_000
 
   -- check new constituion is enacted
-  newConstitutionHash <- fromJust <$> Q.getConstitutionHash era localNodeConnectInfo
+  newConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
   H.annotate newConstitutionHash -- debug
   constituionHash === newConstitutionHash -- debug assertion
   assert "expected constitution hash matches query result" (constituionHash == newConstitutionHash)

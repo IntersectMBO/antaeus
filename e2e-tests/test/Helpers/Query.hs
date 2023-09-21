@@ -11,10 +11,10 @@
 module Helpers.Query where
 
 import Cardano.Api qualified as C
-import Cardano.Api.Ledger (Crypto (HASH))
 import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash (Blake2b_256, Hash)
+import Cardano.Ledger.Conway.Governance qualified as C
 import Cardano.Ledger.SafeHash qualified as C
 import Cardano.Ledger.SafeHash qualified as L
 import Control.Concurrent (threadDelay)
@@ -29,6 +29,7 @@ import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (toEraInCardanoMode, toShelleyBasedEra)
+import Helpers.Utils qualified as U
 
 -- | Find the first UTxO at address and return as TxIn. Used for txbody's txIns.
 firstTxIn
@@ -269,19 +270,46 @@ waitForNextEpoch_
 waitForNextEpoch_ e l n = void (waitForNextEpoch e l n)
 
 -- | Query current constitution hash
-getConstitutionHash
+getConstitution
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
-  -> m (Maybe String) -- (Maybe (C.SafeHash (L.EraCrypto (C.ShelleyLedgerEra era)) BS.ByteString))
-getConstitutionHash era localNodeConnectInfo = do
-  mConstitutionHash <-
-    H.leftFailM . H.leftFailM . liftIO $
-      C.queryNodeLocalState localNodeConnectInfo Nothing $
-        C.QueryInEra (toEraInCardanoMode era) $
-          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitutionHash
-  return $ (\ch -> Just $ show $ L.extractHash ch) =<< mConstitutionHash
+  -> m (Maybe (C.Constitution (C.ShelleyLedgerEra era)))
+getConstitution era localNodeConnectInfo =
+  H.leftFailM . H.leftFailM . liftIO $
+    C.queryNodeLocalState localNodeConnectInfo Nothing $
+      C.QueryInEra (toEraInCardanoMode era) $
+        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
 
--- case constitutionHash of
---   Nothing -> return Nothing
---   _ -> return $ Just $ show $ L.extractHash (fromJust constitutionHash)
+getConstitutionAnchor
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m (C.Anchor (L.EraCrypto (C.ShelleyLedgerEra era)))
+getConstitutionAnchor era localNodeConnectInfo =
+  C.constitutionAnchor . U.unsafeFromMaybe <$> getConstitution era localNodeConnectInfo
+
+getConstitutionAnchorUrl
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m L.Url
+getConstitutionAnchorUrl era localNodeConnectInfo =
+  C.anchorUrl . C.constitutionAnchor . U.unsafeFromMaybe <$> getConstitution era localNodeConnectInfo
+
+getConstitutionAnchorHash
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m (C.SafeHash (L.EraCrypto (C.ShelleyLedgerEra era)) C.AnchorData)
+getConstitutionAnchorHash era localNodeConnectInfo =
+  C.anchorDataHash . C.constitutionAnchor . U.unsafeFromMaybe
+    <$> getConstitution era localNodeConnectInfo
+
+getConstitutionAnchorHashAsString
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m String
+getConstitutionAnchorHashAsString era localNodeConnectInfo =
+  show . L.extractHash <$> getConstitutionAnchorHash era localNodeConnectInfo
