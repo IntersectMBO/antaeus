@@ -1,6 +1,7 @@
 module Helpers.Common where
 
 import Cardano.Api qualified as C
+import Cardano.Api.Shelley qualified as C
 
 -- | Any CardanoEra with CardanoMode
 toEraInCardanoMode :: C.CardanoEra era -> C.EraInMode era C.CardanoMode
@@ -23,15 +24,25 @@ toConwayEraOnwards era =
     C.ConwayEra -> C.ConwayEraOnwardsConway
     _ -> error "Must use Conway era"
 
--- | Make a payment or script address
 makeAddress
   :: Either (C.VerificationKey C.PaymentKey) C.ScriptHash
   -> C.NetworkId
   -> C.Address C.ShelleyAddr
-makeAddress (Left paymentKey) nId =
+makeAddress ePkSh = makeAddressWithStake ePkSh Nothing
+
+-- | Make a payment or script address
+makeAddressWithStake
+  :: Either (C.VerificationKey C.PaymentKey) C.ScriptHash
+  -> Maybe (C.VerificationKey C.StakeKey)
+  -> C.NetworkId
+  -> C.Address C.ShelleyAddr
+makeAddressWithStake (Left paymentKey) mStakeVKey nId =
   C.makeShelleyAddress
     nId
     (C.PaymentCredentialByKey $ C.verificationKeyHash paymentKey)
-    C.NoStakeAddress
-makeAddress (Right scriptHash) nId =
+    ( case mStakeVKey of
+        Nothing -> C.NoStakeAddress
+        Just stakeVKey -> C.StakeAddressByValue $ C.StakeCredentialByKey $ C.verificationKeyHash stakeVKey
+    )
+makeAddressWithStake (Right scriptHash) _mStakeVKey nId =
   C.makeShelleyAddress nId (C.PaymentCredentialByScript scriptHash) C.NoStakeAddress

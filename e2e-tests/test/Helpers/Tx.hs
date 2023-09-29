@@ -12,6 +12,7 @@ import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf)
+import Data.Map (singleton)
 import Data.Map qualified as Map
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
@@ -248,6 +249,18 @@ txMintValue
   -> Map.Map C.PolicyId (C.ScriptWitness C.WitCtxMint era)
   -> C.TxMintValue C.BuildTx era
 txMintValue era tv m = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxMintValue e tv) era (C.BuildTxWith m)
+
+txCertificates
+  :: C.CardanoEra era
+  -> [C.Certificate era]
+  -> C.StakeCredential
+  -> C.TxCertificates C.BuildTx era
+txCertificates era certs stakeCred =
+  C.inEonForEra
+    (error $ notSupportedError era)
+    (\e -> C.TxCertificates e certs)
+    era
+    (C.BuildTxWith $ singleton stakeCred (C.KeyWitness C.KeyWitnessForStakeAddr))
 
 buildTx
   :: (MonadIO m)

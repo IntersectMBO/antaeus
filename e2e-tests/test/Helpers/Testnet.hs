@@ -20,7 +20,7 @@ import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (makeAddress, toEraInCardanoMode, toShelleyBasedEra)
+import Helpers.Common (makeAddress, makeAddressWithStake, toEraInCardanoMode, toShelleyBasedEra)
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.FilePath ((</>))
@@ -325,21 +325,33 @@ w1 networkOptions tempAbsPath' networkId =
 pool1
   :: (MonadIO m, MonadTest m)
   => FilePath
-  -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey, C.Hash C.StakePoolKey)
+  -> m
+      ( C.SigningKey C.StakePoolKey
+      , C.VerificationKey C.StakePoolKey
+      , C.Hash C.StakePoolKey
+      , C.Hash C.StakeKey
+      , C.Hash C.VrfKey
+      )
 pool1 tempAbsPath = do
   let pool1SKeyFile = C.File $ tempAbsPath </> "pools/cold1.skey"
   mPool1SKey :: Maybe (C.SigningKey C.StakePoolKey) <-
     maybeReadAs (C.AsSigningKey C.AsStakePoolKey) pool1SKeyFile
   let pool1SKey = fromJust mPool1SKey
 
+  let pool1VerificationKeyFile = C.File $ tempAbsPath </> "pools/cold1.vkey"
+  mPool1VKey :: Maybe (C.VerificationKey C.StakePoolKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsStakePoolKey) pool1VerificationKeyFile
+  let pool1VKey = fromJust mPool1VKey
+      pool1VKeyHash = C.verificationKeyHash pool1VKey
+
   let pool1StakingRewardsFile = C.File $ tempAbsPath </> "pools/staking-reward1.vkey"
   mPool1StakingRewards :: Maybe (C.VerificationKey C.StakeKey) <-
     maybeReadAs (C.AsVerificationKey C.AsStakeKey) pool1StakingRewardsFile
   let pool1StakeKeyHash = C.verificationKeyHash (fromJust mPool1StakingRewards)
 
-  let pool1VerificationKeyFile = C.File $ tempAbsPath </> "pools/cold1.vkey"
-  mPool1VKey :: Maybe (C.VerificationKey C.StakePoolKey) <-
-    maybeReadAs (C.AsVerificationKey C.AsStakePoolKey) pool1VerificationKeyFile
-  let stakePoolKeyHash = C.verificationKeyHash (fromJust mPool1VKey)
+  let pool1VrfKeyFile = C.File $ tempAbsPath </> "pools/vrf1.vkey"
+  mPool1VrfKey :: Maybe (C.VerificationKey C.VrfKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsVrfKey) pool1VrfKeyFile
+  let pool1VrfKeyHash = C.verificationKeyHash (fromJust mPool1VrfKey)
 
-  return (pool1SKey, pool1StakeKeyHash, stakePoolKeyHash)
+  return (pool1SKey, pool1VKey, pool1VKeyHash, pool1StakeKeyHash, pool1VrfKeyHash)
