@@ -53,7 +53,7 @@ defAlonzoTestnetOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
           , CTN.cardanoProtocolVersion = 6
-          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
     }
@@ -67,7 +67,7 @@ defBabbageTestnetOptions protocolVersion =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
           , CTN.cardanoProtocolVersion = protocolVersion
-          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
     }
@@ -81,25 +81,22 @@ defConwayTestnetOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
           , CTN.cardanoProtocolVersion = 9
-          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
     }
 
-shortEpochConwayTestnetOptions :: TestnetOptions
+shortEpochConwayTestnetOptions :: TestnetOptions C.ConwayEra
 shortEpochConwayTestnetOptions =
   defConwayTestnetOptions
     { testnetCardanoOptions =
-        CTN.ConwayOnlyTestnetOptions
-          CTN.conwayDefaultTestnetOptions
-            { CTN.conwayProtocolVersion = 9
-            , CTN.conwaySlotDuration = 200
-            , CTN.conwayEpochLength = 100 -- 20 second epoch for testing outcome of governance actions
-            }
+        (testnetCardanoOptions defConwayTestnetOptions)
+          { CTN.cardanoEpochLength = 200 -- 20 second epoch for testing outcome of governance actions
+          }
     }
 
-data LocalNodeOptions = LocalNodeOptions
-  { localNodeEra :: C.AnyCardanoEra
+data LocalNodeOptions era = LocalNodeOptions
+  { localNodeEra :: C.CardanoEra era
   , localNodeProtocolVersion :: Int
   , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
   , localNodeTestnetMagic :: Int
@@ -124,12 +121,7 @@ instance Error TimedOut where
       ++ "s in `cleanupTestnet` for process to exit. pid="
       ++ show pid
 
-testnetOptionsAlonzo6
-  , testnetOptionsBabbage7
-  , testnetOptionsBabbage8
-  , testnetOptionsConway9
-  , testnetOptionsConway9Governance
-    :: Either LocalNodeOptions TestnetOptions
+testnetOptionsAlonzo6 :: Either (LocalNodeOptions C.AlonzoEra) (TestnetOptions C.AlonzoEra)
 testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
 
 testnetOptionsBabbage7 :: Either (LocalNodeOptions C.BabbageEra) (TestnetOptions C.BabbageEra)
@@ -140,6 +132,9 @@ testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
 
 testnetOptionsConway9 :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
 testnetOptionsConway9 = Right defConwayTestnetOptions
+
+testnetOptionsConway9Governance
+  :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
 testnetOptionsConway9Governance = Right shortEpochConwayTestnetOptions
 
 eraFromOptions
@@ -289,7 +284,8 @@ getPoolSocketPathAbs tempAbsPath tn = do
 -}
 w1All
   :: (MonadIO m, MonadTest m)
-  => FilePath
+  => -- => Either (LocalNodeOptions era) (TestnetOptions era)
+  FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
 w1All tempAbsPath' networkId = do
@@ -315,12 +311,11 @@ w1All tempAbsPath' networkId = do
 
 w1
   :: (MonadIO m, MonadTest m)
-  => Either LocalNodeOptions TestnetOptions
-  -> FilePath
+  => -- => Either (LocalNodeOptions era) (TestnetOptions era)
+  FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 networkOptions tempAbsPath' networkId =
-  (\(sKey, _, address) -> (sKey, address)) <$> w1All networkOptions tempAbsPath' networkId
+w1 tempAbsPath' networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath' networkId
 
 pool1
   :: (MonadIO m, MonadTest m)

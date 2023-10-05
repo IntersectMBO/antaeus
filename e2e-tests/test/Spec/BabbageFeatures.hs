@@ -124,7 +124,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
           ]
 
       txBodyContent =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsReference = Tx.txInsReference era [txIn]
           , C.txInsCollateral = collateral
@@ -193,7 +193,7 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [refScriptTxOut, otherTxOut]
           }
@@ -220,7 +220,7 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
 
       txBodyContent2 =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [otherTxIn]
           , C.txInsCollateral = collateral
           , C.txInsReference = Tx.txInsReference era [refScriptTxIn]
@@ -284,7 +284,7 @@ referenceScriptInlineDatumSpendTest
           C.ConwayEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
         scriptTxOut = Tx.txOutWithInlineDatum era (C.lovelaceToValue 10_000_000) scriptAddress (PS.toScriptData ())
         txBodyContent =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txOuts = [refScriptTxOut, otherTxOut, scriptTxOut]
             }
@@ -308,7 +308,7 @@ referenceScriptInlineDatumSpendTest
         txOut = Tx.txOut era adaValue w1Address
 
         txBodyContent2 =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = [scriptTxIn]
             , C.txInsReference = Tx.txInsReference era [refScriptTxIn]
             , C.txInsCollateral = collateral
@@ -371,7 +371,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
       scriptTxOut = Tx.txOutWithDatumHash era (C.lovelaceToValue 10_000_000) scriptAddress datum
 
       txBodyContent =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [refScriptTxOut, otherTxOut, scriptTxOut]
           }
@@ -400,7 +400,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
       txOut = Tx.txOut era adaValue w1Address
 
       txBodyContent2 =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = [scriptTxIn]
           , C.txInsReference = Tx.txInsReference era [refScriptTxIn]
           , C.txInsCollateral = collateral
@@ -446,7 +446,7 @@ inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, ne
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [scriptTxOut, otherTxOut]
           }
@@ -470,7 +470,7 @@ inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, ne
     txOut = Tx.txOut era adaValue w1Address
 
     txBodyContent2 =
-      (Tx.emptyTxBodyContent pparams)
+      (Tx.emptyTxBodyContent era pparams)
         { C.txIns = [scriptTxIn]
         , C.txInsCollateral = collateral
         , C.txOuts = [txOut]
@@ -512,7 +512,7 @@ referenceInputWithV1ScriptErrorTest
         txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
 
         txBodyContent =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txInsReference = Tx.txInsReference era [txIn]
@@ -565,7 +565,7 @@ referenceScriptOutputWithV1ScriptErrorTest
             (PS.unPlutusScriptV2 PS_1_0.alwaysSucceedSpendScriptV2)
 
         txBodyContent =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -618,7 +618,7 @@ inlineDatumOutputWithV1ScriptErrorTest
             (PS.toScriptData ())
 
         txBodyContent =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -684,7 +684,7 @@ returnCollateralWithTokensValidScriptTest
             (PS.toScriptData ())
 
         txBodyContent =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -713,7 +713,7 @@ returnCollateralWithTokensValidScriptTest
         colReturnTxOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
 
         txBodyContent2 =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn2]
             , C.txInsCollateral = collateral2
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -773,7 +773,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
         txOut = Tx.txOut era (C.lovelaceToValue txOutAmount <> tokenValues) w1Address
 
         txBodyContent =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -809,7 +809,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
         totalCollateralAmount = txOutAmount - colReturnAmount
 
         txBodyContent2 =
-          (Tx.emptyTxBodyContent pparams)
+          (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn2]
             , C.txInsCollateral = collateral2
             , C.txMintValue = Tx.txMintValue era tokenValues2 mintWitnesses2

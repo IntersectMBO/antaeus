@@ -149,30 +149,7 @@ withDatumInTx era datum (C.TxOut e v _ rs) =
 -- | Empty transaction body to begin building from.
 emptyTxBodyContent
   :: C.CardanoEra era -> C.LedgerProtocolParameters era -> C.TxBodyContent C.BuildTx era
-emptyTxBodyContent era pparams =
-  C.TxBodyContent
-    { C.txIns = []
-    , C.txInsCollateral = C.TxInsCollateralNone
-    , C.txInsReference = C.TxInsReferenceNone
-    , C.txOuts = []
-    , C.txTotalCollateral = C.TxTotalCollateralNone
-    , C.txReturnCollateral = C.TxReturnCollateralNone
-    , C.txFee = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e 0) era
-    , C.txValidityLowerBound = C.TxValidityNoLowerBound
-    , C.txValidityUpperBound =
-        C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e Nothing) era
-    , C.txMetadata = C.TxMetadataNone
-    , C.txAuxScripts = C.TxAuxScriptsNone
-    , C.txExtraKeyWits = C.TxExtraKeyWitnessesNone
-    , C.txProtocolParams = C.BuildTxWith $ Just pparams
-    , C.txWithdrawals = C.TxWithdrawalsNone
-    , C.txCertificates = C.TxCertificatesNone
-    , C.txUpdateProposal = C.TxUpdateProposalNone
-    , C.txMintValue = C.TxMintNone
-    , C.txScriptValidity = C.TxScriptValidityNone
-    , C.txProposalProcedures = Nothing
-    , C.txVotingProcedures = Nothing
-    }
+emptyTxBodyContent era pparams = (C.defaultTxBodyContent era){C.txProtocolParams = C.BuildTxWith $ Just pparams}
 
 txFee :: C.CardanoEra era -> C.Lovelace -> C.TxFee era
 txFee era =

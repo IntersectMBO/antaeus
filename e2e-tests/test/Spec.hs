@@ -53,11 +53,11 @@ tests ResultsRefs{..} =
   testGroup
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has become flakey. Can timeout waiting for txo to be created.
-      -- Noticed on upgrade to cardano-node 8.2.1.
-      -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
-      --     testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
-      --   , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
-      --   , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
+      -- Noticed on upgrade to cardano-node 8.2.1
+      --   testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
+      -- , testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
+      -- , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
+      -- , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
       testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
       --  testProperty "debug" (debugTests pv8ResultsRef)
       --  testProperty
@@ -103,8 +103,8 @@ pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
   sequence_
     [ run Alonzo.checkTxInfoV1TestInfo
     , run Babbage.checkTxInfoV2TestInfo
-    , run Alonzo.datumHashSpendTestInfo
-    , run Alonzo.mintBurnTestInfo
+    , -- , run Alonzo.datumHashSpendTestInfo
+      run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
@@ -137,8 +137,8 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
   sequence_
     [ run Alonzo.checkTxInfoV1TestInfo
     , run Babbage.checkTxInfoV2TestInfo
-    , run Alonzo.datumHashSpendTestInfo
-    , run Alonzo.mintBurnTestInfo
+    , -- , run Alonzo.datumHashSpendTestInfo
+      run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
@@ -209,7 +209,9 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
       run testInfo = runTest testInfo resultsRef options testParams
 
-  sequence_ [run Conway.constitutionProposalAndVoteTestInfo]
+  sequence_
+    [ run Conway.constitutionProposalAndVoteTestInfo
+    ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
   liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
@@ -254,7 +256,7 @@ runTestsWithResults = do
   createDirectoryIfMissing False "test-report-xml"
 
   allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef, pv9GovResultsRef] <-
-    traverse newIORef [[], [], [], [], []]
+    traverse newIORef $ replicate 5 []
 
   -- Catch the exception returned by defaultMain to proceed with report generation
   eException <-
@@ -265,8 +267,7 @@ runTestsWithResults = do
       )
       :: IO (Either ExitCode ())
 
-  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults] <-
-    traverse readIORef [pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef, pv9GovResultsRef]
+  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults] <- traverse readIORef allRefs
 
   failureMessages <- liftIO $ allFailureMessages allRefs
   liftIO $ putStrLn $ "Total number of test failures: " ++ (show $ length failureMessages)

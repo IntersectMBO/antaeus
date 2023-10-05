@@ -14,18 +14,17 @@ import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
+import Cardano.Ledger.Conway.Governance qualified as L
 import Control.Concurrent (threadDelay)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString qualified as BS
-import Data.Map (singleton)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
-import Data.Text.Encoding qualified as Text
 import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
-import Helpers.Common (makeAddress, makeAddressWithStake, toConwayEraOnwards, toShelleyBasedEra)
+import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestInfo (..), TestParams (..))
@@ -60,13 +59,13 @@ checkTxInfoV3TestInfo =
 
 checkTxInfoV3Test
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 checkTxInfoV3Test networkOptions TestParams{..} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptions networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
 
   -- build a transaction
 
@@ -131,20 +130,21 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
           ]
 
       txBodyContent =
-        (Tx.emptyTxBodyContent pparams)
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsReference = Tx.txInsReference era [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
           , C.txOuts = [txOut1, txOut2]
           , C.txFee = Tx.txFee era fee
-          , C.txValidityRange = Tx.txValidityRange era 1 2700
+          , C.txValidityLowerBound = Tx.txValidityLowerBound era 1
+          , C.txValidityUpperBound = Tx.txValidityUpperBound era 2700
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx era txbody (C.WitnessPaymentKey w1SKey)
+  kw <- Tx.signTx (toShelleyBasedEra era) txbody (C.WitnessPaymentKey w1SKey)
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx era localNodeConnectInfo signedTx
@@ -169,14 +169,13 @@ constitutionProposalAndVoteTestInfo =
 
 constitutionProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  H.annotate $ show pparams
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, w1VKey, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
-  (pool1SKey, pool1VKey, pool1VKeyHash, pool1StakeKeyHash, pool1VrfKeyHash) <- TN.pool1 tempAbsPath
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (pool1SKey, _pool1VKey, _pool1VKeyHash, pool1StakeKeyHash, _pool1VrfKeyHash) <- TN.pool1 tempAbsPath
   let sbe = toShelleyBasedEra era
       ceo = toConwayEraOnwards era
 
@@ -185,7 +184,7 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   w1StakeSKey <- liftIO $ C.generateSigningKey C.AsStakeKey
   let
     w1StakeVKey = C.getVerificationKey w1StakeSKey
-    w1ExtendedAddr = makeAddressWithStake (Left w1VKey) (Just w1StakeVKey) networkId
+    -- w1ExtendedAddr = makeAddressWithStake (Left w1VKey) (Just w1StakeVKey) networkId
     w1StakeCred = C.StakeCredentialByKey $ C.verificationKeyHash w1StakeVKey
     w1StakeDeposit = C.Lovelace 0 -- protocolParamStakePoolDeposit
     w1StakeReqs = C.StakeAddrRegistrationConway ceo w1StakeDeposit w1StakeCred
@@ -197,7 +196,7 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   let
     w1StakeRegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
     w1StakeRegTxBodyContent =
-      (Tx.emptyTxBodyContent pparams)
+      (Tx.emptyTxBodyContent era pparams)
         { C.txIns = Tx.pubkeyTxIns [w1StakeRegTxIn]
         , C.txCertificates = Tx.txCertificates era [w1StakeRegCert] w1StakeCred
         , C.txOuts = [w1StakeRegTxOut]
@@ -223,17 +222,17 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
     dRepVKey = C.getVerificationKey dRepSkey
     C.DRepKeyHash drepKeyHash = C.verificationKeyHash dRepVKey
     drep1StakeCred = C.StakeCredentialByKey . C.StakeKeyHash $ C.coerceKeyRole drepKeyHash
-    drep1VotingCredential = U.unsafeFromRight $ C.toVotingCredential sbe drep1StakeCred
+    drep1VotingCredential = U.unsafeFromRight $ C.toVotingCredential ceo drep1StakeCred
     dRepDeposit = C.Lovelace 0 -- dRepDeposit
     dRepRegReqs = C.DRepRegistrationRequirements ceo drep1VotingCredential dRepDeposit
-    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs
+    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
 
   -- submit tx to register a DRep
 
   let
     regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
     regDRepTxBodyContent =
-      (Tx.emptyTxBodyContent pparams)
+      (Tx.emptyTxBodyContent era pparams)
         { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
         , C.txCertificates = Tx.txCertificates era [dRepRegCert] drep1StakeCred
         , C.txOuts = [regDRepTxOut]
@@ -255,7 +254,7 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
 
     stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
     stakeDelegTxBodyContent =
-      (Tx.emptyTxBodyContent pparams)
+      (Tx.emptyTxBodyContent era pparams)
         { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
         , C.txCertificates = Tx.txCertificates era [w1StakeDelgCert] w1StakeCred
         , C.txOuts = [stakeDelegTxOut]
@@ -275,10 +274,14 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
     Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx1In "getTxOutAtAddress"
   H.annotate $ show stakeDelegResultTxOut
 
+  -- REMOVE
+  currentEpoch0 <- Q.getCurrentEpoch era localNodeConnectInfo
+  H.annotate $ show currentEpoch0 ++ " should be Epoch0"
+
   -- wait for next epoch to start before proposing governance action
-  currentEpoch <-
+  currentEpoch1 <-
     Q.waitForNextEpoch era localNodeConnectInfo =<< Q.getCurrentEpoch era localNodeConnectInfo
-  H.annotate $ show currentEpoch
+  H.annotate $ show currentEpoch1 ++ " should be Epoch1"
 
   -- check no existing constitution hash
   existingConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
@@ -303,22 +306,21 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
       C.createProposalProcedure
         sbe
         (C.toShelleyNetwork networkId)
-        1_000_000
+        0 -- 1_000_000
         pool1StakeKeyHash
         (C.ProposeNewConstitution C.SNothing anchor)
         anchor
 
     tx1BodyContent =
-      (Tx.emptyTxBodyContent pparams)
+      (Tx.emptyTxBodyContent era pparams)
         { C.txIns = Tx.pubkeyTxIns [tx1In]
-        , C.txGovernanceActions = C.TxGovernanceActions ceo [proposal]
+        , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
         , C.txOuts = [tx1Out1, tx1Out2]
         }
 
   signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-  H.annotate $ show signedTx1 -- DEBUG
   Tx.submitTx era localNodeConnectInfo signedTx1
-  let _tx2In1@(C.TxIn tx2InId1 tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+  let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
       _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
       tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
   result1TxOut <-
@@ -326,20 +328,21 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
   H.annotate $ show result1TxOut
 
   -- vote on the constituion
+
   let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-      gAID = C.shelleyBasedEraConstraints sbe $ C.createGovernanceActionId tx2InId1 0
-      voteProcedure = C.createVotingProcedure sbe C.Yes Nothing
-      -- spoVote = singleton (C.VoterSpo pool1VKeyHash, C.GovernanceActionId gAID) voteProcedure
-      drepVote = singleton (C.VoterDRep drep1VotingCredential, C.GovernanceActionId gAID) voteProcedure
-      votes = drepVote -- <> spoVote
-      tx2BodyContent =
-        (Tx.emptyTxBodyContent pparams)
+      votingProcedures = C.shelleyBasedEraConstraints sbe $ do
+        -- TODO: move producing voting procedure to helper function
+        let gAID = C.createGovernanceActionId tx2InId1 0
+            voteProcedure = C.createVotingProcedure ceo C.Yes Nothing
+            drepVoter = L.DRepVoter (C.unVotingCredential drep1VotingCredential)
+        C.singletonVotingProcedures ceo drepVoter gAID (C.unVotingProcedure voteProcedure)
+  let tx2BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [tx2In3]
-          , C.txVotes = C.TxVotes ceo votes
+          , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
           , C.txOuts = [tx2Out1]
           }
 
-  -- castDrep :: C.SigningKey C.DRepKey -> C.SigningKey C.PaymentKey
   let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
 
   signedTx2 <-
@@ -360,23 +363,27 @@ constitutionProposalAndVoteTest networkOptions TestParams{localNodeConnectInfo, 
     Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
   H.annotate $ show result2TxOut
 
+  -- REMOVE
+  currentEpoch1' <- Q.getCurrentEpoch era localNodeConnectInfo
+  H.annotate $ show currentEpoch1' ++ " should still be Epoch1"
+
   -- wait for next epoch before asserting for new constitution
-  Q.waitForNextEpoch_ era localNodeConnectInfo currentEpoch
+  currentEpoch2 <-
+    Q.waitForNextEpoch era localNodeConnectInfo =<< Q.getCurrentEpoch era localNodeConnectInfo
+  H.annotate $ show currentEpoch2 ++ " should be Epoch2"
+  currentEpoch3 <-
+    Q.waitForNextEpoch era localNodeConnectInfo =<< Q.getCurrentEpoch era localNodeConnectInfo
+  H.annotate $ show currentEpoch3 ++ " should be Epoch3"
 
-  -- wait 2 seconds at start of epoch to guarentee constitution is enacted
+  -- wait 2 seconds at start of epoch for stability - guarentees constitution is enacted
   liftIO $ threadDelay 2_000_000
-
-  -- REMOVE BLOCK
-  let stakekeyhashpath = tempAbsPath <> "/stakekeyhash.txt"
-  H.writeFile stakekeyhashpath $ show pool1StakeKeyHash
-  let stakekeyhashpath = tempAbsPath <> "/stakekeyhash.txt"
-  H.writeFile stakekeyhashpath $ show pool1StakeKeyHash
-  let utxopath = tempAbsPath <> "/utxopath.txt"
-  H.writeFile utxopath $ "TxId=" ++ show tx2InId1 ++ "TxIx=" ++ show tx2InIx1
-  _ <- liftIO $ threadDelay 1_000_000_000
 
   -- check new constituion is enacted
   newConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
-  H.annotate newConstitutionHash -- debug
-  constituionHash === newConstitutionHash -- debug assertion
+  constituionHash === newConstitutionHash -- REMOVE debug assertion
   assert "expected constitution hash matches query result" (constituionHash == newConstitutionHash)
+
+-- REMOVE
+-- currentEpoch3' <- Q.getCurrentEpoch era localNodeConnectInfo
+-- H.annotate $ show currentEpoch3' ++ " should still be Epoch3"
+-- H.failure
