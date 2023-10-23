@@ -16,7 +16,7 @@ let
       shell.withHoogle = false; 
       
       sha256map = {
-      "https://github.com/james-iohk/cardano-node"."5e895e5f65fe9801caae47222f2b4a642c682d5d" = "sha256-TYWs6GYZcpuzufQZsfqCsCNl/j2QlHAZMcYdOVZr/g0=";
+      "https://github.com/james-iohk/cardano-node"."${cardano-node-gitrev}" = "sha256-TYWs6GYZcpuzufQZsfqCsCNl/j2QlHAZMcYdOVZr/g0=";
       "https://github.com/james-iohk/cardano-api"."9b03e02eea45afe4af44e0589519e849795f771e" = "sha256-Q4qRj2n791ZoZq9ihsg3iYt3XE7NUziwsyUUy6O6Ek0=";
       };
       
