@@ -57,7 +57,7 @@ let
   })];
 
 
-  project' = lib.iogx.mkHaskellProject { 
+  project = lib.iogx.mkHaskellProject { 
     inherit cabalProject; 
     includeMingwW64HydraJobs = true;
     shellArgs = repoRoot.nix.shell;
