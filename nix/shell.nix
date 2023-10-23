@@ -11,7 +11,7 @@ in
   name = "antaeus";
 
   prompt = "\n\\[\\033[1;32m\\][antaeus:\\w]\\$\\[\\033[0m\\] ";
-  
+
   welcomeMessage = "🤟 \\033[1;31mWelcome to antaeus\\033[0m 🤟";
 
 
