@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Helpers.TestData where
@@ -9,20 +10,21 @@ import Data.Time.Clock.POSIX (POSIXTime)
 import Hedgehog (MonadTest)
 import Helpers.Testnet qualified as TN
 
-type TestFunction =
+type TestFunction era =
   forall m
    . (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => (C.IsCardanoEra era)
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 
-data TestInfo = TestInfo
+data TestInfo era = TestInfo
   { testName :: String
   , testDescription :: String
-  , test :: TestFunction
+  , test :: TestFunction era
   }
 
-instance Show TestInfo where
+instance Show (TestInfo era) where
   show (TestInfo name description _) =
     "TestInfo { testName = "
       ++ show name
@@ -30,9 +32,9 @@ instance Show TestInfo where
       ++ show description
       ++ " }"
 
-data TestParams = TestParams
+data TestParams era = TestParams
   { localNodeConnectInfo :: C.LocalNodeConnectInfo C.CardanoMode
-  , pparams :: C.ProtocolParameters
+  , pparams :: C.LedgerProtocolParameters era
   , networkId :: C.NetworkId
   , tempAbsPath :: FilePath
   , mTime :: Maybe POSIXTime

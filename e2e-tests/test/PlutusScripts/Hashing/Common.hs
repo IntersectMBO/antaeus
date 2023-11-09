@@ -25,6 +25,7 @@ data InputOutput = InputOutput
   , output :: P.BuiltinByteString
   }
 PlutusTx.unstableMakeIsData ''InputOutput
+PlutusTx.makeLift ''InputOutput
 
 data HashingParams = HashingParams
   { sha2_256Long :: InputOutput
@@ -39,10 +40,30 @@ data HashingParams = HashingParams
   -- , keccak256Short :: InputOutput
   }
 PlutusTx.unstableMakeIsData ''HashingParams
+PlutusTx.makeLift ''HashingParams
+
+-- Use redeemer once PlutusV3 is fully implemented in the ledger
+-- {-# INLINEABLE mkHashingPolicy #-}
+-- mkHashingPolicy :: HashingParams -> P.BuiltinData -> P.BuiltinData -> Bool
+-- mkHashingPolicy HashingParams{..} _r _sc =
+--   P.all
+--     (P.== True)
+--     [ hashAndCheckResult BI.sha2_256 "sha2_256Long" sha2_256Long
+--     , hashAndCheckResult BI.sha2_256 "sha2_256Short" sha2_256Short
+--     , hashAndCheckResult BI.sha3_256 "sha3_256Long" sha3_256Long
+--     , hashAndCheckResult BI.sha3_256 "sha3_256Short" sha3_256Short
+--     , hashAndCheckResult BI.blake2b_256 "blake2b_256Long" blake2b_256Long
+--     , hashAndCheckResult BI.blake2b_256 "blake2b_256Short" blake2b_256Short
+--     ]
+--   where
+--     hashAndCheckResult
+--       :: (P.BuiltinByteString -> P.BuiltinByteString) -> BI.BuiltinString -> InputOutput -> Bool
+--     hashAndCheckResult f fName io =
+--       P.traceIfFalse ("Hash check failed for : " P.<> fName) (f (input io) P.== output io)
 
 {-# INLINEABLE mkHashingPolicy #-}
-mkHashingPolicy :: HashingParams -> sc -> Bool
-mkHashingPolicy HashingParams{..} _sc =
+mkHashingPolicy :: HashingParams -> P.BuiltinData -> P.BuiltinData -> Bool
+mkHashingPolicy HashingParams{..} _r _sc =
   P.all
     (P.== True)
     [ hashAndCheckResult BI.sha2_256 "sha2_256Long" sha2_256Long
@@ -135,32 +156,36 @@ blake2b_256ShortIO =
           bytesFromHex "62250e24b1842531714afbf8bb8d4f5ecc78874f0c6a63c529c3f601c5c77c0e"
     }
 
+hashingParamsV1AndV2 :: HashingParams
+hashingParamsV1AndV2 =
+  HashingParams
+    { sha2_256Long = sha2_256LongIO
+    , sha2_256Short = sha2_256ShortIO
+    , sha3_256Long = sha3_256LongIO
+    , sha3_256Short = sha3_256ShortIO
+    , blake2b_256Long = blake2b_256LongIO
+    , blake2b_256Short = blake2b_256ShortIO
+    }
+
+hashingParamsV3 :: HashingParams
+hashingParamsV3 =
+  HashingParams
+    { sha2_256Long = sha2_256LongIO
+    , sha2_256Short = sha2_256ShortIO
+    , sha3_256Long = sha3_256LongIO
+    , sha3_256Short = sha3_256ShortIO
+    , blake2b_256Long = blake2b_256LongIO
+    , blake2b_256Short = blake2b_256ShortIO
+    -- , blake2b_224Long =  blake2b_224LongIO
+    -- , blake2b_224Short = blake2b_224ShortIO
+    -- , keccak256Long = keccak256LongIO
+    -- , keccak256Short :: keccak256ShortIO
+    }
+
 -- Test inputs and outputs for PlutusV1 and PlutusV2 hashing functions
 hashingParamsV1AndV2Redeemer :: C.HashableScriptData
-hashingParamsV1AndV2Redeemer =
-  toScriptData
-    HashingParams
-      { sha2_256Long = sha2_256LongIO
-      , sha2_256Short = sha2_256ShortIO
-      , sha3_256Long = sha3_256LongIO
-      , sha3_256Short = sha3_256ShortIO
-      , blake2b_256Long = blake2b_256LongIO
-      , blake2b_256Short = blake2b_256ShortIO
-      }
+hashingParamsV1AndV2Redeemer = toScriptData hashingParamsV1AndV2
 
 -- Test inputs and outputs for PlutusV1, PlutusV2 and PlutusV3 hashing functions
 hashingParamsV3Redeemer :: C.HashableScriptData
-hashingParamsV3Redeemer =
-  toScriptData
-    HashingParams
-      { sha2_256Long = sha2_256LongIO
-      , sha2_256Short = sha2_256ShortIO
-      , sha3_256Long = sha3_256LongIO
-      , sha3_256Short = sha3_256ShortIO
-      , blake2b_256Long = blake2b_256LongIO
-      , blake2b_256Short = blake2b_256ShortIO
-      -- , blake2b_224Long =  blake2b_224LongIO
-      -- , blake2b_224Short = blake2b_224ShortIO
-      -- , keccak256Long = keccak256LongIO
-      -- , keccak256Short :: keccak256ShortIO
-      }
+hashingParamsV3Redeemer = toScriptData hashingParamsV3

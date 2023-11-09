@@ -18,7 +18,7 @@ import Data.Maybe (fromJust)
 import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
-import Helpers.Common (makeAddress)
+import Helpers.Common (makeAddress, toShelleyBasedEra)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
@@ -53,13 +53,13 @@ checkTxInfoV1TestInfo =
 
 checkTxInfoV1Test
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath, mTime} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptions networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
 
   -- build a transaction
 
@@ -154,12 +154,12 @@ datumHashSpendTestInfo =
 
 datumHashSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction with two script outputs to be spent
   -- only one has its datum value embedded in the tx body
@@ -237,12 +237,12 @@ mintBurnTestInfo =
 
 mintBurnTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -341,13 +341,13 @@ collateralContainsTokenErrorTestInfo =
 
 collateralContainsTokenErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -- Maybe POSIXTime ->
   -> m (Maybe String)
 collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -428,12 +428,12 @@ missingCollateralInputErrorTestInfo =
 
 missingCollateralInputErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -464,7 +464,14 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
           , C.txOuts = [txOut]
           }
 
-  eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
+  eitherTx <-
+    Tx.buildTxWithError
+      era
+      localNodeConnectInfo
+      txBodyContent
+      w1Address
+      Nothing
+      [C.WitnessPaymentKey w1SKey]
   let expError = "TxBodyEmptyTxInsCollateral"
   assert expError $ Tx.isTxBodyError expError eitherTx
 
@@ -479,12 +486,12 @@ noCollateralInputsErrorTestInfo =
 
 noCollateralInputsErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
@@ -534,18 +541,22 @@ tooManyCollateralInputsErrorTestInfo =
 
 tooManyCollateralInputsErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
-  let maxCollateralInputs = fromIntegral $ U.unsafeFromMaybe $ C.protocolParamMaxCollateralInputs pparams
+  let C.LedgerProtocolParameters ledgerPParams = pparams
+      maxCollateralInputs =
+        fromIntegral $
+          U.unsafeFromMaybe $
+            C.protocolParamMaxCollateralInputs (C.fromLedgerPParams (toShelleyBasedEra era) ledgerPParams)
       txOut = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
 
       txBodyContent =

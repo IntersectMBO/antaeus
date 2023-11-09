@@ -112,7 +112,7 @@ txInfoData =
   PlutusV2.fromList
     . map
       ( \datum ->
-          ( PlutusV2.DatumHash $ PlutusV2.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptData datum
+          ( PlutusV2.DatumHash $ PlutusV2.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptDataBytes datum
           , PlutusV2.Datum $ fromCardanoScriptData datum
           )
       )

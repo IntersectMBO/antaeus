@@ -13,34 +13,40 @@ module PlutusScripts.Hashing.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
+import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
-import PlutusScripts.Hashing.Common (hashingAssetName, hashingParamsV3Redeemer, mkHashingPolicy)
+import PlutusScripts.Hashing.Common (hashingAssetName, hashingParamsV3, mkHashingPolicy)
 import PlutusScripts.Helpers (
   mintScriptWitness,
   plutusL3,
   policyIdV3,
+  toScriptData,
  )
 import PlutusTx qualified
 
-checkHashingPolicyV3 :: SerialisedScript
-checkHashingPolicyV3 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkHashingPolicy
+-- checkHashingPolicyV3 :: SerialisedScript
+-- checkHashingPolicyV3 =
+--   serialiseCompiledCode
+--     $$(PlutusTx.compile [||wrap||])
+--   where
+--     wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkHashingPolicy
+
+checkHashingPolicy :: SerialisedScript
+checkHashingPolicy =
+  serialiseCompiledCode $
+    $$(PlutusTx.compile [||mkHashingPolicy||])
+      `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion110 hashingParamsV3)
 
 checkHashingPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
-checkHashingPolicyScriptV3 = C.PlutusScriptSerialised checkHashingPolicyV3
+checkHashingPolicyScriptV3 = C.PlutusScriptSerialised checkHashingPolicy
 
 checkHashingAssetIdV3 :: C.AssetId
-checkHashingAssetIdV3 = C.AssetId (policyIdV3 checkHashingPolicyV3) hashingAssetName
+checkHashingAssetIdV3 = C.AssetId (policyIdV3 checkHashingPolicy) hashingAssetName
 
 checkHashingMintWitnessV3
   :: C.CardanoEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 checkHashingMintWitnessV3 era =
-  ( policyIdV3 checkHashingPolicyV3
-  , mintScriptWitness era plutusL3 (Left checkHashingPolicyScriptV3) hashingParamsV3Redeemer
+  ( policyIdV3 checkHashingPolicy
+  , mintScriptWitness era plutusL3 (Left checkHashingPolicyScriptV3) (toScriptData ())
   )

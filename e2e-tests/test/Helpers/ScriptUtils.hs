@@ -5,6 +5,7 @@ module Helpers.ScriptUtils where
 
 import PlutusLedgerApi.V1 qualified as PV1
 import PlutusLedgerApi.V2 qualified as PV2
+import PlutusLedgerApi.V3 qualified as PV3
 import PlutusTx (UnsafeFromData)
 import PlutusTx.Prelude qualified as P
 
@@ -55,7 +56,8 @@ class (PV1.UnsafeFromData sc) => IsScriptContext sc where
 
 type ScriptContextV1 = PV1.ScriptContext
 type ScriptContextV2 = PV2.ScriptContext
+type ScriptContextV3 = PV3.ScriptContext
 
 instance IsScriptContext PV1.ScriptContext
-
 instance IsScriptContext PV2.ScriptContext
+instance IsScriptContext PV3.ScriptContext

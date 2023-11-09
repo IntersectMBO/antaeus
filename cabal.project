@@ -13,8 +13,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.adoc for how to update index-state
 index-state:
-  , hackage.haskell.org 2023-09-15T11:11:00Z
-  , cardano-haskell-packages 2023-09-15T11:11:00Z
+  , hackage.haskell.org 2023-10-24T11:11:00Z
+  , cardano-haskell-packages 2023-10-24T11:11:00Z
 packages: e2e-tests
 
 -- We never, ever, want this.
@@ -48,11 +48,12 @@ constraints:
   -- See https://github.com/input-output-hk/haskell.nix/issues/2042
   concurrent-output < 1.10.19
 
--- Fork for improvements to Babbage testnet (awaiting upstream merge)
+-- Fork for improvements to cardano-testnet (awaiting upstream merge)
+-- including PlutusV3 cost model
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-node
-    tag: 5e895e5f65fe9801caae47222f2b4a642c682d5d
+    tag: 1d9e97314a096d4893c50eae18e0602cb1957ca1
     subdir:
       cardano-testnet
 
@@ -60,6 +61,6 @@ source-repository-package
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-api
-    tag: 9b03e02eea45afe4af44e0589519e849795f771e
+    tag: 347a20562f087cdb1d3660da3e5adb5cbcb64bfe
     subdir:
       cardano-api

@@ -35,7 +35,7 @@ buildAndSubmit
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
-  -> C.ProtocolParameters
+  -> C.LedgerProtocolParameters era
   -> C.TxIn
   -> C.TxInsCollateral era
   -> C.Address C.ShelleyAddr
@@ -73,12 +73,12 @@ verifyBlsFunctionsTestInfo =
     }
 verifyBlsFunctionsTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 verifyBlsFunctionsTest networkOptions TestParams{..} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let numberOfBlsScripts = 9
 
   -- produce an input for each script to run in its own transaction
