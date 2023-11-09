@@ -28,12 +28,18 @@ data Secp256Params = Secp256Params
   }
 
 PlutusTx.unstableMakeIsData ''Secp256Params
+PlutusTx.makeLift ''Secp256Params
 
 -- Schnorr minting policy --
 
+-- Use redeemer once PlutusV3 is fully implemented in the ledger
+-- {-# INLINEABLE mkVerifySchnorrPolicy #-}
+-- mkVerifySchnorrPolicy :: Secp256Params -> sc -> Bool
+-- mkVerifySchnorrPolicy Secp256Params{..} _sc = BI.verifySchnorrSecp256k1Signature vkey msg sig
+
 {-# INLINEABLE mkVerifySchnorrPolicy #-}
-mkVerifySchnorrPolicy :: Secp256Params -> sc -> Bool
-mkVerifySchnorrPolicy Secp256Params{..} _sc = BI.verifySchnorrSecp256k1Signature vkey msg sig
+mkVerifySchnorrPolicy :: Secp256Params -> P.BuiltinData -> P.BuiltinData -> Bool
+mkVerifySchnorrPolicy Secp256Params{..} _r _sc = BI.verifySchnorrSecp256k1Signature vkey msg sig
 
 schnorrAssetName :: C.AssetName
 schnorrAssetName = C.AssetName "Schnorr"
@@ -62,9 +68,14 @@ verifySchnorrRedeemer = toScriptData verifySchnorrParams
 
 -- ECDSA minting policy --
 
+-- Use redeemer once PlutusV3 is fully implemented in the ledger
+-- {-# INLINEABLE mkVerifyEcdsaPolicy #-}
+-- mkVerifyEcdsaPolicy :: Secp256Params -> sc -> Bool
+-- mkVerifyEcdsaPolicy Secp256Params{..} _sc = BI.verifyEcdsaSecp256k1Signature vkey msg sig
+
 {-# INLINEABLE mkVerifyEcdsaPolicy #-}
-mkVerifyEcdsaPolicy :: Secp256Params -> sc -> Bool
-mkVerifyEcdsaPolicy Secp256Params{..} _sc = BI.verifyEcdsaSecp256k1Signature vkey msg sig
+mkVerifyEcdsaPolicy :: Secp256Params -> P.BuiltinData -> P.BuiltinData -> Bool
+mkVerifyEcdsaPolicy Secp256Params{..} _r _sc = BI.verifyEcdsaSecp256k1Signature vkey msg sig
 
 ecdsaAssetName :: C.AssetName
 ecdsaAssetName = C.AssetName "ECDSA"

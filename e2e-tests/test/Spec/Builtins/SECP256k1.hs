@@ -40,13 +40,13 @@ verifySchnorrAndEcdsaTestInfo =
 
 verifySchnorrAndEcdsaTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptions networkOptions
   pv <- TN.pvFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction
 
@@ -92,7 +92,14 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
   case pv < 8 of
     True -> do
       -- Assert that "forbidden" error occurs when attempting to use either SECP256k1 builtin
-      eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
+      eitherTx <-
+        Tx.buildTxWithError
+          era
+          localNodeConnectInfo
+          txBodyContent
+          w1Address
+          Nothing
+          [C.WitnessPaymentKey w1SKey]
       annotate $ show eitherTx
       let expErrorSchnorr =
             "Builtin function VerifySchnorrSecp256k1Signature is not available in language "

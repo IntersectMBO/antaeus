@@ -34,12 +34,12 @@ verifyHashingFunctionsTestInfo =
 
 checkHashingFunctionsTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction
 

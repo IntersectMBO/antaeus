@@ -5,7 +5,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
--- Not using all CardanoEra
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
@@ -13,104 +12,88 @@ module PlutusScripts.SECP256k1.V_1_0 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
+import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V1 qualified as PlutusV1
-import PlutusLedgerApi.V2 qualified as PlutusV2
 import PlutusScripts.Helpers (
   mintScriptWitness,
   plutusL1,
   plutusL2,
   policyIdV1,
   policyIdV2,
+  toScriptData,
  )
 import PlutusScripts.SECP256k1.Common (
   ecdsaAssetName,
   mkVerifyEcdsaPolicy,
   mkVerifySchnorrPolicy,
   schnorrAssetName,
+  verifyEcdsaParams,
   verifyEcdsaRedeemer,
-  verifySchnorrRedeemer,
+  verifySchnorrParams,
  )
 import PlutusTx qualified
 
 -- Schnorr minting policy --
 
-verifySchnorrPolicyV1 :: SerialisedScript
-verifySchnorrPolicyV1 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy @PlutusV1.ScriptContext mkVerifySchnorrPolicy
-
-verifySchnorrPolicyV2 :: SerialisedScript
-verifySchnorrPolicyV2 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy @PlutusV2.ScriptContext mkVerifySchnorrPolicy
+verifySchnorrPolicy :: SerialisedScript
+verifySchnorrPolicy =
+  serialiseCompiledCode $
+    $$(PlutusTx.compile [||mkVerifySchnorrPolicy||])
+      `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion100 verifySchnorrParams)
 
 verifySchnorrPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
-verifySchnorrPolicyScriptV1 = C.PlutusScriptSerialised verifySchnorrPolicyV1
+verifySchnorrPolicyScriptV1 = C.PlutusScriptSerialised verifySchnorrPolicy
 
 verifySchnorrPolicyScriptV2 :: C.PlutusScript C.PlutusScriptV2
-verifySchnorrPolicyScriptV2 = C.PlutusScriptSerialised verifySchnorrPolicyV2
+verifySchnorrPolicyScriptV2 = C.PlutusScriptSerialised verifySchnorrPolicy
 
 verifySchnorrAssetIdV1 :: C.AssetId
-verifySchnorrAssetIdV1 = C.AssetId (policyIdV1 verifySchnorrPolicyV1) schnorrAssetName
+verifySchnorrAssetIdV1 = C.AssetId (policyIdV1 verifySchnorrPolicy) schnorrAssetName
 
 verifySchnorrAssetIdV2 :: C.AssetId
-verifySchnorrAssetIdV2 = C.AssetId (policyIdV2 verifySchnorrPolicyV2) schnorrAssetName
+verifySchnorrAssetIdV2 = C.AssetId (policyIdV2 verifySchnorrPolicy) schnorrAssetName
 
 verifySchnorrMintWitnessV1
   :: C.CardanoEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifySchnorrMintWitnessV1 era =
-  ( policyIdV1 verifySchnorrPolicyV1
-  , mintScriptWitness era plutusL1 (Left verifySchnorrPolicyScriptV1) verifySchnorrRedeemer
+  ( policyIdV1 verifySchnorrPolicy
+  , mintScriptWitness era plutusL1 (Left verifySchnorrPolicyScriptV1) (toScriptData ())
   )
 
 verifySchnorrMintWitnessV2
   :: C.CardanoEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifySchnorrMintWitnessV2 era =
-  ( policyIdV2 verifySchnorrPolicyV2
-  , mintScriptWitness era plutusL2 (Left verifySchnorrPolicyScriptV2) verifySchnorrRedeemer
+  ( policyIdV2 verifySchnorrPolicy
+  , mintScriptWitness era plutusL2 (Left verifySchnorrPolicyScriptV2) (toScriptData ())
   )
 
 -- ECDSA minting policy --
 
-verifyEcdsaPolicyV1 :: SerialisedScript
-verifyEcdsaPolicyV1 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy @PlutusV1.ScriptContext mkVerifyEcdsaPolicy
-
-verifyEcdsaPolicyV2 :: SerialisedScript
-verifyEcdsaPolicyV2 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy @PlutusV2.ScriptContext mkVerifyEcdsaPolicy
+verifyEcdsaPolicy :: SerialisedScript
+verifyEcdsaPolicy =
+  serialiseCompiledCode $
+    $$(PlutusTx.compile [||mkVerifyEcdsaPolicy||])
+      `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion100 verifyEcdsaParams)
 
 verifyEcdsaPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
-verifyEcdsaPolicyScriptV1 = C.PlutusScriptSerialised verifyEcdsaPolicyV1
+verifyEcdsaPolicyScriptV1 = C.PlutusScriptSerialised verifyEcdsaPolicy
 
 verifyEcdsaPolicyScriptV2 :: C.PlutusScript C.PlutusScriptV2
-verifyEcdsaPolicyScriptV2 = C.PlutusScriptSerialised verifyEcdsaPolicyV2
+verifyEcdsaPolicyScriptV2 = C.PlutusScriptSerialised verifyEcdsaPolicy
 
 verifyEcdsaAssetIdV1 :: C.AssetId
-verifyEcdsaAssetIdV1 = C.AssetId (policyIdV1 verifyEcdsaPolicyV1) ecdsaAssetName
+verifyEcdsaAssetIdV1 = C.AssetId (policyIdV1 verifyEcdsaPolicy) ecdsaAssetName
 
 verifyEcdsaAssetIdV2 :: C.AssetId
-verifyEcdsaAssetIdV2 = C.AssetId (policyIdV2 verifyEcdsaPolicyV2) ecdsaAssetName
+verifyEcdsaAssetIdV2 = C.AssetId (policyIdV2 verifyEcdsaPolicy) ecdsaAssetName
 
 verifyEcdsaMintWitnessV1
   :: C.CardanoEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyEcdsaMintWitnessV1 era =
-  ( policyIdV1 verifyEcdsaPolicyV1
+  ( policyIdV1 verifyEcdsaPolicy
   , mintScriptWitness era plutusL1 (Left verifyEcdsaPolicyScriptV1) verifyEcdsaRedeemer
   )
 
@@ -118,6 +101,6 @@ verifyEcdsaMintWitnessV2
   :: C.CardanoEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyEcdsaMintWitnessV2 era =
-  ( policyIdV2 verifyEcdsaPolicyV2
+  ( policyIdV2 verifyEcdsaPolicy
   , mintScriptWitness era plutusL2 (Left verifyEcdsaPolicyScriptV2) verifyEcdsaRedeemer
   )

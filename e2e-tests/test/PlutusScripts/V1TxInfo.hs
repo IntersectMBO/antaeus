@@ -102,7 +102,7 @@ txInfoData :: [C.HashableScriptData] -> [(PlutusV1.DatumHash, PlutusV1.Datum)]
 txInfoData =
   map
     ( \datum ->
-        ( PlutusV1.DatumHash $ PlutusV1.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptData datum
+        ( PlutusV1.DatumHash $ PlutusV1.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptDataBytes datum
         , PlutusV1.Datum $ fromCardanoScriptData datum
         )
     )

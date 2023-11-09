@@ -7,7 +7,7 @@
 
 module Helpers.Tx where
 
-import Cardano.Api (QueryConvenienceError, SubmitResult (SubmitFail, SubmitSuccess))
+import Cardano.Api (SubmitResult (SubmitFail, SubmitSuccess))
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -17,12 +17,13 @@ import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (cardanoEraToShelleyBasedEra, toEraInCardanoMode)
+import Helpers.Common (toEraInCardanoMode)
 import Helpers.Utils qualified as U
 
-deriving instance Show QueryConvenienceError
-
 newtype SubmitError = SubmitError String
+
+notSupportedError :: (Show e) => e -> String
+notSupportedError e = show e ++ " not supported"
 
 -- | Check whether the auto-balancing txbody build (constructBalancedTx) resulted in an error
 isTxBodyScriptExecutionError
@@ -46,12 +47,13 @@ isSubmitError :: String -> Either SubmitError () -> Bool
 isSubmitError expectedError (Left (SubmitError error)) = expectedError `isInfixOf` error
 isSubmitError _ _ = False
 
--- | Any CardanoEra to one that supports tokens. Used for building TxOut.
-multiAssetSupportedInEra :: C.CardanoEra era -> C.MultiAssetSupportedInEra era
-multiAssetSupportedInEra era = fromEither $ C.multiAssetSupportedInEra era
-  where
-    fromEither (Left _) = error "Era must support MA"
-    fromEither (Right m) = m
+{- | Any CardanoEra to one that supports tokens. Used for building TxOut.
+ multiAssetSupportedInEra :: C.CardanoEra era -> C.MaryEraOnwards era
+ multiAssetSupportedInEra era = fromEither $ C.multiAssetSupportedInEra era
+   where
+     fromEither (Left _) = error "Era must support MA"
+     fromEither (Right m) = m
+-}
 
 -- | Treat CardanoEra as ShelleyBased to satisfy constraint on constructBalancedTx.
 withIsShelleyBasedEra :: C.CardanoEra era -> ((C.IsShelleyBasedEra era) => r) -> r
@@ -71,7 +73,7 @@ txOut
 txOut era value address =
   C.TxOut
     (U.unsafeFromRight $ C.anyAddressInEra era $ C.toAddressAny address)
-    (C.TxOutValue (multiAssetSupportedInEra era) value)
+    (C.inEonForEra (error $ notSupportedError era) (\e -> C.TxOutValue e value) era)
     C.TxOutDatumNone
     C.ReferenceScriptNone
 
@@ -113,7 +115,11 @@ withRefScript era script (C.TxOut e v d _) =
     e
     v
     d
-    (C.ReferenceScript (refInsScriptsAndInlineDatsSupportedInEra era) (C.toScriptInAnyLang script))
+    ( C.inEonForEra
+        (error $ notSupportedError era)
+        (\e -> C.ReferenceScript e (C.toScriptInAnyLang script))
+        era
+    )
 
 withInlineDatum
   , withDatumHash
@@ -125,31 +131,31 @@ withInlineDatum
 
 -- | Add inline datum to TxOut
 withInlineDatum era datum (C.TxOut e v _ rs) =
-  C.TxOut e v (C.TxOutDatumInline (refInsScriptsAndInlineDatsSupportedInEra era) datum) rs
+  C.TxOut
+    e
+    v
+    (C.inEonForEra (error $ notSupportedError era) (\e -> C.TxOutDatumInline e datum) era)
+    rs
 
 -- | Add datum hash to TxOut
 withDatumHash era datum (C.TxOut e v _ rs) =
-  C.TxOut e v (C.TxOutDatumHash (scriptDataSupportedInEra era) (C.hashScriptDataBytes datum)) rs
+  C.TxOut
+    e
+    v
+    ( C.inEonForEra
+        (error $ notSupportedError era)
+        (\e -> C.TxOutDatumHash e (C.hashScriptDataBytes datum))
+        era
+    )
+    rs
 
 -- | Add datum hash to TxOut whilst including datum value in txbody
 withDatumInTx era datum (C.TxOut e v _ rs) =
-  C.TxOut e v (C.TxOutDatumInTx (scriptDataSupportedInEra era) datum) rs
-
-refInsScriptsAndInlineDatsSupportedInEra
-  :: C.CardanoEra era -> C.ReferenceTxInsScriptsInlineDatumsSupportedInEra era
-refInsScriptsAndInlineDatsSupportedInEra = fromMaybe . C.refInsScriptsAndInlineDatsSupportedInEra
-  where
-    fromMaybe Nothing = error "Era must support reference inputs"
-    fromMaybe (Just e) = e
-
-scriptDataSupportedInEra :: C.CardanoEra era -> C.ScriptDataSupportedInEra era
-scriptDataSupportedInEra = fromMaybe . C.scriptDataSupportedInEra
-  where
-    fromMaybe Nothing = error "Era must support script data"
-    fromMaybe (Just e) = e
+  C.TxOut e v (C.inEonForEra (error $ notSupportedError era) (\e -> C.TxOutDatumInTx e datum) era) rs
 
 -- | Empty transaction body to begin building from.
-emptyTxBodyContent :: C.CardanoEra era -> C.ProtocolParameters -> C.TxBodyContent C.BuildTx era
+emptyTxBodyContent
+  :: C.CardanoEra era -> C.LedgerProtocolParameters era -> C.TxBodyContent C.BuildTx era
 emptyTxBodyContent era pparams =
   C.TxBodyContent
     { C.txIns = []
@@ -158,12 +164,10 @@ emptyTxBodyContent era pparams =
     , C.txOuts = []
     , C.txTotalCollateral = C.TxTotalCollateralNone
     , C.txReturnCollateral = C.TxReturnCollateralNone
-    , C.txFee = C.TxFeeExplicit (fromTxFeesExplicit $ C.txFeesExplicitInEra era) 0
+    , C.txFee = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e 0) era
     , C.txValidityRange =
         ( C.TxValidityNoLowerBound
-        , C.TxValidityNoUpperBound $
-            fromNoUpperBoundMaybe $
-              C.validityNoUpperBoundSupportedInEra era
+        , C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityNoUpperBound e) era
         )
     , C.txMetadata = C.TxMetadataNone
     , C.txAuxScripts = C.TxAuxScriptsNone
@@ -174,60 +178,51 @@ emptyTxBodyContent era pparams =
     , C.txUpdateProposal = C.TxUpdateProposalNone
     , C.txMintValue = C.TxMintNone
     , C.txScriptValidity = C.TxScriptValidityNone
-    , C.txGovernanceActions = C.TxGovernanceActionsNone
-    , C.txVotes = C.TxVotesNone
+    , C.txProposalProcedures = Nothing
+    , C.txVotingProcedures = Nothing
     }
-  where
-    fromNoUpperBoundMaybe Nothing = error "Era must support no upper bound"
-    fromNoUpperBoundMaybe (Just nub) = nub
 
 txFee :: C.CardanoEra era -> C.Lovelace -> C.TxFee era
-txFee era = C.TxFeeExplicit (fromTxFeesExplicit $ C.txFeesExplicitInEra era)
+txFee era =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e) era
 
 fromTxFeesExplicit :: Either imp exp -> exp
 fromTxFeesExplicit (Left _) = error "Era must support explicit fees"
 fromTxFeesExplicit (Right tfe) = tfe
 
 txExtraKeyWits :: C.CardanoEra era -> [C.VerificationKey C.PaymentKey] -> C.TxExtraKeyWitnesses era
-txExtraKeyWits era pk = case C.extraKeyWitnessesSupportedInEra era of
-  Nothing -> error "era supporting extra key witnesses only"
-  Just supported -> C.TxExtraKeyWitnesses supported $ C.verificationKeyHash <$> pk
+txExtraKeyWits era pk =
+  C.inEonForEra
+    (error $ notSupportedError era)
+    (\e -> C.TxExtraKeyWitnesses e (C.verificationKeyHash <$> pk))
+    era
 
 -- | Produce collateral inputs if era supports it. Used for building txbody.
 txInsCollateral :: C.CardanoEra era -> [C.TxIn] -> C.TxInsCollateral era
-txInsCollateral era txIns = case C.collateralSupportedInEra era of
-  Nothing -> error "era supporting collateral only"
-  Just supported -> C.TxInsCollateral supported txIns
+txInsCollateral era txIns =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxInsCollateral e txIns) era
 
 -- | Produce return collateral output if era supports it. Used for building txbody.
 txReturnCollateral :: C.CardanoEra era -> C.TxOut C.CtxTx era -> C.TxReturnCollateral C.CtxTx era
-txReturnCollateral era txIns = case C.totalAndReturnCollateralSupportedInEra era of
-  Nothing -> error "era supporting return & total collateral only"
-  Just supported -> C.TxReturnCollateral supported txIns
+txReturnCollateral era txIns =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxReturnCollateral e txIns) era
 
 txTotalCollateral :: C.CardanoEra era -> C.Lovelace -> C.TxTotalCollateral era
-txTotalCollateral era lovelace = case C.totalAndReturnCollateralSupportedInEra era of
-  Nothing -> error "era supporting return & total collateral only"
-  Just supported -> C.TxTotalCollateral supported lovelace
+txTotalCollateral era lovelace =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxTotalCollateral e lovelace) era
+
+-- C.TxScriptValidity era C.ScriptInvalid
+
+txScriptValidity :: C.CardanoEra era -> C.ScriptValidity -> C.TxScriptValidity era
+txScriptValidity era validity =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxScriptValidity e validity) era
 
 txValidityRange
   :: C.CardanoEra era -> C.SlotNo -> C.SlotNo -> (C.TxValidityLowerBound era, C.TxValidityUpperBound era)
 txValidityRange era lowerSlot upperSlot =
-  ( C.TxValidityLowerBound validityLowerBoundSupportedInEra lowerSlot
-  , C.TxValidityUpperBound validityUpperBoundSupportedInEra upperSlot
+  ( C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityLowerBound e lowerSlot) era
+  , C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e upperSlot) era
   )
-  where
-    validityLowerBoundSupportedInEra = case C.validityLowerBoundSupportedInEra era of
-      Nothing -> error "era must support lower bound"
-      (Just lb) -> lb
-    validityUpperBoundSupportedInEra = case C.validityUpperBoundSupportedInEra era of
-      Nothing -> error "era must support upper bound"
-      (Just ub) -> ub
-
-txScriptValidity :: C.CardanoEra era -> C.ScriptValidity -> C.TxScriptValidity era
-txScriptValidity era sv = case C.txScriptValiditySupportedInCardanoEra era of
-  Nothing -> error "era supporting return & total collateral only"
-  Just supported -> C.TxScriptValidity supported sv
 
 {- | Get TxId from a signed transaction.
  Useful for producing TxIn for building subsequant transaction.
@@ -242,7 +237,8 @@ txIn :: C.TxId -> Int -> C.TxIn
 txIn txId txIx = C.TxIn txId (C.TxIx $ fromIntegral txIx)
 
 pubkeyTxIns :: [C.TxIn] -> [(C.TxIn, C.BuildTxWith C.BuildTx (C.Witness C.WitCtxTxIn era))]
-pubkeyTxIns = map (\txIn -> txInWitness txIn $ C.KeyWitness C.KeyWitnessForSpending)
+pubkeyTxIns =
+  map (\txIn -> txInWitness txIn $ C.KeyWitness C.KeyWitnessForSpending)
 
 txInWitness
   :: C.TxIn
@@ -254,16 +250,14 @@ txInsReference
   :: C.CardanoEra era
   -> [C.TxIn]
   -> C.TxInsReference build era
-txInsReference era txIns = case era of
-  C.BabbageEra -> C.TxInsReference C.ReferenceTxInsScriptsInlineDatumsInBabbageEra txIns
-  C.ConwayEra -> C.TxInsReference C.ReferenceTxInsScriptsInlineDatumsInConwayEra txIns
+txInsReference era txIns = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxInsReference e txIns) era
 
 txMintValue
   :: C.CardanoEra era
   -> C.Value
   -> Map.Map C.PolicyId (C.ScriptWitness C.WitCtxMint era)
   -> C.TxMintValue C.BuildTx era
-txMintValue era tv m = C.TxMintValue (multiAssetSupportedInEra era) tv (C.BuildTxWith m)
+txMintValue era tv m = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxMintValue e tv) era (C.BuildTxWith m)
 
 buildTx
   :: (MonadIO m)
@@ -273,9 +267,31 @@ buildTx
   -> C.Address C.ShelleyAddr
   -> C.SigningKey C.PaymentKey
   -> m (C.Tx era)
-buildTx era localNodeConnectInfo txBody changeAddress sKey = do
-  eitherTx <- buildTx' era localNodeConnectInfo txBody changeAddress sKey
-  return $ fromEither eitherTx
+buildTx era localNodeConnectInfo txBody changeAddress sKey =
+  buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress [C.WitnessPaymentKey sKey]
+
+buildTxWithAnyWitness
+  :: (MonadIO m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.TxBodyContent C.BuildTx era
+  -> C.Address C.ShelleyAddr
+  -> [C.ShelleyWitnessSigningKey]
+  -> m (C.Tx era)
+buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress sKeys =
+  buildTxWithWitnessOverride era localNodeConnectInfo txBody changeAddress Nothing sKeys
+
+buildTxWithWitnessOverride
+  :: (MonadIO m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.TxBodyContent C.BuildTx era
+  -> C.Address C.ShelleyAddr
+  -> Maybe Word
+  -> [C.ShelleyWitnessSigningKey]
+  -> m (C.Tx era)
+buildTxWithWitnessOverride era localNodeConnectInfo txBody changeAddress mWitnessOverride sKeys =
+  fromEither <$> buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride sKeys
   where
     fromEither (Left e) = error $ show e
     fromEither (Right tx) = tx
@@ -283,39 +299,51 @@ buildTx era localNodeConnectInfo txBody changeAddress sKey = do
 {- | Maybe build signed transaction using convenience functions for calculating fees and exunits.
   Useful for asserting for error.
 -}
-buildTx'
+buildTxWithError
   :: (MonadIO m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
-  -> C.SigningKey C.PaymentKey
+  -> Maybe Word
+  -> [C.ShelleyWitnessSigningKey]
   -> m (Either C.TxBodyErrorAutoBalance (C.Tx era))
-buildTx' era localNodeConnectInfo txBody changeAddress sKey = do
+buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride sKeys = do
+  let certs = do
+        case C.txCertificates txBody of
+          C.TxCertificatesNone -> []
+          C.TxCertificates _ certs _ -> certs
+
   localStateQueryResult <-
     liftIO
       ( C.executeLocalStateQueryExpr localNodeConnectInfo Nothing $
-          C.queryStateForBalancedTx era allInputs []
+          C.queryStateForBalancedTx era allInputs certs
       )
 
-  let (nodeEraUtxo, pparams, eraHistory, systemStart, stakePools, stakeValueMap) =
-        U.unsafeFromRight $ U.unsafeFromRight localStateQueryResult
-
-      ledgerPParams = U.unsafeFromRight $ C.toLedgerPParams (cardanoEraToShelleyBasedEra era) pparams
+  let ( nodeEraUtxo
+        , ledgerPParams
+        , eraHistory
+        , systemStart
+        , stakePools
+        , stakeDelegDeposits
+        , drepDelegDeposits
+        ) =
+          U.unsafeFromRight $ U.unsafeFromRight localStateQueryResult
 
   return $
     withIsShelleyBasedEra era $
       C.constructBalancedTx
         txBody
         (C.shelleyAddressInEra changeAddress)
-        Nothing -- Override key witnesses
+        mWitnessOverride -- Override key witnesses
         nodeEraUtxo -- tx inputs
         ledgerPParams
         (C.toLedgerEpochInfo eraHistory)
         systemStart
         stakePools
-        stakeValueMap
-        [C.WitnessPaymentKey sKey]
+        stakeDelegDeposits
+        drepDelegDeposits
+        sKeys
   where
     allInputs :: [C.TxIn]
     allInputs = do

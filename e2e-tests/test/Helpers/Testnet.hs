@@ -20,7 +20,7 @@ import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (cardanoEraToShelleyBasedEra, makeAddress, toEraInCardanoMode)
+import Helpers.Common (makeAddress, toEraInCardanoMode)
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.FilePath ((</>))
@@ -28,6 +28,7 @@ import System.Posix.Signals (sigKILL, signalProcess)
 
 import Cardano.Testnet qualified as CTN
 import Hedgehog qualified as H
+import Helpers.Query qualified as Q
 import System.Process (cleanupProcess)
 import System.Process.Internals (
   PHANDLE,
@@ -36,69 +37,70 @@ import System.Process.Internals (
  )
 import Testnet.Runtime qualified as CTN
 
-data TestnetOptions = TestnetOptions
-  { testnetEra :: C.AnyCardanoEra
+data TestnetOptions era = TestnetOptions
+  { testnetEra :: C.CardanoEra era
   , testnetProtocolVersion :: Int
-  , testnetCardanoOptions :: CTN.TestnetOptions
+  , testnetCardanoOptions :: CTN.CardanoTestnetOptions
   }
 
-defAlonzoTestnetOptions :: TestnetOptions
+defAlonzoTestnetOptions :: TestnetOptions C.AlonzoEra
 defAlonzoTestnetOptions =
   TestnetOptions
-    { testnetEra = C.AnyCardanoEra C.AlonzoEra
+    { testnetEra = C.AlonzoEra
     , testnetProtocolVersion = 6
     , testnetCardanoOptions =
-        CTN.CardanoOnlyTestnetOptions
-          CTN.cardanoDefaultTestnetOptions
-            { CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
-            }
+        CTN.cardanoDefaultTestnetOptions
+          { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
+          , CTN.cardanoProtocolVersion = 6
+          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          }
     }
 
-defBabbageTestnetOptions :: Int -> TestnetOptions
+defBabbageTestnetOptions :: Int -> TestnetOptions C.BabbageEra
 defBabbageTestnetOptions protocolVersion =
   TestnetOptions
-    { testnetEra = C.AnyCardanoEra C.BabbageEra
+    { testnetEra = C.BabbageEra
     , testnetProtocolVersion = protocolVersion
     , testnetCardanoOptions =
-        CTN.BabbageOnlyTestnetOptions
-          CTN.babbageDefaultTestnetOptions
-            { CTN.babbageProtocolVersion = protocolVersion
-            , CTN.babbageSlotDuration = 200
-            , CTN.babbageEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
-            }
+        CTN.cardanoDefaultTestnetOptions
+          { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
+          , CTN.cardanoProtocolVersion = protocolVersion
+          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          }
     }
 
-defConwayTestnetOptions :: TestnetOptions
+defConwayTestnetOptions :: TestnetOptions C.ConwayEra
 defConwayTestnetOptions =
   TestnetOptions
-    { testnetEra = C.AnyCardanoEra C.ConwayEra
+    { testnetEra = C.ConwayEra
     , testnetProtocolVersion = 9
     , testnetCardanoOptions =
-        CTN.ConwayOnlyTestnetOptions
-          CTN.conwayDefaultTestnetOptions
-            { CTN.conwayProtocolVersion = 9
-            , CTN.conwaySlotDuration = 200
-            , CTN.conwayEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
-            }
+        CTN.cardanoDefaultTestnetOptions
+          { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
+          , CTN.cardanoProtocolVersion = 9
+          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          }
     }
 
-data LocalNodeOptions = LocalNodeOptions
-  { localNodeEra :: C.AnyCardanoEra
+data LocalNodeOptions era = LocalNodeOptions
+  { localNodeEra :: C.CardanoEra era
   , localNodeProtocolVersion :: Int
   , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
   , localNodeTestnetMagic :: Int
   }
   deriving (Show)
 
-localNodeOptionsPreview :: Either LocalNodeOptions TestnetOptions
+localNodeOptionsPreview :: LocalNodeOptions C.BabbageEra
 localNodeOptionsPreview =
-  Left $
-    LocalNodeOptions
-      { localNodeEra = C.AnyCardanoEra C.BabbageEra
-      , localNodeProtocolVersion = 8
-      , localNodeEnvDir = "/tmp/preview"
-      , localNodeTestnetMagic = 2
-      }
+  LocalNodeOptions
+    { localNodeEra = C.BabbageEra
+    , localNodeProtocolVersion = 8
+    , localNodeEnvDir = "/tmp/preview"
+    , localNodeTestnetMagic = 2
+    }
 
 data TimedOut = ProcessExitTimedOut Int PHANDLE deriving (Show)
 
@@ -109,20 +111,23 @@ instance Error TimedOut where
       ++ "s in `cleanupTestnet` for process to exit. pid="
       ++ show pid
 
-testnetOptionsAlonzo6
-  , testnetOptionsBabbage7
-  , testnetOptionsBabbage8
-  , testnetOptionsConway9
-    :: Either LocalNodeOptions TestnetOptions
+testnetOptionsAlonzo6 :: Either (LocalNodeOptions C.AlonzoEra) (TestnetOptions C.AlonzoEra)
 testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
+
+testnetOptionsBabbage7 :: Either (LocalNodeOptions C.BabbageEra) (TestnetOptions C.BabbageEra)
 testnetOptionsBabbage7 = Right $ defBabbageTestnetOptions 7
+
+testnetOptionsBabbage8 :: Either (LocalNodeOptions C.BabbageEra) (TestnetOptions C.BabbageEra)
 testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
+
+testnetOptionsConway9 :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
 testnetOptionsConway9 = Right defConwayTestnetOptions
 
-eraFromOptions :: (MonadTest m) => Either LocalNodeOptions TestnetOptions -> m C.AnyCardanoEra
+eraFromOptions
+  :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m (C.CardanoEra era)
 eraFromOptions = return . either localNodeEra testnetEra
 
-pvFromOptions :: (MonadTest m) => Either LocalNodeOptions TestnetOptions -> m Int
+pvFromOptions :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m Int
 pvFromOptions = return . either localNodeProtocolVersion testnetProtocolVersion
 
 -- | Get path to where cardano-testnet files are
@@ -132,10 +137,14 @@ getProjectBase = liftIO . IO.canonicalizePath =<< HE.getProjectBase
 -- | Start a testnet with provided testnet options (including era and protocol version)
 startTestnet
   :: C.CardanoEra era
-  -> TestnetOptions
+  -> TestnetOptions era
   -> FilePath
   -> H.Integration
-      (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
+      ( C.LocalNodeConnectInfo C.CardanoMode
+      , C.LedgerProtocolParameters era
+      , C.NetworkId
+      , Maybe [CTN.PoolNode]
+      )
 startTestnet era testnetOptions tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
@@ -156,7 +165,7 @@ startTestnet era testnetOptions tempAbsBasePath = do
           , C.localNodeSocketPath = socketPathAbs
           }
       networkId = getNetworkId tn
-  pparams <- getProtocolParams era localNodeConnectInfo
+  pparams <- Q.getProtocolParams era localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
@@ -186,10 +195,14 @@ cleanupTestnet mPoolNodes =
 
 connectToLocalNode
   :: C.CardanoEra era
-  -> LocalNodeOptions
+  -> LocalNodeOptions era
   -> FilePath
   -> H.Integration
-      (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
+      ( C.LocalNodeConnectInfo C.CardanoMode
+      , C.LedgerProtocolParameters era
+      , C.NetworkId
+      , Maybe [CTN.PoolNode]
+      )
 connectToLocalNode era localNodeOptions tempAbsPath = do
   let localEnvDir' = localNodeEnvDir localNodeOptions
 
@@ -213,25 +226,29 @@ connectToLocalNode era localNodeOptions tempAbsPath = do
           , C.localNodeNetworkId = networkId
           , C.localNodeSocketPath = socketPathAbs
           }
-  pparams <- getProtocolParams era localNodeConnectInfo
+  pparams <- Q.getProtocolParams era localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
 {- | Start testnet with cardano-testnet or use local node that's already
   connected to a public testnet
 -}
 setupTestEnvironment
-  :: Either LocalNodeOptions TestnetOptions
+  :: Either (LocalNodeOptions era) (TestnetOptions era)
   -> FilePath
   -> H.Integration
-      (C.LocalNodeConnectInfo C.CardanoMode, C.ProtocolParameters, C.NetworkId, Maybe [CTN.PoolNode])
+      ( C.LocalNodeConnectInfo C.CardanoMode
+      , C.LedgerProtocolParameters era
+      , C.NetworkId
+      , Maybe [CTN.PoolNode]
+      )
 setupTestEnvironment options tempAbsPath = do
   case options of
     Left localNodeOptions -> do
-      C.AnyCardanoEra era <- return $ localNodeEra localNodeOptions
+      let era = localNodeEra localNodeOptions
       liftIO $ putStrLn "\nConnecting to local node..."
       connectToLocalNode era localNodeOptions tempAbsPath
     Right testnetOptions -> do
-      C.AnyCardanoEra era <- return $ testnetEra testnetOptions
+      let era = testnetEra testnetOptions
       pv <- pvFromOptions options
       liftIO $ putStrLn $ "\nStarting local testnet in " ++ show era ++ " PV" ++ show pv ++ "..."
       startTestnet era testnetOptions tempAbsPath
@@ -248,52 +265,39 @@ getPoolSocketPathAbs tempAbsPath tn = do
   H.annotate fp
   return $ C.File fp
 
--- | Query network's protocol parameters
-getProtocolParams
-  :: (MonadIO m, MonadTest m)
-  => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
-  -> m C.ProtocolParameters
-getProtocolParams era localNodeConnectInfo =
-  H.leftFailM . H.leftFailM . liftIO $
-    C.queryNodeLocalState localNodeConnectInfo Nothing $
-      C.QueryInEra (toEraInCardanoMode era) $
-        C.QueryInShelleyBasedEra (cardanoEraToShelleyBasedEra era) C.QueryProtocolParameters
-
 {- | Signing key and address for wallet 1
   Handles two key types: GenesisUTxOKey and PaymentKey
 -}
-w1
+w1All
   :: (MonadIO m, MonadTest m)
-  => Either LocalNodeOptions TestnetOptions
-  -> FilePath
+  => FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 networkOptions tempAbsPath' networkId = do
-  let extendedPath = case networkOptions of -- because Testnet.Cardano uses slightly different filepath
-        Right testnetOptions | CTN.CardanoOnlyTestnetOptions _ <- testnetCardanoOptions testnetOptions -> "shelley"
-        _ -> ""
+w1All tempAbsPath' networkId = do
+  let w1VKeyFile = C.File $ tempAbsPath' </> "utxo-keys/utxo1.vkey"
+      w1SKeyFile = C.File $ tempAbsPath' </> "utxo-keys/utxo1.skey"
   -- GenesisUTxOKey comes from cardano-testnet
   mGenesisVKey :: Maybe (C.VerificationKey C.GenesisUTxOKey) <-
-    maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) $
-      C.File $
-        tempAbsPath' </> extendedPath </> "utxo-keys/utxo1.vkey"
+    maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) w1VKeyFile
   mGenesisSKey :: Maybe (C.SigningKey C.GenesisUTxOKey) <-
-    maybeReadAs (C.AsSigningKey C.AsGenesisUTxOKey) $
-      C.File $
-        tempAbsPath' </> extendedPath </> "utxo-keys/utxo1.skey"
+    maybeReadAs (C.AsSigningKey C.AsGenesisUTxOKey) w1SKeyFile
   -- PaymentKey comes from cardano-cli (the likely type for a locally created wallet)
   mPaymentVKey :: Maybe (C.VerificationKey C.PaymentKey) <-
-    maybeReadAs (C.AsVerificationKey C.AsPaymentKey) $
-      C.File $
-        tempAbsPath' </> extendedPath </> "utxo-keys/utxo1.vkey"
+    maybeReadAs (C.AsVerificationKey C.AsPaymentKey) w1VKeyFile
   mPaymentSKey :: Maybe (C.SigningKey C.PaymentKey) <-
-    maybeReadAs (C.AsSigningKey C.AsPaymentKey) $
-      C.File $
-        tempAbsPath' </> extendedPath </> "utxo-keys/utxo1.skey"
+    maybeReadAs (C.AsSigningKey C.AsPaymentKey) w1SKeyFile
 
-  let vKey :: C.VerificationKey C.PaymentKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
-      sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
-      address = makeAddress (Left vKey) networkId
+  let
+    vKey :: C.VerificationKey C.PaymentKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
+    sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
+    address = makeAddress (Left vKey) networkId
 
   return (sKey, vKey, address)
+
+w1
+  :: (MonadIO m, MonadTest m)
+  => FilePath
+  -> C.NetworkId
+  -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
+w1 tempAbsPath' networkId =
+  (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath' networkId

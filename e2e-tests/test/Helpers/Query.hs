@@ -7,6 +7,7 @@
 module Helpers.Query where
 
 import Cardano.Api qualified as C
+import Cardano.Api.Shelley qualified as C
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf, sortBy)
@@ -15,7 +16,7 @@ import Data.Set qualified as Set
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (cardanoEraToShelleyBasedEra, toEraInCardanoMode)
+import Helpers.Common (toEraInCardanoMode, toShelleyBasedEra)
 
 -- | Find the first UTxO at address and return as TxIn. Used for txbody's txIns.
 firstTxIn
@@ -79,7 +80,7 @@ findUTxOByAddress
   -> m (C.UTxO era)
 findUTxOByAddress era localNodeConnectInfo address =
   let query =
-        C.QueryInShelleyBasedEra (cardanoEraToShelleyBasedEra era) $
+        C.QueryInShelleyBasedEra (toShelleyBasedEra era) $
           C.QueryUTxO $
             C.QueryUTxOByAddress $
               Set.singleton (C.toAddressAny address)
@@ -205,3 +206,17 @@ txOutHasValue
 txOutHasValue (C.TxOut _ txOutValue _ _) tokenValue = do
   let value = C.txOutValueToValue txOutValue
   return $ isInfixOf (C.valueToList tokenValue) (C.valueToList value)
+
+-- | Query network's protocol parameters
+getProtocolParams
+  :: (MonadIO m, MonadTest m)
+  => C.CardanoEra era
+  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> m (C.LedgerProtocolParameters era)
+getProtocolParams era localNodeConnectInfo = do
+  lpp <-
+    H.leftFailM . H.leftFailM . liftIO $
+      C.queryNodeLocalState localNodeConnectInfo Nothing $
+        C.QueryInEra (toEraInCardanoMode era) $
+          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
+  return $ C.LedgerProtocolParameters lpp

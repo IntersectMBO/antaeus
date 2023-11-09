@@ -8,6 +8,7 @@ module Helpers.Test (
   integrationRetryWorkspace,
 ) where
 
+import Cardano.Api qualified as C
 import Cardano.Testnet qualified as CTN
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -39,10 +40,11 @@ setDarwinTmpdir = when (IO.os == "darwin") $ IO.setEnv "TMPDIR" "/tmp"
 
 runTest
   :: (MonadIO m, MonadTest m)
-  => TestInfo
+  => (C.IsCardanoEra era)
+  => TestInfo era
   -> IORef [TestResult]
-  -> Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m ()
 runTest testInfo resultsRef networkOptions testParams = do
   liftIO $ putStrLn $ "\nRunning: " ++ testName testInfo
@@ -58,7 +60,8 @@ runTest testInfo resultsRef networkOptions testParams = do
           "Result: Fail\nDuration: " ++ printf "%.2f" diff ++ "s" ++ "\nFailure message: " ++ e
   let result =
         TestResult
-          { resultTestInfo = testInfo
+          { resultTestName = testName testInfo
+          , resultTestDescription = testDescription testInfo
           , resultSuccessful = isNothing mError
           , resultFailure = mError
           , resultTime = diff

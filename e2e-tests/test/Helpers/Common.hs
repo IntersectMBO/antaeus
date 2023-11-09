@@ -9,13 +9,13 @@ toEraInCardanoMode era = fromMaybe $ C.toEraInMode era C.CardanoMode
     fromMaybe Nothing = error $ "No mode for this era " ++ show era ++ " in CardanoMode"
     fromMaybe (Just eim) = eim
 
--- | Converts a C.CardanoEra to a C.ShelleyBasedEra. Used for querying in Shelley-based era.
-cardanoEraToShelleyBasedEra :: C.CardanoEra era -> C.ShelleyBasedEra era
-cardanoEraToShelleyBasedEra cEra = case cEra of
-  C.AlonzoEra -> C.ShelleyBasedEraAlonzo
-  C.BabbageEra -> C.ShelleyBasedEraBabbage
-  C.ConwayEra -> C.ShelleyBasedEraConway
-  _ -> error "Must use Alonzo, Babbage or Conway era"
+toShelleyBasedEra :: C.CardanoEra era -> C.ShelleyBasedEra era
+toShelleyBasedEra era =
+  case era of
+    C.AlonzoEra -> C.ShelleyBasedEraAlonzo
+    C.BabbageEra -> C.ShelleyBasedEraBabbage
+    C.ConwayEra -> C.ShelleyBasedEraConway
+    _ -> error "Must use Alonzo, Babbage or Conway era"
 
 -- | Make a payment or script address
 makeAddress

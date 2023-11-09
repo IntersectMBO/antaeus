@@ -14,7 +14,6 @@ import Control.Monad (forM)
 import Data.IORef (IORef)
 import Data.Maybe (fromJust)
 import GHC.IORef (readIORef)
-import Helpers.TestData (TestInfo (..))
 import Text.XML.Light (
   Attr (Attr),
   CData (CData),
@@ -31,7 +30,8 @@ data TestSuiteResults = TestSuiteResults
   deriving (Show)
 
 data TestResult = TestResult
-  { resultTestInfo :: TestInfo
+  { resultTestName :: String
+  , resultTestDescription :: String
   , resultSuccessful :: Bool
   , resultFailure :: Maybe String -- TODO: use this in failureElement in xml output
   , resultTime :: Double
@@ -78,7 +78,7 @@ testCaseToJUnit suiteName result =
   defElement
     { elName = QName "testcase" Nothing Nothing
     , elAttribs =
-        [ Attr (QName "name" Nothing Nothing) (testName $ resultTestInfo result)
+        [ Attr (QName "name" Nothing Nothing) (resultTestName result)
         , Attr (QName "classname" Nothing Nothing) suiteName
         , Attr (QName "time" Nothing Nothing) (show $ resultTime result)
         ]
@@ -101,7 +101,7 @@ testCaseToJUnit suiteName result =
         { elName = QName "property" Nothing Nothing
         , elAttribs =
             [ Attr (QName "name" Nothing Nothing) "description"
-            , Attr (QName "value" Nothing Nothing) (testDescription $ resultTestInfo result)
+            , Attr (QName "value" Nothing Nothing) (resultTestDescription result)
             ]
         }
 
@@ -116,9 +116,9 @@ allFailureMessages :: [IORef [TestResult]] -> IO [String]
 allFailureMessages resultRefsList = do
   allResults <- forM resultRefsList readIORef
   let failedResults = filter (not . resultSuccessful) $ concat allResults
-  return $ map (testName . resultTestInfo) failedResults
+  return $ map resultTestName failedResults
 
 suiteFailureMessages :: IORef [TestResult] -> IO [String]
 suiteFailureMessages resultRefs = do
   results <- readIORef resultRefs
-  return $ map (testName . resultTestInfo) $ filter (not . resultSuccessful) results
+  return $ map resultTestName $ filter (not . resultSuccessful) results

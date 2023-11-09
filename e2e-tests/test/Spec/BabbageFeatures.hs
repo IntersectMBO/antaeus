@@ -55,13 +55,13 @@ checkTxInfoV2TestInfo =
 
 checkTxInfoV2Test
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 checkTxInfoV2Test networkOptions TestParams{..} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptions networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
 
   -- build a transaction
 
@@ -163,12 +163,12 @@ referenceScriptMintTestInfo =
 
 referenceScriptMintTest
   :: (MonadTest m, MonadIO m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -246,14 +246,14 @@ referenceScriptInlineDatumSpendTestInfo =
 
 referenceScriptInlineDatumSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 referenceScriptInlineDatumSpendTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-    (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+    era <- TN.eraFromOptions networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     -- build a transaction to hold reference script
 
@@ -330,12 +330,12 @@ referenceScriptDatumHashSpendTestInfo =
 
 referenceScriptDatumHashSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to hold reference script
 
@@ -419,12 +419,12 @@ inlineDatumSpendTestInfo =
 
 inlineDatumSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-  (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  era <- TN.eraFromOptions networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to hold inline datum at script address
 
@@ -485,14 +485,14 @@ referenceInputWithV1ScriptErrorTestInfo =
 
 referenceInputWithV1ScriptErrorTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 referenceInputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-    (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+    era <- TN.eraFromOptions networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -510,7 +510,14 @@ referenceInputWithV1ScriptErrorTest
             , C.txOuts = [txOut]
             }
 
-    eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
+    eitherTx <-
+      Tx.buildTxWithError
+        era
+        localNodeConnectInfo
+        txBodyContent
+        w1Address
+        Nothing
+        [C.WitnessPaymentKey w1SKey]
     let expError = "ReferenceInputsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
     assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
@@ -526,14 +533,14 @@ referenceScriptOutputWithV1ScriptErrorTestInfo =
 
 referenceScriptOutputWithV1ScriptErrorTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 referenceScriptOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-    (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+    era <- TN.eraFromOptions networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -555,7 +562,14 @@ referenceScriptOutputWithV1ScriptErrorTest
             , C.txOuts = [txOut]
             }
 
-    eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
+    eitherTx <-
+      Tx.buildTxWithError
+        era
+        localNodeConnectInfo
+        txBodyContent
+        w1Address
+        Nothing
+        [C.WitnessPaymentKey w1SKey]
     H.annotate $ show eitherTx
     let expError = "ReferenceScriptsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -572,14 +586,14 @@ inlineDatumOutputWithV1ScriptErrorTestInfo =
 
 inlineDatumOutputWithV1ScriptErrorTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 inlineDatumOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-    (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+    era <- TN.eraFromOptions networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -601,7 +615,14 @@ inlineDatumOutputWithV1ScriptErrorTest
             , C.txOuts = [txOut]
             }
 
-    eitherTx <- Tx.buildTx' era localNodeConnectInfo txBodyContent w1Address w1SKey
+    eitherTx <-
+      Tx.buildTxWithError
+        era
+        localNodeConnectInfo
+        txBodyContent
+        w1Address
+        Nothing
+        [C.WitnessPaymentKey w1SKey]
     H.annotate $ show eitherTx
     let expError = "InlineDatumsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -618,14 +639,14 @@ returnCollateralWithTokensValidScriptTestInfo =
 
 returnCollateralWithTokensValidScriptTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 returnCollateralWithTokensValidScriptTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-    (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+    era <- TN.eraFromOptions networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -708,14 +729,14 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo =
 
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   :: (MonadIO m, MonadTest m)
-  => Either TN.LocalNodeOptions TN.TestnetOptions
-  -> TestParams
+  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
   -> m (Maybe String)
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    C.AnyCardanoEra era <- TN.eraFromOptions networkOptions
-    (w1SKey, _, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+    era <- TN.eraFromOptions networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
