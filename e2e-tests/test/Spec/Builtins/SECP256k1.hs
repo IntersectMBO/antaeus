@@ -3,7 +3,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# HLINT ignore "Use if" #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
@@ -26,7 +25,6 @@ import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
 import PlutusLedgerApi.Common qualified as C
 import PlutusScripts.SECP256k1.V_1_0 qualified as PS_1_0
-import PlutusScripts.SECP256k1.V_1_1 qualified as PS_1_1
 
 verifySchnorrAndEcdsaTestInfo =
   TestInfo
@@ -63,19 +61,18 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
           , Map.fromList [PS_1_0.verifySchnorrMintWitnessV2 era, PS_1_0.verifyEcdsaMintWitnessV2 era]
           , show C.PlutusV2
           )
-        -- TODO: Add V1 once supported
         C.ConwayEra ->
           ( C.valueFromList
+              -- TODO: add PS_1_1.verifySchnorrAssetIdV3
+              -- and PS_1_1.verifyEcdsaAssetIdV3 when PlutusV3 is supported again
               [ (PS_1_0.verifySchnorrAssetIdV2, 4)
               , (PS_1_0.verifyEcdsaAssetIdV2, 2)
-              , (PS_1_1.verifySchnorrAssetIdV3, 4)
-              , (PS_1_1.verifyEcdsaAssetIdV3, 2)
               ]
           , Map.fromList
+              -- TODO: add PS_1_1.verifySchnorrMintWitnessV3 and
+              -- PS_1_1.verifyEcdsaMintWitnessV3 when PlutusV3 is supported again
               [ PS_1_0.verifySchnorrMintWitnessV2 era
               , PS_1_0.verifyEcdsaMintWitnessV2 era
-              , PS_1_1.verifySchnorrMintWitnessV3 era
-              , PS_1_1.verifyEcdsaMintWitnessV3 era
               ]
           , show C.PlutusV3
           )

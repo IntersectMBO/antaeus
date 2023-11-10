@@ -21,7 +21,6 @@ import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import PlutusScripts.Hashing.V_1_0 qualified as PS_1_0
-import PlutusScripts.Hashing.V_1_1 qualified as PS_1_1
 
 verifyHashingFunctionsTestInfo =
   TestInfo
@@ -54,10 +53,11 @@ checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparam
           ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4), (PS_1_0.checkHashingAssetIdV2, 2)]
           , Map.fromList [PS_1_0.checkHashingMintWitnessV1 era, PS_1_0.checkHashingMintWitnessV2 era]
           )
-        -- TODO: Add V1 once supported
         C.ConwayEra ->
-          ( C.valueFromList [(PS_1_0.checkHashingAssetIdV2, 2), (PS_1_1.checkHashingAssetIdV3, 2)] -- TODO: ADD V1
-          , Map.fromList [PS_1_0.checkHashingMintWitnessV2 era, PS_1_1.checkHashingMintWitnessV3 era] -- TODO: ADD V1
+          -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
+          ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4), (PS_1_0.checkHashingAssetIdV2, 2)]
+          , -- TODO: add PS_1_1.checkHashingMintWitnessV3 when PlutusV3 is supported again
+            Map.fromList [PS_1_0.checkHashingMintWitnessV1 era, PS_1_0.checkHashingMintWitnessV2 era]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
       collateral = Tx.txInsCollateral era [txIn]

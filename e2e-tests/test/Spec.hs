@@ -160,9 +160,8 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
-      -- run Alonzo.checkTxInfoV1TestInfo
-      run Babbage.checkTxInfoV2TestInfo
+    [ run Alonzo.checkTxInfoV1TestInfo
+    , run Babbage.checkTxInfoV2TestInfo
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -171,15 +170,15 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
     , run Builtins.verifyHashingFunctionsTestInfo
-    , -- , run Builtins.verifyBlsFunctionsTestInfo -- Enable when using cardano-node 8.6 (plutus 1.15)
+    , -- , run Builtins.verifyBlsFunctionsTestInfo -- TODO: enable when PlutusV3 is supported again
       run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
     , run Babbage.inlineDatumSpendTestInfo
-    , -- , -- , run Babbage.referenceInputWithV1ScriptErrorTestInfo -- V1 not supported
-      --   -- , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo -- V1 not supported
-      --   -- , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo -- V1 not supported
-      run Babbage.returnCollateralWithTokensValidScriptTestInfo
+    , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+    , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+    , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+    , run Babbage.returnCollateralWithTokensValidScriptTestInfo
     , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 

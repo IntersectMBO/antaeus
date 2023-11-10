@@ -44,8 +44,8 @@ PlutusTx.makeLift ''HashingParams
 
 -- Use redeemer once PlutusV3 is fully implemented in the ledger
 -- {-# INLINEABLE mkHashingPolicy #-}
--- mkHashingPolicy :: HashingParams -> P.BuiltinData -> P.BuiltinData -> Bool
--- mkHashingPolicy HashingParams{..} _r _sc =
+-- mkHashingPolicy :: HashingParams -> P.BuiltinData -> Bool
+-- mkHashingPolicy HashingParams{..} _sc =
 --   P.all
 --     (P.== True)
 --     [ hashAndCheckResult BI.sha2_256 "sha2_256Long" sha2_256Long

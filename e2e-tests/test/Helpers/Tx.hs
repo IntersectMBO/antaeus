@@ -47,14 +47,6 @@ isSubmitError :: String -> Either SubmitError () -> Bool
 isSubmitError expectedError (Left (SubmitError error)) = expectedError `isInfixOf` error
 isSubmitError _ _ = False
 
-{- | Any CardanoEra to one that supports tokens. Used for building TxOut.
- multiAssetSupportedInEra :: C.CardanoEra era -> C.MaryEraOnwards era
- multiAssetSupportedInEra era = fromEither $ C.multiAssetSupportedInEra era
-   where
-     fromEither (Left _) = error "Era must support MA"
-     fromEither (Right m) = m
--}
-
 -- | Treat CardanoEra as ShelleyBased to satisfy constraint on constructBalancedTx.
 withIsShelleyBasedEra :: C.CardanoEra era -> ((C.IsShelleyBasedEra era) => r) -> r
 withIsShelleyBasedEra era r =
@@ -167,7 +159,7 @@ emptyTxBodyContent era pparams =
     , C.txFee = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e 0) era
     , C.txValidityLowerBound = C.TxValidityNoLowerBound
     , C.txValidityUpperBound =
-        C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityNoUpperBound e) era
+        C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e Nothing) era
     , C.txMetadata = C.TxMetadataNone
     , C.txAuxScripts = C.TxAuxScriptsNone
     , C.txExtraKeyWits = C.TxExtraKeyWitnessesNone
@@ -213,6 +205,14 @@ txTotalCollateral era lovelace =
 txScriptValidity :: C.CardanoEra era -> C.ScriptValidity -> C.TxScriptValidity era
 txScriptValidity era validity =
   C.inEonForEra (error $ notSupportedError era) (\e -> C.TxScriptValidity e validity) era
+
+txValidityLowerBound :: C.CardanoEra era -> C.SlotNo -> C.TxValidityLowerBound era
+txValidityLowerBound era slotNo =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityLowerBound e slotNo) era
+
+txValidityUpperBound :: C.CardanoEra era -> C.SlotNo -> C.TxValidityUpperBound era
+txValidityUpperBound era slotNo =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e (Just slotNo)) era
 
 {- | Get TxId from a signed transaction.
  Useful for producing TxIn for building subsequant transaction.
@@ -322,7 +322,6 @@ buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride 
       sbe = toShelleyBasedEra era
 
   return $
-    --    withIsShelleyBasedEra era $
     C.constructBalancedTx
       sbe
       txBody
