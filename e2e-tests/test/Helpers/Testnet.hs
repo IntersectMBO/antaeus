@@ -149,7 +149,7 @@ startTestnet era testnetOptions tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
       CTN.mkConf tempAbsBasePath
-  tn <- CTN.testnet (testnetCardanoOptions testnetOptions) conf
+  tn <- CTN.cardanoTestnet (testnetCardanoOptions testnetOptions) conf
   -- needed to avoid duplication of directory in filepath
   let tmpAbsBasePath' = CTN.makeTmpBaseAbsPath $ CTN.tempAbsPath conf
 

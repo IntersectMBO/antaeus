@@ -44,7 +44,7 @@ tests _pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef =
   testGroup
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has become flakey. Can timeout waiting for txo to be created.
-      -- Noticed on upgrade to cardano-node 8.2.1
+      -- Noticed on upgrade to cardano-node 8.2.1.
       -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
       testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
@@ -160,9 +160,8 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
-      -- run Alonzo.checkTxInfoV1TestInfo
-      run Babbage.checkTxInfoV2TestInfo
+    [ run Alonzo.checkTxInfoV1TestInfo
+    , run Babbage.checkTxInfoV2TestInfo
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -171,15 +170,15 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
     , run Builtins.verifyHashingFunctionsTestInfo
-    , -- , run Builtins.verifyBlsFunctionsTestInfo -- Enable when using cardano-node 8.6 (plutus 1.15)
+    , -- , run Builtins.verifyBlsFunctionsTestInfo -- TODO: enable when PlutusV3 is supported again
       run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
     , run Babbage.inlineDatumSpendTestInfo
-    , -- , -- , run Babbage.referenceInputWithV1ScriptErrorTestInfo -- V1 not supported
-      --   -- , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo -- V1 not supported
-      --   -- , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo -- V1 not supported
-      run Babbage.returnCollateralWithTokensValidScriptTestInfo
+    , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+    , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+    , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+    , run Babbage.returnCollateralWithTokensValidScriptTestInfo
     , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 

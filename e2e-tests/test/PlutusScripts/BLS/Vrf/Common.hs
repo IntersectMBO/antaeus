@@ -1,17 +1,16 @@
 -- editorconfig-checker-disable-file
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-{-# HLINT ignore "Use underscore" #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
--- Not using all CardanoEra
-{-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
+{-# OPTIONS_GHC -O0 #-}
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 
 module PlutusScripts.BLS.Vrf.Common where
 
@@ -32,14 +31,12 @@ data VrfProof = VrfProof
   , vrfProofC :: P.BuiltinByteString
   , vrfProofS :: Integer
   }
-PlutusTx.makeLift ''VrfProof
 PlutusTx.unstableMakeIsData ''VrfProof
 
 data VrfProofWithOutput = VrfProofWithOutput
   { vrfProofOutput :: P.BuiltinByteString
   , vrfProofProof :: VrfProof
   }
-PlutusTx.makeLift ''VrfProofWithOutput
 PlutusTx.unstableMakeIsData ''VrfProofWithOutput
 
 data BlsParams = BlsParams
@@ -49,6 +46,7 @@ data BlsParams = BlsParams
   }
 PlutusTx.unstableMakeIsData ''BlsParams
 
+{-# INLINEABLE redeemerParams #-}
 redeemerParams :: BlsParams
 redeemerParams =
   BlsParams

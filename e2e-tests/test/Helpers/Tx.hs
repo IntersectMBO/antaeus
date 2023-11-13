@@ -17,7 +17,7 @@ import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (toEraInCardanoMode)
+import Helpers.Common (toEraInCardanoMode, toShelleyBasedEra)
 import Helpers.Utils qualified as U
 
 newtype SubmitError = SubmitError String
@@ -46,14 +46,6 @@ isTxBodyErrorNonAdaAssetsUnbalanced _ _ = False
 isSubmitError :: String -> Either SubmitError () -> Bool
 isSubmitError expectedError (Left (SubmitError error)) = expectedError `isInfixOf` error
 isSubmitError _ _ = False
-
-{- | Any CardanoEra to one that supports tokens. Used for building TxOut.
- multiAssetSupportedInEra :: C.CardanoEra era -> C.MaryEraOnwards era
- multiAssetSupportedInEra era = fromEither $ C.multiAssetSupportedInEra era
-   where
-     fromEither (Left _) = error "Era must support MA"
-     fromEither (Right m) = m
--}
 
 -- | Treat CardanoEra as ShelleyBased to satisfy constraint on constructBalancedTx.
 withIsShelleyBasedEra :: C.CardanoEra era -> ((C.IsShelleyBasedEra era) => r) -> r
@@ -165,10 +157,9 @@ emptyTxBodyContent era pparams =
     , C.txTotalCollateral = C.TxTotalCollateralNone
     , C.txReturnCollateral = C.TxReturnCollateralNone
     , C.txFee = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e 0) era
-    , C.txValidityRange =
-        ( C.TxValidityNoLowerBound
-        , C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityNoUpperBound e) era
-        )
+    , C.txValidityLowerBound = C.TxValidityNoLowerBound
+    , C.txValidityUpperBound =
+        C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e Nothing) era
     , C.txMetadata = C.TxMetadataNone
     , C.txAuxScripts = C.TxAuxScriptsNone
     , C.txExtraKeyWits = C.TxExtraKeyWitnessesNone
@@ -211,18 +202,17 @@ txTotalCollateral :: C.CardanoEra era -> C.Lovelace -> C.TxTotalCollateral era
 txTotalCollateral era lovelace =
   C.inEonForEra (error $ notSupportedError era) (\e -> C.TxTotalCollateral e lovelace) era
 
--- C.TxScriptValidity era C.ScriptInvalid
-
 txScriptValidity :: C.CardanoEra era -> C.ScriptValidity -> C.TxScriptValidity era
 txScriptValidity era validity =
   C.inEonForEra (error $ notSupportedError era) (\e -> C.TxScriptValidity e validity) era
 
-txValidityRange
-  :: C.CardanoEra era -> C.SlotNo -> C.SlotNo -> (C.TxValidityLowerBound era, C.TxValidityUpperBound era)
-txValidityRange era lowerSlot upperSlot =
-  ( C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityLowerBound e lowerSlot) era
-  , C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e upperSlot) era
-  )
+txValidityLowerBound :: C.CardanoEra era -> C.SlotNo -> C.TxValidityLowerBound era
+txValidityLowerBound era slotNo =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityLowerBound e slotNo) era
+
+txValidityUpperBound :: C.CardanoEra era -> C.SlotNo -> C.TxValidityUpperBound era
+txValidityUpperBound era slotNo =
+  C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e (Just slotNo)) era
 
 {- | Get TxId from a signed transaction.
  Useful for producing TxIn for building subsequant transaction.
@@ -329,21 +319,22 @@ buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride 
         , drepDelegDeposits
         ) =
           U.unsafeFromRight $ U.unsafeFromRight localStateQueryResult
+      sbe = toShelleyBasedEra era
 
   return $
-    withIsShelleyBasedEra era $
-      C.constructBalancedTx
-        txBody
-        (C.shelleyAddressInEra changeAddress)
-        mWitnessOverride -- Override key witnesses
-        nodeEraUtxo -- tx inputs
-        ledgerPParams
-        (C.toLedgerEpochInfo eraHistory)
-        systemStart
-        stakePools
-        stakeDelegDeposits
-        drepDelegDeposits
-        sKeys
+    C.constructBalancedTx
+      sbe
+      txBody
+      (C.shelleyAddressInEra sbe changeAddress)
+      mWitnessOverride -- Override key witnesses
+      nodeEraUtxo -- tx inputs
+      ledgerPParams
+      (C.toLedgerEpochInfo eraHistory)
+      systemStart
+      stakePools
+      stakeDelegDeposits
+      drepDelegDeposits
+      sKeys
   where
     allInputs :: [C.TxIn]
     allInputs = do
@@ -364,19 +355,17 @@ buildRawTx
   => C.CardanoEra era
   -> C.TxBodyContent C.BuildTx era
   -> m (C.TxBody era)
-buildRawTx era = withIsShelleyBasedEra era $ HE.leftFail . C.createAndValidateTransactionBody -- TODO: handle error
+buildRawTx era = HE.leftFail . C.createAndValidateTransactionBody era -- TODO: handle error
 
 -- | Witness txbody with signing key when not using convenience build function
 signTx
   :: (MonadIO m)
-  => C.CardanoEra era
+  => C.ShelleyBasedEra era
   -> C.TxBody era
   -> C.SigningKey C.PaymentKey
   -> m (C.KeyWitness era)
 signTx era txbody skey =
-  return $
-    withIsShelleyBasedEra era $
-      C.makeShelleyKeyWitness txbody (C.WitnessPaymentKey skey)
+  return $ C.makeShelleyKeyWitness era txbody (C.WitnessPaymentKey skey)
 
 submitTx
   :: (MonadIO m, MonadTest m)

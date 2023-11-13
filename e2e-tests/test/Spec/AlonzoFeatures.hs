@@ -29,7 +29,6 @@ import PlutusLedgerApi.V1 as PlutusV1 hiding (lowerBound, upperBound)
 import PlutusLedgerApi.V1.Interval as P hiding (lowerBound, upperBound)
 import PlutusLedgerApi.V1.Time as P
 import PlutusScripts.Always.V_1_0 qualified as PS_1_0
-import PlutusScripts.Always.V_1_1 qualified as PS_1_1
 import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V1TxInfo qualified as PS (
   checkV1TxInfoAssetIdV1,
@@ -122,13 +121,14 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
           , C.txOuts = [txOut1, txOut2]
           , C.txFee = Tx.txFee era fee
-          , C.txValidityRange = Tx.txValidityRange era 1 2700
+          , C.txValidityLowerBound = Tx.txValidityLowerBound era 1
+          , C.txValidityUpperBound = Tx.txValidityUpperBound era 2700
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx era txbody w1SKey
+  kw <- Tx.signTx (toShelleyBasedEra era) txbody w1SKey
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx era localNodeConnectInfo signedTx
@@ -169,7 +169,8 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
   let scriptAddress = case era of
         C.AlonzoEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV1) networkId
         C.BabbageEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
-        C.ConwayEra -> makeAddress (Right PS_1_1.alwaysSucceedSpendScriptHashV3) networkId
+        -- TODO: use PS_1_1.alwaysSucceedSpendScriptHashV3 when PlutusV3 is supported again
+        C.ConwayEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
       datum1 = PS.toScriptData (1 :: Integer)
       datum2 = PS.toScriptData (2 :: Integer)
       scriptTxOut1 = Tx.txOutWithDatumHash era (C.lovelaceToValue 5_000_000) scriptAddress datum1
@@ -194,7 +195,8 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
   let witness d = case era of
         C.AlonzoEra -> PS_1_0.alwaysSucceedSpendWitnessV1 era Nothing d
         C.BabbageEra -> PS_1_0.alwaysSucceedSpendWitnessV2 era Nothing d
-        C.ConwayEra -> PS_1_1.alwaysSucceedSpendWitnessV3 era Nothing d
+        -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
+        C.ConwayEra -> PS_1_0.alwaysSucceedSpendWitnessV2 era Nothing d
       scriptTxins =
         [ Tx.txInWitness txInAtScript1 $ witness (Just datum1)
         , Tx.txInWitness txInAtScript2 $ witness (Just datum2)
@@ -259,10 +261,11 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
               [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
         C.ConwayEra ->
-          -- TODO: Add V1 once supported
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
+          -- TODO: add PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
+          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 10), (PS_1_0.alwaysSucceedAssetIdV2, 10)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing, PS_1_1.alwaysSucceedMintWitnessV3 era Nothing]
+              -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
+              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
       collateral = Tx.txInsCollateral era [txIn]
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
@@ -304,9 +307,9 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
           , C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 5), (PS_1_0.alwaysSucceedAssetIdV2, 5)]
           )
         C.ConwayEra ->
-          -- TODO: Add V1 once supported
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, -5), (PS_1_1.alwaysSucceedAssetIdV3, -5)]
-          , C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 5), (PS_1_1.alwaysSucceedAssetIdV3, 5)]
+          -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
+          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, -5), (PS_1_0.alwaysSucceedAssetIdV2, -5)]
+          , C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 5), (PS_1_0.alwaysSucceedAssetIdV2, 5)]
           )
       collateral2 = Tx.txInsCollateral era [otherTxIn]
       txOut2 = Tx.txOut era (C.lovelaceToValue 5_000_000 <> tokenValues2) w1Address
@@ -364,10 +367,11 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
               [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
         C.ConwayEra ->
-          -- TODO: Add V1 once supported
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 1), (PS_1_1.alwaysSucceedAssetIdV3, 1)]
+          -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
+          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing, PS_1_1.alwaysSucceedMintWitnessV3 era Nothing]
+              -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
+              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
       collateral = Tx.txInsCollateral era [txIn]
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
@@ -450,10 +454,11 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
               [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
         C.ConwayEra ->
-          -- TODO: Add V1 once supported
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 1), (PS_1_1.alwaysSucceedAssetIdV3, 1)]
+          -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
+          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing, PS_1_1.alwaysSucceedMintWitnessV3 era Nothing]
+              -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
+              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
 
@@ -509,10 +514,11 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
               [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
         C.ConwayEra ->
-          -- TODO: Add V1 once supported
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 1), (PS_1_1.alwaysSucceedAssetIdV3, 1)]
+          -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
+          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing, PS_1_1.alwaysSucceedMintWitnessV3 era Nothing]
+              -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
+              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
 
