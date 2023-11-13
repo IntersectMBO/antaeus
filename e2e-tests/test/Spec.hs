@@ -44,7 +44,7 @@ tests _pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef =
   testGroup
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has become flakey. Can timeout waiting for txo to be created.
-      -- Noticed on upgrade to cardano-node 8.2.1
+      -- Noticed on upgrade to cardano-node 8.2.1.
       -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
       testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
