@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
@@ -9,11 +10,13 @@ module Helpers.Tx where
 
 import Cardano.Api (SubmitResult (SubmitFail, SubmitSuccess))
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf)
 import Data.Map (singleton)
 import Data.Map qualified as Map
+import Data.Word (Word32)
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
@@ -238,6 +241,53 @@ txCertificates era certs stakeCred =
     (\e -> C.TxCertificates e certs)
     era
     (C.BuildTxWith $ singleton stakeCred (C.KeyWitness C.KeyWitnessForStakeAddr))
+
+generateStakeKeyCredentialAndCertificate
+  :: (MonadIO m)
+  => C.ConwayEraOnwards era
+  -> m (C.SigningKey C.StakeKey, C.StakeCredential, C.Certificate era)
+generateStakeKeyCredentialAndCertificate ceo = do
+  stakeSKey <- liftIO $ C.generateSigningKey C.AsStakeKey
+  let
+    stakeCred = C.StakeCredentialByKey $ C.verificationKeyHash $ C.getVerificationKey stakeSKey
+    stakeDeposit = C.Lovelace 0 -- keyDeposit
+    stakeReqs = C.StakeAddrRegistrationConway ceo stakeDeposit stakeCred
+    stakeRegCert = C.makeStakeAddressRegistrationCertificate stakeReqs
+  return (stakeSKey, stakeCred, stakeRegCert)
+
+generateDRepKeyCredentialsAndCertificate
+  :: (MonadIO m)
+  => C.ConwayEraOnwards era
+  -> m
+      ( C.SigningKey C.DRepKey
+      , C.KeyHash 'C.DRepRole C.StandardCrypto
+      , C.StakeCredential
+      , C.VotingCredential era
+      , C.Certificate era
+      )
+generateDRepKeyCredentialsAndCertificate ceo = do
+  dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
+  let
+    C.DRepKeyHash drepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
+    drepStakeCred = C.StakeCredentialByKey . C.StakeKeyHash $ C.coerceKeyRole drepKeyHash
+    drepVotingCredential = U.unsafeFromRight $ C.toVotingCredential ceo drepStakeCred
+    dRepDeposit = C.Lovelace 0 -- dRepDeposit
+    dRepRegReqs = C.DRepRegistrationRequirements ceo drepVotingCredential dRepDeposit
+    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
+  return (dRepSkey, drepKeyHash, drepStakeCred, drepVotingCredential, dRepRegCert)
+
+buildVotingProcedures
+  :: C.ShelleyBasedEra era
+  -> C.ConwayEraOnwards era
+  -> C.TxId
+  -> Word32
+  -> C.VotingCredential era
+  -> C.VotingProcedures era
+buildVotingProcedures sbe ceo txId txIx vc = C.shelleyBasedEraConstraints sbe $ do
+  let gAID = C.createGovernanceActionId txId txIx
+      voteProcedure = C.createVotingProcedure ceo C.Yes Nothing
+      drepVoter = C.DRepVoter (C.unVotingCredential vc)
+  C.singletonVotingProcedures ceo drepVoter gAID (C.unVotingProcedure voteProcedure)
 
 buildTx
   :: (MonadIO m)

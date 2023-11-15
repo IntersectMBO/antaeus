@@ -284,13 +284,12 @@ getPoolSocketPathAbs tempAbsPath tn = do
 -}
 w1All
   :: (MonadIO m, MonadTest m)
-  => -- => Either (LocalNodeOptions era) (TestnetOptions era)
-  FilePath
+  => FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1All tempAbsPath' networkId = do
-  let w1VKeyFile = C.File $ tempAbsPath' </> "utxo-keys/utxo1.vkey"
-      w1SKeyFile = C.File $ tempAbsPath' </> "utxo-keys/utxo1.skey"
+w1All tempAbsPath networkId = do
+  let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
+      w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.skey"
   -- GenesisUTxOKey comes from cardano-testnet
   mGenesisVKey :: Maybe (C.VerificationKey C.GenesisUTxOKey) <-
     maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) w1VKeyFile
@@ -315,9 +314,15 @@ w1
   FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 tempAbsPath' networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath' networkId
+w1 tempAbsPath networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
 
 pool1
+  :: (MonadIO m, MonadTest m)
+  => FilePath
+  -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey)
+pool1 tempAbsPath = (\(sKey, _, _, stakeKeyHash, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
+
+pool1All
   :: (MonadIO m, MonadTest m)
   => FilePath
   -> m
@@ -327,7 +332,7 @@ pool1
       , C.Hash C.StakeKey
       , C.Hash C.VrfKey
       )
-pool1 tempAbsPath = do
+pool1All tempAbsPath = do
   let pool1SKeyFile = C.File $ tempAbsPath </> "pools/cold1.skey"
   mPool1SKey :: Maybe (C.SigningKey C.StakePoolKey) <-
     maybeReadAs (C.AsSigningKey C.AsStakePoolKey) pool1SKeyFile
