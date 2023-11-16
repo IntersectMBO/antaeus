@@ -15,6 +15,9 @@ import Data.IORef (IORef, readIORef)
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.IORef (newIORef)
 import Hedgehog qualified as H
+import Helpers.Common (toConwayEraOnwards)
+import Helpers.DRep (generateDRepKeyCredentialsAndCertificate)
+import Helpers.Staking (generateStakeKeyCredentialAndCertificate)
 import Helpers.Test (integrationRetryWorkspace, runTest)
 import Helpers.TestData (TestParams (..))
 import Helpers.TestResults (
@@ -208,8 +211,16 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
       run testInfo = runTest testInfo resultsRef options testParams
 
+  -- generate DRep and staking keys and credentials to use in tests
+  let ceo = toConwayEraOnwards $ TN.eraFromOptions options
+  dRep <- liftIO $ generateDRepKeyCredentialsAndCertificate ceo
+  staking <- liftIO $ generateStakeKeyCredentialAndCertificate ceo
+
   sequence_
-    [ run Conway.constitutionProposalAndVoteTestInfo
+    [ run $ Conway.registerStakingTestInfo staking
+    , run $ Conway.registerDRepTestInfo dRep
+    , run $ Conway.delegateToDRepTestInfo dRep staking
+    , run $ Conway.constitutionProposalAndVoteTestInfo dRep
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef

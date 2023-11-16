@@ -247,11 +247,12 @@ waitForNextEpoch
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
+  -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m C.EpochNo
-waitForNextEpoch era localNodeConnectInfo prevEpochNo = go (90 :: Int) -- 90 second timeout
+waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (90 :: Int) -- 90 second timeout
   where
-    go 0 = error "waitForNextEpoch timeout"
+    go 0 = error $ "waitForNextEpoch timeout. \n-- Debug --\nTest function: " ++ debugStr
     go i = do
       currentEpochNo <- getCurrentEpoch era localNodeConnectInfo
       case currentEpochNo - prevEpochNo of
@@ -267,9 +268,10 @@ waitForNextEpoch_
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo C.CardanoMode
+  -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m ()
-waitForNextEpoch_ e l n = void (waitForNextEpoch e l n)
+waitForNextEpoch_ e l n s = void $ waitForNextEpoch e l n s
 
 -- | Query current constitution hash
 getConstitution

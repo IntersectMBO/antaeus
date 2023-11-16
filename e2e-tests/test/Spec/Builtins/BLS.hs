@@ -76,7 +76,7 @@ verifyBlsFunctionsTest
   -> TestParams era
   -> m (Maybe String)
 verifyBlsFunctionsTest networkOptions TestParams{..} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let numberOfBlsScripts = 9
 
