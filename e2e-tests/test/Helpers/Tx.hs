@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
@@ -9,10 +10,13 @@ module Helpers.Tx where
 
 import Cardano.Api (SubmitResult (SubmitFail, SubmitSuccess))
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf)
+import Data.Map (singleton)
 import Data.Map qualified as Map
+import Data.Word (Word32)
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
@@ -148,30 +152,7 @@ withDatumInTx era datum (C.TxOut e v _ rs) =
 -- | Empty transaction body to begin building from.
 emptyTxBodyContent
   :: C.CardanoEra era -> C.LedgerProtocolParameters era -> C.TxBodyContent C.BuildTx era
-emptyTxBodyContent era pparams =
-  C.TxBodyContent
-    { C.txIns = []
-    , C.txInsCollateral = C.TxInsCollateralNone
-    , C.txInsReference = C.TxInsReferenceNone
-    , C.txOuts = []
-    , C.txTotalCollateral = C.TxTotalCollateralNone
-    , C.txReturnCollateral = C.TxReturnCollateralNone
-    , C.txFee = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e 0) era
-    , C.txValidityLowerBound = C.TxValidityNoLowerBound
-    , C.txValidityUpperBound =
-        C.inEonForEra (error $ notSupportedError era) (\e -> C.TxValidityUpperBound e Nothing) era
-    , C.txMetadata = C.TxMetadataNone
-    , C.txAuxScripts = C.TxAuxScriptsNone
-    , C.txExtraKeyWits = C.TxExtraKeyWitnessesNone
-    , C.txProtocolParams = C.BuildTxWith $ Just pparams
-    , C.txWithdrawals = C.TxWithdrawalsNone
-    , C.txCertificates = C.TxCertificatesNone
-    , C.txUpdateProposal = C.TxUpdateProposalNone
-    , C.txMintValue = C.TxMintNone
-    , C.txScriptValidity = C.TxScriptValidityNone
-    , C.txProposalProcedures = Nothing
-    , C.txVotingProcedures = Nothing
-    }
+emptyTxBodyContent era pparams = (C.defaultTxBodyContent era){C.txProtocolParams = C.BuildTxWith $ Just pparams}
 
 txFee :: C.CardanoEra era -> C.Lovelace -> C.TxFee era
 txFee era =
@@ -248,6 +229,65 @@ txMintValue
   -> Map.Map C.PolicyId (C.ScriptWitness C.WitCtxMint era)
   -> C.TxMintValue C.BuildTx era
 txMintValue era tv m = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxMintValue e tv) era (C.BuildTxWith m)
+
+txCertificates
+  :: C.CardanoEra era
+  -> [C.Certificate era]
+  -> C.StakeCredential
+  -> C.TxCertificates C.BuildTx era
+txCertificates era certs stakeCred =
+  C.inEonForEra
+    (error $ notSupportedError era)
+    (\e -> C.TxCertificates e certs)
+    era
+    (C.BuildTxWith $ singleton stakeCred (C.KeyWitness C.KeyWitnessForStakeAddr))
+
+generateStakeKeyCredentialAndCertificate
+  :: (MonadIO m)
+  => C.ConwayEraOnwards era
+  -> m (C.SigningKey C.StakeKey, C.StakeCredential, C.Certificate era)
+generateStakeKeyCredentialAndCertificate ceo = do
+  stakeSKey <- liftIO $ C.generateSigningKey C.AsStakeKey
+  let
+    stakeCred = C.StakeCredentialByKey $ C.verificationKeyHash $ C.getVerificationKey stakeSKey
+    stakeDeposit = C.Lovelace 0 -- keyDeposit
+    stakeReqs = C.StakeAddrRegistrationConway ceo stakeDeposit stakeCred
+    stakeRegCert = C.makeStakeAddressRegistrationCertificate stakeReqs
+  return (stakeSKey, stakeCred, stakeRegCert)
+
+generateDRepKeyCredentialsAndCertificate
+  :: (MonadIO m)
+  => C.ConwayEraOnwards era
+  -> m
+      ( C.SigningKey C.DRepKey
+      , C.KeyHash 'C.DRepRole C.StandardCrypto
+      , C.StakeCredential
+      , C.VotingCredential era
+      , C.Certificate era
+      )
+generateDRepKeyCredentialsAndCertificate ceo = do
+  dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
+  let
+    C.DRepKeyHash drepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
+    drepStakeCred = C.StakeCredentialByKey . C.StakeKeyHash $ C.coerceKeyRole drepKeyHash
+    drepVotingCredential = U.unsafeFromRight $ C.toVotingCredential ceo drepStakeCred
+    dRepDeposit = C.Lovelace 0 -- dRepDeposit
+    dRepRegReqs = C.DRepRegistrationRequirements ceo drepVotingCredential dRepDeposit
+    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
+  return (dRepSkey, drepKeyHash, drepStakeCred, drepVotingCredential, dRepRegCert)
+
+buildVotingProcedures
+  :: C.ShelleyBasedEra era
+  -> C.ConwayEraOnwards era
+  -> C.TxId
+  -> Word32
+  -> C.VotingCredential era
+  -> C.VotingProcedures era
+buildVotingProcedures sbe ceo txId txIx vc = C.shelleyBasedEraConstraints sbe $ do
+  let gAID = C.createGovernanceActionId txId txIx
+      voteProcedure = C.createVotingProcedure ceo C.Yes Nothing
+      drepVoter = C.DRepVoter (C.unVotingCredential vc)
+  C.singletonVotingProcedures ceo drepVoter gAID (C.unVotingProcedure voteProcedure)
 
 buildTx
   :: (MonadIO m)
@@ -362,10 +402,13 @@ signTx
   :: (MonadIO m)
   => C.ShelleyBasedEra era
   -> C.TxBody era
-  -> C.SigningKey C.PaymentKey
+  -> C.ShelleyWitnessSigningKey
   -> m (C.KeyWitness era)
 signTx era txbody skey =
-  return $ C.makeShelleyKeyWitness era txbody (C.WitnessPaymentKey skey)
+  let witness = case skey of
+        C.WitnessPaymentKey skey' -> C.WitnessPaymentKey skey'
+        C.WitnessStakeKey skey' -> C.WitnessStakeKey skey'
+   in return $ C.makeShelleyKeyWitness era txbody witness
 
 submitTx
   :: (MonadIO m, MonadTest m)

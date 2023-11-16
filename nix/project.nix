@@ -1,7 +1,7 @@
 { repoRoot, inputs, pkgs, lib, system }:
 
 let
-  cardano-node-gitrev = "10530bb53a372fec03c86842ef40c199c3cc7761";
+  cardano-node-gitrev = "4634cde42af9777733b18496a4d4036eaa48a204";
 
 
   cabalProject' = pkgs.haskell-nix.cabalProject' ({ config, pkgs, ... }:
@@ -16,7 +16,7 @@ let
       shell.withHoogle = false;
 
       sha256map = {
-        "https://github.com/james-iohk/cardano-node"."${cardano-node-gitrev}" = "sha256-FE5jRthMhRV8FNEWKbGS6D8yomAuXCR1+xVcBtG0jDE=";
+        "https://github.com/james-iohk/cardano-node"."${cardano-node-gitrev}" = "sha256-zi9FK0V8i2hpkJKkQKqRNRoN++hPgHSyy8x9D/RwDhU=";
       };
 
       inputMap = {

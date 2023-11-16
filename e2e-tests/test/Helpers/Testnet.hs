@@ -20,13 +20,14 @@ import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (makeAddress, toEraInCardanoMode)
+import Helpers.Common (makeAddress, makeAddressWithStake, toEraInCardanoMode, toShelleyBasedEra)
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
 
 import Cardano.Testnet qualified as CTN
+import Control.Lens ((&), (.~))
 import Hedgehog qualified as H
 import Helpers.Query qualified as Q
 import System.Process (cleanupProcess)
@@ -52,7 +53,7 @@ defAlonzoTestnetOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
           , CTN.cardanoProtocolVersion = 6
-          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
     }
@@ -66,7 +67,7 @@ defBabbageTestnetOptions protocolVersion =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
           , CTN.cardanoProtocolVersion = protocolVersion
-          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
     }
@@ -80,8 +81,17 @@ defConwayTestnetOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
           , CTN.cardanoProtocolVersion = 9
-          , CTN.cardanoSlotLength = 0.2
+          , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          }
+    }
+
+shortEpochConwayTestnetOptions :: TestnetOptions C.ConwayEra
+shortEpochConwayTestnetOptions =
+  defConwayTestnetOptions
+    { testnetCardanoOptions =
+        (testnetCardanoOptions defConwayTestnetOptions)
+          { CTN.cardanoEpochLength = 200 -- 20 second epoch for testing outcome of governance actions
           }
     }
 
@@ -122,6 +132,10 @@ testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
 
 testnetOptionsConway9 :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
 testnetOptionsConway9 = Right defConwayTestnetOptions
+
+testnetOptionsConway9Governance
+  :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
+testnetOptionsConway9Governance = Right shortEpochConwayTestnetOptions
 
 eraFromOptions
   :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m (C.CardanoEra era)
@@ -273,9 +287,9 @@ w1All
   => FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1All tempAbsPath' networkId = do
-  let w1VKeyFile = C.File $ tempAbsPath' </> "utxo-keys/utxo1.vkey"
-      w1SKeyFile = C.File $ tempAbsPath' </> "utxo-keys/utxo1.skey"
+w1All tempAbsPath networkId = do
+  let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
+      w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.skey"
   -- GenesisUTxOKey comes from cardano-testnet
   mGenesisVKey :: Maybe (C.VerificationKey C.GenesisUTxOKey) <-
     maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) w1VKeyFile
@@ -296,8 +310,48 @@ w1All tempAbsPath' networkId = do
 
 w1
   :: (MonadIO m, MonadTest m)
-  => FilePath
+  => -- => Either (LocalNodeOptions era) (TestnetOptions era)
+  FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 tempAbsPath' networkId =
-  (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath' networkId
+w1 tempAbsPath networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
+
+pool1
+  :: (MonadIO m, MonadTest m)
+  => FilePath
+  -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey)
+pool1 tempAbsPath = (\(sKey, _, _, stakeKeyHash, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
+
+pool1All
+  :: (MonadIO m, MonadTest m)
+  => FilePath
+  -> m
+      ( C.SigningKey C.StakePoolKey
+      , C.VerificationKey C.StakePoolKey
+      , C.Hash C.StakePoolKey
+      , C.Hash C.StakeKey
+      , C.Hash C.VrfKey
+      )
+pool1All tempAbsPath = do
+  let pool1SKeyFile = C.File $ tempAbsPath </> "pools/cold1.skey"
+  mPool1SKey :: Maybe (C.SigningKey C.StakePoolKey) <-
+    maybeReadAs (C.AsSigningKey C.AsStakePoolKey) pool1SKeyFile
+  let pool1SKey = fromJust mPool1SKey
+
+  let pool1VerificationKeyFile = C.File $ tempAbsPath </> "pools/cold1.vkey"
+  mPool1VKey :: Maybe (C.VerificationKey C.StakePoolKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsStakePoolKey) pool1VerificationKeyFile
+  let pool1VKey = fromJust mPool1VKey
+      pool1VKeyHash = C.verificationKeyHash pool1VKey
+
+  let pool1StakingRewardsFile = C.File $ tempAbsPath </> "pools/staking-reward1.vkey"
+  mPool1StakingRewards :: Maybe (C.VerificationKey C.StakeKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsStakeKey) pool1StakingRewardsFile
+  let pool1StakeKeyHash = C.verificationKeyHash (fromJust mPool1StakingRewards)
+
+  let pool1VrfKeyFile = C.File $ tempAbsPath </> "pools/vrf1.vkey"
+  mPool1VrfKey :: Maybe (C.VerificationKey C.VrfKey) <-
+    maybeReadAs (C.AsVerificationKey C.AsVrfKey) pool1VrfKeyFile
+  let pool1VrfKeyHash = C.verificationKeyHash (fromJust mPool1VrfKey)
+
+  return (pool1SKey, pool1VKey, pool1VKeyHash, pool1StakeKeyHash, pool1VrfKeyHash)

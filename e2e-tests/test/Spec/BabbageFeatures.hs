@@ -138,7 +138,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx (toShelleyBasedEra era) txbody w1SKey
+  kw <- Tx.signTx (toShelleyBasedEra era) txbody (C.WitnessPaymentKey w1SKey)
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx era localNodeConnectInfo signedTx
