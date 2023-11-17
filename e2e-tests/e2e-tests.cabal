@@ -110,8 +110,10 @@ test-suite antaeus-test
   hs-source-dirs: test
   other-modules:
     Helpers.Common
+    Helpers.DRep
     Helpers.Query
     Helpers.ScriptUtils
+    Helpers.Staking
     Helpers.Test
     Helpers.TestData
     Helpers.Testnet

@@ -242,40 +242,6 @@ txCertificates era certs stakeCred =
     era
     (C.BuildTxWith $ singleton stakeCred (C.KeyWitness C.KeyWitnessForStakeAddr))
 
-generateStakeKeyCredentialAndCertificate
-  :: (MonadIO m)
-  => C.ConwayEraOnwards era
-  -> m (C.SigningKey C.StakeKey, C.StakeCredential, C.Certificate era)
-generateStakeKeyCredentialAndCertificate ceo = do
-  stakeSKey <- liftIO $ C.generateSigningKey C.AsStakeKey
-  let
-    stakeCred = C.StakeCredentialByKey $ C.verificationKeyHash $ C.getVerificationKey stakeSKey
-    stakeDeposit = C.Lovelace 0 -- keyDeposit
-    stakeReqs = C.StakeAddrRegistrationConway ceo stakeDeposit stakeCred
-    stakeRegCert = C.makeStakeAddressRegistrationCertificate stakeReqs
-  return (stakeSKey, stakeCred, stakeRegCert)
-
-generateDRepKeyCredentialsAndCertificate
-  :: (MonadIO m)
-  => C.ConwayEraOnwards era
-  -> m
-      ( C.SigningKey C.DRepKey
-      , C.KeyHash 'C.DRepRole C.StandardCrypto
-      , C.StakeCredential
-      , C.VotingCredential era
-      , C.Certificate era
-      )
-generateDRepKeyCredentialsAndCertificate ceo = do
-  dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
-  let
-    C.DRepKeyHash drepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
-    drepStakeCred = C.StakeCredentialByKey . C.StakeKeyHash $ C.coerceKeyRole drepKeyHash
-    drepVotingCredential = U.unsafeFromRight $ C.toVotingCredential ceo drepStakeCred
-    dRepDeposit = C.Lovelace 0 -- dRepDeposit
-    dRepRegReqs = C.DRepRegistrationRequirements ceo drepVotingCredential dRepDeposit
-    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
-  return (dRepSkey, drepKeyHash, drepStakeCred, drepVotingCredential, dRepRegCert)
-
 buildVotingProcedures
   :: C.ShelleyBasedEra era
   -> C.ConwayEraOnwards era

@@ -56,7 +56,7 @@ checkTxInfoV1Test
   -> TestParams era
   -> m (Maybe String)
 checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath, mTime} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
 
@@ -158,7 +158,7 @@ datumHashSpendTest
   -> TestParams era
   -> m (Maybe String)
 datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction with two script outputs to be spent
@@ -243,7 +243,7 @@ mintBurnTest
   -> TestParams era
   -> m (Maybe String)
 mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
@@ -349,7 +349,7 @@ collateralContainsTokenErrorTest
   -- Maybe POSIXTime ->
   -> m (Maybe String)
 collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
@@ -436,7 +436,7 @@ missingCollateralInputErrorTest
   -> TestParams era
   -> m (Maybe String)
 missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
@@ -495,7 +495,7 @@ noCollateralInputsErrorTest
   -> TestParams era
   -> m (Maybe String)
 noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens
@@ -551,7 +551,7 @@ tooManyCollateralInputsErrorTest
   -> TestParams era
   -> m (Maybe String)
 tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to mint tokens

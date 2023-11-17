@@ -37,7 +37,7 @@ checkHashingFunctionsTest
   -> TestParams era
   -> m (Maybe String)
 checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction

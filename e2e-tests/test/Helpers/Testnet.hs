@@ -137,9 +137,12 @@ testnetOptionsConway9Governance
   :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
 testnetOptionsConway9Governance = Right shortEpochConwayTestnetOptions
 
-eraFromOptions
+eraFromOptions :: Either (LocalNodeOptions era) (TestnetOptions era) -> C.CardanoEra era
+eraFromOptions = either localNodeEra testnetEra
+
+eraFromOptionsM
   :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m (C.CardanoEra era)
-eraFromOptions = return . either localNodeEra testnetEra
+eraFromOptionsM = return . eraFromOptions
 
 pvFromOptions :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m Int
 pvFromOptions = return . either localNodeProtocolVersion testnetProtocolVersion

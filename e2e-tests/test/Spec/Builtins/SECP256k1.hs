@@ -42,7 +42,7 @@ verifySchnorrAndEcdsaTest
   -> TestParams era
   -> m (Maybe String)
 verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   pv <- TN.pvFromOptions networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 

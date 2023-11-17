@@ -58,7 +58,7 @@ checkTxInfoV2Test
   -> TestParams era
   -> m (Maybe String)
 checkTxInfoV2Test networkOptions TestParams{..} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
 
@@ -167,7 +167,7 @@ referenceScriptMintTest
   -> TestParams era
   -> m (Maybe String)
 referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to hold reference script
@@ -254,7 +254,7 @@ referenceScriptInlineDatumSpendTest
 referenceScriptInlineDatumSpendTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptions networkOptions
+    era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     -- build a transaction to hold reference script
@@ -339,7 +339,7 @@ referenceScriptDatumHashSpendTest
   -> TestParams era
   -> m (Maybe String)
 referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to hold reference script
@@ -431,7 +431,7 @@ inlineDatumSpendTest
   -> TestParams era
   -> m (Maybe String)
 inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptions networkOptions
+  era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
   -- build a transaction to hold inline datum at script address
@@ -501,7 +501,7 @@ referenceInputWithV1ScriptErrorTest
 referenceInputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptions networkOptions
+    era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -549,7 +549,7 @@ referenceScriptOutputWithV1ScriptErrorTest
 referenceScriptOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptions networkOptions
+    era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -602,7 +602,7 @@ inlineDatumOutputWithV1ScriptErrorTest
 inlineDatumOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptions networkOptions
+    era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -655,7 +655,7 @@ returnCollateralWithTokensValidScriptTest
 returnCollateralWithTokensValidScriptTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptions networkOptions
+    era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -748,7 +748,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptions networkOptions
+    era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
