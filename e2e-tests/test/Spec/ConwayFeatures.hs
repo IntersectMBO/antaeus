@@ -19,10 +19,12 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import Data.Ratio ((%))
 import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
+import Helpers.Committee
 import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
 import Helpers.DRep (
   DRep (DRep, dRepKeyHash, dRepRegCert, dRepSKey, dRepStakeCred, dRepVotingCredential),
@@ -201,9 +203,9 @@ registerStakingTest
         (Just 2) -- witnesses
         [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx era localNodeConnectInfo signedW1StakeRegTx1
-    let dRepRegTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
+    let expTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
     w1StakeRegResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address dRepRegTxIn "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
     H.annotate $ show w1StakeRegResultTxOut
     success
 
@@ -237,9 +239,55 @@ registerDRepTest
           }
     signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
     Tx.submitTx era localNodeConnectInfo signedRegDRepTx
-    let stakeDelgTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 1 -- change output
+    let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
     regDRepResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address stakeDelgTxIn "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show regDRepResultTxOut
+    success
+
+registerCommitteeTestInfo staking committee =
+  TestInfo
+    { testName = "registerCommitteeTest"
+    , testDescription = "Register a committee member (for voting)"
+    , test = registerCommitteeTest staking committee
+    }
+registerCommitteeTest
+  :: (MonadTest m, MonadIO m)
+  => Staking era
+  -> Committee era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+registerCommitteeTest
+  Staking{..}
+  Committee{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+
+    -- register committee
+    committeeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      committeeRegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      committeeRegTxBodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [committeeRegTxIn]
+          , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] stakeCred
+          , C.txOuts = [committeeRegTxOut]
+          }
+    signedCommitteeRegTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        committeeRegTxBodyContent
+        w1Address
+        (Just 2)
+        [C.WitnessPaymentKey w1SKey, C.WitnessCommitteeColdKey committeeColdSKey]
+    Tx.submitTx era localNodeConnectInfo signedCommitteeRegTx
+    let expTxIn = Tx.txIn (Tx.txId signedCommitteeRegTx) 0
+    regDRepResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
     H.annotate $ show regDRepResultTxOut
     success
 
@@ -288,9 +336,9 @@ delegateToDRepTest
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
-    let tx1In = Tx.txIn (Tx.txId signedStakeDelegTx) 1 -- change output
+    let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
     stakeDelegResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx1In "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
     H.annotate $ show stakeDelegResultTxOut
     success
 
@@ -421,3 +469,103 @@ constitutionProposalAndVoteTest
     newConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
     constituionHash === newConstitutionHash -- debug assertion
     assert "expected constitution hash matches query result" (constituionHash == newConstitutionHash)
+
+committeeProposalAndVoteTestInfo dRep committee =
+  TestInfo
+    { testName = "committeeProposalAndVoteTest"
+    , testDescription = "Propose and vote on new constitutional committee"
+    , test = committeeProposalAndVoteTest dRep committee
+    }
+committeeProposalAndVoteTest
+  :: (MonadTest m, MonadIO m)
+  => DRep era
+  -> Committee era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+committeeProposalAndVoteTest
+  DRep{..}
+  Committee{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch3 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch3 ++ " should be Epoch3"
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch4 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch4"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch4 ++ " should be Epoch4"
+
+    -- build a transaction to propose the new committee
+
+    let anchorUrl = C.textToUrl "https://example.com/committee.txt"
+        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "new committee"
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      prevConstitutionalCommittee = []
+      newConstitutionalCommittee = Map.singleton committeeColdKeyHash (currentEpoch4 + 1)
+      quorum = 1 % 1
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          pool1StakeKeyHash
+          (C.ProposeNewCommittee C.SNothing prevConstitutionalCommittee newConstitutionalCommittee quorum)
+          anchor
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx era localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+    H.annotate $ show result1TxOut
+
+    -- vote on the committee
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent era pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessPaymentKey (castDrep dRepSKey)
+        ]
+    Tx.submitTx era localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+    H.annotate $ show result2TxOut
+    success -- TODO: check new committee is enacted

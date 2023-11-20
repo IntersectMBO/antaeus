@@ -15,6 +15,7 @@ import Data.IORef (IORef, readIORef)
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.IORef (newIORef)
 import Hedgehog qualified as H
+import Helpers.Committee (generateCommitteeKeysAndCertificate)
 import Helpers.Common (toConwayEraOnwards)
 import Helpers.DRep (generateDRepKeyCredentialsAndCertificate)
 import Helpers.Staking (generateStakeKeyCredentialAndCertificate)
@@ -215,12 +216,15 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
   let ceo = toConwayEraOnwards $ TN.eraFromOptions options
   dRep <- liftIO $ generateDRepKeyCredentialsAndCertificate ceo
   staking <- liftIO $ generateStakeKeyCredentialAndCertificate ceo
+  committee <- liftIO $ generateCommitteeKeysAndCertificate ceo
 
   sequence_
     [ run $ Conway.registerStakingTestInfo staking
     , run $ Conway.registerDRepTestInfo dRep
     , run $ Conway.delegateToDRepTestInfo dRep staking
+    , run $ Conway.registerCommitteeTestInfo staking committee
     , run $ Conway.constitutionProposalAndVoteTestInfo dRep
+    , run $ Conway.committeeProposalAndVoteTestInfo dRep committee
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
