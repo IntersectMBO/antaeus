@@ -1,11 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 
@@ -15,6 +12,7 @@ import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
+import Cardano.Ledger.BaseTypes qualified as L
 import Cardano.Ledger.Conway.PParams qualified as L
 import Cardano.Ledger.Core qualified as L
 import Control.Concurrent (threadDelay)
@@ -768,3 +766,205 @@ parameterChangeProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check protocol parameter update is enacted
+
+treasuryWithdrawalProposalAndVoteTestInfo dRep staking =
+  TestInfo
+    { testName = "treasuryWithdrawalProposalAndVoteTest"
+    , testDescription = "Propose and vote on a treasury withdrawal"
+    , test = treasuryWithdrawalProposalAndVoteTest dRep staking
+    }
+treasuryWithdrawalProposalAndVoteTest
+  :: (MonadTest m, MonadIO m)
+  => DRep era
+  -> Staking era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+treasuryWithdrawalProposalAndVoteTest
+  DRep{..}
+  Staking{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch9 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch9 ++ " should be Epoch9"
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch10 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch10"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch10 ++ " should be Epoch10"
+
+    -- build a transaction to propose a treasury withdrawal
+
+    let anchorUrl = C.textToUrl "https://example.com/treasury_withdrawal.txt"
+        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "treasury withdrawal"
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      tWithdrawal = [(L.Testnet, stakeCred, 10_000_000 :: C.Lovelace)]
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          pool1StakeKeyHash
+          (C.TreasuryWithdrawal tWithdrawal)
+          anchor
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx era localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+    H.annotate $ show result1TxOut
+
+    -- vote on the treasury withdrawal
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent era pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessPaymentKey (castDrep dRepSKey)
+        ]
+    Tx.submitTx era localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+    H.annotate $ show result2TxOut
+    success -- TODO: check treasury withdrawal is enacted
+
+mkProtocolVersionOrErr :: (Natural, Natural) -> L.ProtVer
+mkProtocolVersionOrErr (majorProtVer, minorProtVer) =
+  case (`L.ProtVer` minorProtVer) <$> L.mkVersion majorProtVer of
+    Just v -> v
+    Nothing ->
+      error $ "mkProtocolVersionOrErr: invalid protocol version " <> show (majorProtVer, minorProtVer)
+
+hardForkProposalAndVoteTestInfo dRep =
+  TestInfo
+    { testName = "hardForkProposalAndVoteTest"
+    , testDescription = "Propose and vote on a hard fork"
+    , test = hardForkProposalAndVoteTest dRep
+    }
+hardForkProposalAndVoteTest
+  :: (MonadTest m, MonadIO m)
+  => DRep era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+hardForkProposalAndVoteTest
+  DRep{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch11 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch11 ++ " should be Epoch11"
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch12 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch12"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch12 ++ " should be Epoch12"
+
+    -- build a transaction to propose a treasury withdrawal
+
+    let anchorUrl = C.textToUrl "https://example.com/hard_fork.txt"
+        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "hard fork"
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    pvNat :: Natural <- toEnum <$> TN.pvFromOptions networkOptions
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      nextPv = mkProtocolVersionOrErr (pvNat + 1, 2)
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          pool1StakeKeyHash
+          (C.InitiateHardfork C.SNothing nextPv)
+          anchor
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx era localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+    H.annotate $ show result1TxOut
+
+    -- vote on the hard fork
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent era pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessPaymentKey (castDrep dRepSKey)
+        ]
+    Tx.submitTx era localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+    H.annotate $ show result2TxOut
+    success -- TODO: check hard fork is enacted

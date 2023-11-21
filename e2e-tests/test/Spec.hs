@@ -227,6 +227,8 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.committeeProposalAndVoteTestInfo dRep committee
     , run $ Conway.noConfidenceProposalAndVoteTestInfo dRep
     , run $ Conway.parameterChangeProposalAndVoteTestInfo dRep
+    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo dRep staking
+    , run $ Conway.hardForkProposalAndVoteTestInfo dRep
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
