@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -50,15 +49,6 @@ isTxBodyErrorNonAdaAssetsUnbalanced _ _ = False
 isSubmitError :: String -> Either SubmitError () -> Bool
 isSubmitError expectedError (Left (SubmitError error)) = expectedError `isInfixOf` error
 isSubmitError _ _ = False
-
--- | Treat CardanoEra as ShelleyBased to satisfy constraint on constructBalancedTx.
-withIsShelleyBasedEra :: C.CardanoEra era -> ((C.IsShelleyBasedEra era) => r) -> r
-withIsShelleyBasedEra era r =
-  case era of
-    C.AlonzoEra -> r
-    C.BabbageEra -> r
-    C.ConwayEra -> r
-    _ -> error "Must use Alonzo, Babbage or Conway era"
 
 -- | Build TxOut for spending or minting with no datum or reference script present
 txOut
