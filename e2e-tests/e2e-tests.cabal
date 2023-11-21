@@ -65,6 +65,7 @@ common lang
     , cardano-ledger-shelley
     , cardano-protocol-tpraos
     , cardano-slotting
+    , cardano-strict-containers
     , cardano-testnet
     , iohk-monitoring
     , ouroboros-consensus

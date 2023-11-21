@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -14,13 +15,19 @@ import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
+import Cardano.Ledger.Conway.PParams qualified as L
+import Cardano.Ledger.Core qualified as L
 import Control.Concurrent (threadDelay)
+import Control.Lens ((.~))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString qualified as BS
+import Data.Function ((&))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import Data.Maybe.Strict qualified as StrictMaybe
 import Data.Ratio ((%))
 import Data.Time.Clock.POSIX qualified as Time
+import GHC.Num (Natural)
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
@@ -568,4 +575,196 @@ committeeProposalAndVoteTest
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
-    success -- TODO: check new committee is enacted
+    success -- TODO: check new committee is enacted (will influence future voting)
+
+noConfidenceProposalAndVoteTestInfo dRep =
+  TestInfo
+    { testName = "noConfidenceProposalAndVoteTest"
+    , testDescription = "Propose and vote on a motion of no-confidence"
+    , test = noConfidenceProposalAndVoteTest dRep
+    }
+noConfidenceProposalAndVoteTest
+  :: (MonadTest m, MonadIO m)
+  => DRep era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+noConfidenceProposalAndVoteTest
+  DRep{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch5 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch5 ++ " should be Epoch5"
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch6 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch6"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch6 ++ " should be Epoch6"
+
+    -- build a transaction to propose the motion of no-confidence
+
+    let anchorUrl = C.textToUrl "https://example.com/no_confidence.txt"
+        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "motion of no confidence"
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          pool1StakeKeyHash
+          (C.MotionOfNoConfidence C.SNothing)
+          anchor
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx era localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+    H.annotate $ show result1TxOut
+
+    -- vote on the motion of no-confidence
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent era pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessPaymentKey (castDrep dRepSKey)
+        ]
+    Tx.submitTx era localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+    H.annotate $ show result2TxOut
+    success -- TODO: check motion of no-confidence is enacted
+
+parameterChangeProposalAndVoteTestInfo dRep =
+  TestInfo
+    { testName = "parameterChangeProposalAndVoteTest"
+    , testDescription = "Propose and vote on a change to the protocol parameters"
+    , test = parameterChangeProposalAndVoteTest dRep
+    }
+parameterChangeProposalAndVoteTest
+  :: (MonadTest m, MonadIO m, L.ConwayEraPParams (C.ShelleyLedgerEra era))
+  => DRep era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+parameterChangeProposalAndVoteTest
+  DRep{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch7 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch7 ++ " should be Epoch7"
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch8 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch8"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch8 ++ " should be Epoch8"
+
+    -- build a transaction to propose a change to the protocol parameters
+
+    let anchorUrl = C.textToUrl "https://example.com/pparameters.txt"
+        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "protocol parameters"
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      -- protocol parameter update to change the committee minimum size to 1
+      pparamsUpdate = L.emptyPParamsUpdate & L.ppuCommitteeMinSizeL .~ StrictMaybe.SJust (1 :: Natural)
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          pool1StakeKeyHash
+          (C.UpdatePParams C.SNothing pparamsUpdate)
+          anchor
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx era localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+    H.annotate $ show result1TxOut
+
+    -- vote on the updated protocol parameters
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent era pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessPaymentKey (castDrep dRepSKey)
+        ]
+    Tx.submitTx era localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+    H.annotate $ show result2TxOut
+    success -- TODO: check protocol parameter update is enacted

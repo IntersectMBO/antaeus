@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 module Helpers.Common where
 
 import Cardano.Api qualified as C
@@ -23,6 +25,15 @@ toConwayEraOnwards era =
   case era of
     C.ConwayEra -> C.ConwayEraOnwardsConway
     _ -> error "Must use Conway era"
+
+-- | Treat CardanoEra as ShelleyBased
+withIsShelleyBasedEra :: C.CardanoEra era -> ((C.IsShelleyBasedEra era) => r) -> r
+withIsShelleyBasedEra era r =
+  case era of
+    C.AlonzoEra -> r
+    C.BabbageEra -> r
+    C.ConwayEra -> r
+    _ -> error "Must use Alonzo, Babbage or Conway era"
 
 makeAddress
   :: Either (C.VerificationKey C.PaymentKey) C.ScriptHash
