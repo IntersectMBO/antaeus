@@ -968,3 +968,101 @@ hardForkProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
+
+infoProposalAndVoteTestInfo dRep =
+  TestInfo
+    { testName = "infoProposalAndVoteTest"
+    , testDescription = "Propose and vote on an Info action"
+    , test = infoProposalAndVoteTest dRep
+    }
+infoProposalAndVoteTest
+  :: (MonadTest m, MonadIO m)
+  => DRep era
+  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TestParams era
+  -> m (Maybe String)
+infoProposalAndVoteTest
+  DRep{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch13 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch13 ++ " should be Epoch13"
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch14 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch14"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch14 ++ " should be Epoch14"
+
+    -- build a transaction to propose an Info action
+
+    let anchorUrl = C.textToUrl "https://example.com/info.txt"
+        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "Info"
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          pool1StakeKeyHash
+          C.InfoAct
+          anchor
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx era localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+    H.annotate $ show result1TxOut
+
+    -- vote on the hard fork
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent era pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessPaymentKey (castDrep dRepSKey)
+        ]
+    Tx.submitTx era localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+    H.annotate $ show result2TxOut
+    success -- TODO: check hard fork is enacted
+
+-- TODO: test with script using txInfoCurrentTreasuryAmount (Just and Nothing)
+-- TODO: test with script using txInfoTreasuryDonation (Just and Nothing)
