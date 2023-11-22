@@ -13,7 +13,6 @@ import Helpers.Testnet qualified as TN
 type TestFunction era =
   forall m
    . (MonadIO m, MonadTest m)
-  => (C.IsCardanoEra era)
   => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
   -> TestParams era
   -> m (Maybe String)

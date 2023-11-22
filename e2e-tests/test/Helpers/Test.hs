@@ -8,7 +8,6 @@ module Helpers.Test (
   integrationRetryWorkspace,
 ) where
 
-import Cardano.Api qualified as C
 import Cardano.Testnet qualified as CTN
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -40,7 +39,6 @@ setDarwinTmpdir = when (IO.os == "darwin") $ IO.setEnv "TMPDIR" "/tmp"
 
 runTest
   :: (MonadIO m, MonadTest m)
-  => (C.IsCardanoEra era)
   => TestInfo era
   -> IORef [TestResult]
   -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
