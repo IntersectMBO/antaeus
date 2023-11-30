@@ -38,7 +38,7 @@ verifySchnorrAndEcdsaTestInfo =
 
 verifySchnorrAndEcdsaTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do

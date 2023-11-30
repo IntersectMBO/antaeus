@@ -13,7 +13,7 @@ import Helpers.Testnet qualified as TN
 type TestFunction era =
   forall m
    . (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 
@@ -32,7 +32,7 @@ instance Show (TestInfo era) where
       ++ " }"
 
 data TestParams era = TestParams
-  { localNodeConnectInfo :: C.LocalNodeConnectInfo C.CardanoMode
+  { localNodeConnectInfo :: C.LocalNodeConnectInfo
   , pparams :: C.LedgerProtocolParameters era
   , networkId :: C.NetworkId
   , tempAbsPath :: FilePath

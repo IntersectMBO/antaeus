@@ -10,6 +10,7 @@ module Spec.ConwayFeatures where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
 import Cardano.Ledger.BaseTypes qualified as L
@@ -32,7 +33,7 @@ import Hedgehog.Internal.Property (MonadTest, (===))
 import Helpers.Committee
 import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
 import Helpers.DRep (
-  DRep (DRep, dRepKeyHash, dRepRegCert, dRepSKey, dRepStakeCred, dRepVotingCredential),
+  DRep (DRep, dRepKeyHash, dRepRegCert, dRepSKey, dRepVoter),
  )
 import Helpers.Query qualified as Q
 import Helpers.Staking (Staking (Staking, stakeCred, stakeRegCert, stakeSKey))
@@ -69,7 +70,7 @@ checkTxInfoV3TestInfo =
 
 checkTxInfoV3Test
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 checkTxInfoV3Test networkOptions TestParams{..} = do
@@ -108,9 +109,9 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
             U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
       timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
-      expTxInfoInputs = PS.txInfoInputs (txIn, txInAsTxOut)
-      expTxInfoReferenceInputs = PS.txInfoInputs (txIn, txInAsTxOut)
-      expTxInfoOutputs = PS.txInfoOutputs [txOut1, txOut2]
+      expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
+      expTxInfoReferenceInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
+      expTxInfoOutputs = PS.txInfoOutputs era [txOut1, txOut2]
       expTxInfoFee = PS.txInfoFee fee
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
@@ -179,7 +180,7 @@ registerStakingTestInfo staking =
 registerStakingTest
   :: (MonadTest m, MonadIO m)
   => Staking era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 registerStakingTest
@@ -196,7 +197,7 @@ registerStakingTest
       w1StakeRegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [w1StakeRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [stakeRegCert] stakeCred
+          , C.txCertificates = Tx.txCertificates era [stakeRegCert] [stakeCred]
           , C.txOuts = [w1StakeRegTxOut]
           }
     signedW1StakeRegTx1 <-
@@ -214,19 +215,21 @@ registerStakingTest
     H.annotate $ show w1StakeRegResultTxOut
     success
 
-registerDRepTestInfo dRep =
+registerDRepTestInfo staking dRep =
   TestInfo
     { testName = "registerDRepTest"
     , testDescription = "Register a DRep address (for voting)"
-    , test = registerDRepTest dRep
+    , test = registerDRepTest staking dRep
     }
 registerDRepTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => Staking era
+  -> DRep era
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 registerDRepTest
+  Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -239,7 +242,7 @@ registerDRepTest
       regDRepTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepRegCert] dRepStakeCred
+          , C.txCertificates = Tx.txCertificates era [dRepRegCert] [stakeCred]
           , C.txOuts = [regDRepTxOut]
           }
     signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
@@ -260,7 +263,7 @@ registerCommitteeTest
   :: (MonadTest m, MonadIO m)
   => Staking era
   -> Committee era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 registerCommitteeTest
@@ -278,7 +281,7 @@ registerCommitteeTest
       committeeRegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [committeeRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] stakeCred
+          , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] [stakeCred]
           , C.txOuts = [committeeRegTxOut]
           }
     signedCommitteeRegTx <-
@@ -306,7 +309,7 @@ delegateToDRepTest
   :: (MonadTest m, MonadIO m)
   => DRep era
   -> Staking era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 delegateToDRepTest
@@ -329,7 +332,7 @@ delegateToDRepTest
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [w1StakeDelgCert] stakeCred
+          , C.txCertificates = Tx.txCertificates era [w1StakeDelgCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
           }
     signedStakeDelegTx <-
@@ -356,7 +359,7 @@ constitutionProposalAndVoteTestInfo dRep =
 constitutionProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => DRep era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 constitutionProposalAndVoteTest
@@ -426,7 +429,7 @@ constitutionProposalAndVoteTest
     -- vote on the constituion
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -485,7 +488,7 @@ committeeProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => DRep era
   -> Committee era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 committeeProposalAndVoteTest
@@ -547,7 +550,7 @@ committeeProposalAndVoteTest
     -- vote on the committee
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -584,7 +587,7 @@ noConfidenceProposalAndVoteTestInfo dRep =
 noConfidenceProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => DRep era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 noConfidenceProposalAndVoteTest
@@ -642,7 +645,7 @@ noConfidenceProposalAndVoteTest
     -- vote on the motion of no-confidence
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -679,7 +682,7 @@ parameterChangeProposalAndVoteTestInfo dRep =
 parameterChangeProposalAndVoteTest
   :: (MonadTest m, MonadIO m, L.ConwayEraPParams (C.ShelleyLedgerEra era))
   => DRep era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 parameterChangeProposalAndVoteTest
@@ -739,7 +742,7 @@ parameterChangeProposalAndVoteTest
     -- vote on the updated protocol parameters
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -777,7 +780,7 @@ treasuryWithdrawalProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => DRep era
   -> Staking era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 treasuryWithdrawalProposalAndVoteTest
@@ -837,7 +840,7 @@ treasuryWithdrawalProposalAndVoteTest
     -- vote on the treasury withdrawal
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -881,7 +884,7 @@ hardForkProposalAndVoteTestInfo dRep =
 hardForkProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => DRep era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 hardForkProposalAndVoteTest
@@ -941,7 +944,7 @@ hardForkProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -978,7 +981,7 @@ infoProposalAndVoteTestInfo dRep =
 infoProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => DRep era
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 infoProposalAndVoteTest
@@ -1036,7 +1039,7 @@ infoProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVotingCredential
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]

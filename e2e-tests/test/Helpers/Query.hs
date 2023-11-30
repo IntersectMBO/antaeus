@@ -25,14 +25,14 @@ import Data.Set qualified as Set
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (toEraInCardanoMode, toShelleyBasedEra)
+import Helpers.Common (toShelleyBasedEra)
 import Helpers.Utils qualified as U
 
 -- | Find the first UTxO at address and return as TxIn. Used for txbody's txIns.
 firstTxIn
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> m C.TxIn
 firstTxIn era = txInAtAddressByIndex era 0
@@ -42,7 +42,7 @@ txInAtAddressByIndex
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
   -> Int
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> m C.TxIn
 txInAtAddressByIndex era idx localNodeConnectInfo address = do
@@ -55,7 +55,7 @@ txInAtAddressByIndex era idx localNodeConnectInfo address = do
 adaOnlyTxInAtAddress
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> m C.TxIn
 adaOnlyTxInAtAddress era localNodeConnectInfo address = do
@@ -64,15 +64,17 @@ adaOnlyTxInAtAddress era localNodeConnectInfo address = do
   where
     adaOnly =
       filter
-        ( \(_, C.TxOut _ (C.TxOutValue _ v) _ _) ->
-            ((length $ C.valueToList v) == 1)
-              && ((fst $ head $ C.valueToList v) == C.AdaAssetId)
+        ( \(_, C.TxOut _ (C.TxOutValueShelleyBased sbe v) _ _) ->
+            ((length $ C.valueToList (C.fromLedgerValue sbe v)) == 1)
+              && ((fst $ head $ C.valueToList (C.fromLedgerValue sbe v)) == C.AdaAssetId)
         )
     sortByMostAda =
       sortBy
-        ( \(_, C.TxOut _ (C.TxOutValue _ v1) _ _)
-           (_, C.TxOut _ (C.TxOutValue _ v2) _ _) ->
-              compare (snd $ head $ C.valueToList v2) (snd $ head $ C.valueToList v1)
+        ( \(_, C.TxOut _ (C.TxOutValueShelleyBased sbe v1) _ _)
+           (_, C.TxOut _ (C.TxOutValueShelleyBased _ v2) _ _) ->
+              compare
+                (snd $ head $ C.valueToList (C.fromLedgerValue sbe v2))
+                (snd $ head $ C.valueToList (C.fromLedgerValue sbe v1))
         )
 
 -- | Get TxIns from all UTxOs
@@ -85,7 +87,7 @@ txInsFromUtxo utxos = do
 findUTxOByAddress
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address a
   -> m (C.UTxO era)
 findUTxOByAddress era localNodeConnectInfo address =
@@ -96,13 +98,13 @@ findUTxOByAddress era localNodeConnectInfo address =
               Set.singleton (C.toAddressAny address)
    in H.leftFailM . H.leftFailM . liftIO $
         C.queryNodeLocalState localNodeConnectInfo Nothing $
-          C.QueryInEra (toEraInCardanoMode era) query
+          C.QueryInEra query
 
 -- | Get [TxIn] and total lovelace value for an address.
 getAddressTxInsLovelaceValue
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address a
   -> m ([C.TxIn], C.Lovelace)
 getAddressTxInsLovelaceValue era con address = do
@@ -115,7 +117,7 @@ getAddressTxInsLovelaceValue era con address = do
 getAddressTxInsValue
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address a
   -> m ([C.TxIn], C.Value)
 getAddressTxInsValue era con address = do
@@ -128,7 +130,7 @@ getAddressTxInsValue era con address = do
 waitForTxIdAtAddress
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> C.TxId
   -> m ()
@@ -142,7 +144,7 @@ waitForTxIdAtAddress era localNodeConnectInfo address txId = do
 waitForTxInAtAddress
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> C.TxIn
   -> String -- temp debug text for intermittent timeout failure
@@ -171,7 +173,7 @@ waitForTxInAtAddress era localNodeConnectInfo address txIn debugStr = do
 getTxOutAtAddress
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> C.TxIn
   -> String -- temp debug text for intermittent timeout failure (waitForTxInAtAddress)
@@ -187,7 +189,7 @@ getTxOutAtAddress era localNodeConnectInfo address txIn debugStr = do
 getTxOutAtAddress'
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> C.TxIn
   -> String -- temp debug text for intermittent timeout failure (waitForTxInAtAddress)
@@ -200,7 +202,7 @@ getTxOutAtAddress' era localNodeConnectInfo address txIn debugStr = do
 isTxOutAtAddress
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Address C.ShelleyAddr
   -> C.TxIn
   -> m Bool
@@ -221,13 +223,13 @@ txOutHasValue (C.TxOut _ txOutValue _ _) tokenValue = do
 getProtocolParams
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m (C.LedgerProtocolParameters era)
 getProtocolParams era localNodeConnectInfo = do
   lpp <-
     H.leftFailM . H.leftFailM . liftIO $
       C.queryNodeLocalState localNodeConnectInfo Nothing $
-        C.QueryInEra (toEraInCardanoMode era) $
+        C.QueryInEra $
           C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
   return $ C.LedgerProtocolParameters lpp
 
@@ -235,18 +237,18 @@ getProtocolParams era localNodeConnectInfo = do
 getCurrentEpoch
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m C.EpochNo
 getCurrentEpoch era localNodeConnectInfo =
   H.leftFailM . H.leftFailM . liftIO $
     C.queryNodeLocalState localNodeConnectInfo Nothing $
-      C.QueryInEra (toEraInCardanoMode era) $
+      C.QueryInEra $
         C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
 
 waitForNextEpoch
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m C.EpochNo
@@ -267,7 +269,7 @@ waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (90 :: Int) 
 waitForNextEpoch_
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m ()
@@ -277,18 +279,18 @@ waitForNextEpoch_ e l n s = void $ waitForNextEpoch e l n s
 getConstitution
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m (Maybe (C.Constitution (C.ShelleyLedgerEra era)))
 getConstitution era localNodeConnectInfo =
   H.leftFailM . H.leftFailM . liftIO $
     C.queryNodeLocalState localNodeConnectInfo Nothing $
-      C.QueryInEra (toEraInCardanoMode era) $
+      C.QueryInEra $
         C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
 
 getConstitutionAnchor
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m (C.Anchor (L.EraCrypto (C.ShelleyLedgerEra era)))
 getConstitutionAnchor era localNodeConnectInfo =
   C.constitutionAnchor . U.unsafeFromMaybe <$> getConstitution era localNodeConnectInfo
@@ -296,7 +298,7 @@ getConstitutionAnchor era localNodeConnectInfo =
 getConstitutionAnchorUrl
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m L.Url
 getConstitutionAnchorUrl era localNodeConnectInfo =
   C.anchorUrl . C.constitutionAnchor . U.unsafeFromMaybe <$> getConstitution era localNodeConnectInfo
@@ -304,7 +306,7 @@ getConstitutionAnchorUrl era localNodeConnectInfo =
 getConstitutionAnchorHash
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m (C.SafeHash (L.EraCrypto (C.ShelleyLedgerEra era)) C.AnchorData)
 getConstitutionAnchorHash era localNodeConnectInfo =
   C.anchorDataHash . C.constitutionAnchor . U.unsafeFromMaybe
@@ -313,7 +315,7 @@ getConstitutionAnchorHash era localNodeConnectInfo =
 getConstitutionAnchorHashAsString
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> m String
 getConstitutionAnchorHashAsString era localNodeConnectInfo =
   show . L.extractHash <$> getConstitutionAnchorHash era localNodeConnectInfo

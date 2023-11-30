@@ -7,7 +7,6 @@
 
 module Main (main) where
 
-import Cardano.Api qualified as C
 import Control.Exception.Base (try)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -138,10 +137,10 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ run Alonzo.checkTxInfoV1TestInfo
-    , run Babbage.checkTxInfoV2TestInfo
-    , -- , run Alonzo.datumHashSpendTestInfo
-      run Alonzo.mintBurnTestInfo
+    [ -- run Alonzo.checkTxInfoV1TestInfo
+      run Babbage.checkTxInfoV2TestInfo
+    , run Alonzo.datumHashSpendTestInfo
+    , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
@@ -220,7 +219,7 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
 
   sequence_
     [ run $ Conway.registerStakingTestInfo staking
-    , run $ Conway.registerDRepTestInfo dRep
+    , run $ Conway.registerDRepTestInfo staking dRep
     , run $ Conway.delegateToDRepTestInfo dRep staking
     , run $ Conway.registerCommitteeTestInfo staking committee
     , run $ Conway.constitutionProposalAndVoteTestInfo dRep
@@ -250,7 +249,7 @@ debugTests resultsRef = integrationRetryWorkspace 0 "debug" $ \tempAbsPath -> do
 
 localNodeTests
   :: IORef [TestResult]
-  -> Either (TN.LocalNodeOptions C.BabbageEra) (TN.TestnetOptions C.BabbageEra)
+  -> TN.TestEnvironmentOptions era
   -> H.Property
 localNodeTests resultsRef options = integrationRetryWorkspace 0 "local" $ \tempAbsPath -> do
   -- preTestnetTime <- liftIO Time.getPOSIXTime

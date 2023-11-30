@@ -4,17 +4,17 @@
 module Helpers.DRep where
 
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger (Voter)
 import Cardano.Api.Ledger qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Helpers.Utils qualified as U
 
 data DRep era = DRep
   { dRepSKey :: C.SigningKey C.DRepKey
   , dRepKeyHash :: C.KeyHash 'C.DRepRole C.StandardCrypto
-  , dRepStakeCred :: C.StakeCredential
-  , dRepVotingCredential :: C.VotingCredential era
   , dRepRegCert :: C.Certificate era
+  , dRepVoter :: Voter (C.EraCrypto (C.ShelleyLedgerEra era))
   }
   deriving (Show)
 
@@ -26,9 +26,9 @@ generateDRepKeyCredentialsAndCertificate ceo = do
   dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
   let
     C.DRepKeyHash dRepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
-    dRepStakeCred = C.StakeCredentialByKey . C.StakeKeyHash $ C.coerceKeyRole dRepKeyHash
-    dRepVotingCredential = U.unsafeFromRight $ C.toVotingCredential ceo dRepStakeCred
+    dRepVotingCredential = C.conwayEraOnwardsConstraints ceo $ C.KeyHashObj dRepKeyHash
     dRepDeposit = C.Lovelace 0 -- dRepDeposit
     dRepRegReqs = C.DRepRegistrationRequirements ceo dRepVotingCredential dRepDeposit
     dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
-  return $ DRep dRepSkey dRepKeyHash dRepStakeCred dRepVotingCredential dRepRegCert
+    dRepVoter = L.DRepVoter dRepVotingCredential
+  return $ DRep dRepSkey dRepKeyHash dRepRegCert dRepVoter

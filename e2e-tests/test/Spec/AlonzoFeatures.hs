@@ -52,7 +52,7 @@ checkTxInfoV1TestInfo =
 
 checkTxInfoV1Test
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath, mTime} = do
@@ -91,8 +91,8 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
             U.posixToMilliseconds startTime + 600_000
       timeRange = P.interval lowerBound upperBound :: PlutusV1.POSIXTimeRange
 
-      expTxInfoInputs = PS.txInfoInputs (txIn, txInAsTxOut)
-      expTxInfoOutputs = PS.txInfoOutputs [txOut1, txOut2]
+      expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
+      expTxInfoOutputs = PS.txInfoOutputs era [txOut1, txOut2]
       expTxInfoFee = PS.txInfoFee fee
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
@@ -154,7 +154,7 @@ datumHashSpendTestInfo =
 
 datumHashSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -239,7 +239,7 @@ mintBurnTestInfo =
 
 mintBurnTest
   :: (MonadTest m, MonadIO m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -344,7 +344,7 @@ collateralContainsTokenErrorTestInfo =
 
 collateralContainsTokenErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -- Maybe POSIXTime ->
   -> m (Maybe String)
@@ -432,7 +432,7 @@ missingCollateralInputErrorTestInfo =
 
 missingCollateralInputErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -491,7 +491,7 @@ noCollateralInputsErrorTestInfo =
 
 noCollateralInputsErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -547,7 +547,7 @@ tooManyCollateralInputsErrorTestInfo =
 
 tooManyCollateralInputsErrorTest
   :: (MonadTest m, MonadIO m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do

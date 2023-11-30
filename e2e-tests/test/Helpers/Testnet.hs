@@ -2,14 +2,15 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-incomplete-record-updates #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Helpers.Testnet where
 
-import Cardano.Api (Error)
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad (forM, forM_)
@@ -20,7 +21,13 @@ import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (makeAddress, makeAddressWithStake, toEraInCardanoMode, toShelleyBasedEra)
+import Helpers.Common (
+  makeAddress,
+  makeAddressWithStake,
+  toConwayEraOnwards,
+  toMaryEraOnwards,
+  toShelleyBasedEra,
+ )
 import Helpers.Utils (maybeReadAs)
 import System.Directory qualified as IO
 import System.FilePath ((</>))
@@ -29,7 +36,9 @@ import System.Posix.Signals (sigKILL, signalProcess)
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
 import Hedgehog qualified as H
+import Helpers.Error (TimedOut (ProcessExitTimedOut))
 import Helpers.Query qualified as Q
+import Prettyprinter (Doc)
 import System.Process (cleanupProcess)
 import System.Process.Internals (
   PHANDLE,
@@ -38,13 +47,21 @@ import System.Process.Internals (
  )
 import Testnet.Runtime qualified as CTN
 
-data TestnetOptions era = TestnetOptions
-  { testnetEra :: C.CardanoEra era
-  , testnetProtocolVersion :: Int
-  , testnetCardanoOptions :: CTN.CardanoTestnetOptions
-  }
+data TestEnvironmentOptions era
+  = TestnetOptions
+      { testnetEra :: C.CardanoEra era
+      , testnetProtocolVersion :: Int
+      , testnetCardanoOptions :: CTN.CardanoTestnetOptions
+      }
+  | LocalNodeOptions
+      { localNodeEra :: C.CardanoEra era
+      , localNodeProtocolVersion :: Int
+      , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
+      , localNodeTestnetMagic :: Int
+      }
+  deriving (Show)
 
-defAlonzoTestnetOptions :: TestnetOptions C.AlonzoEra
+defAlonzoTestnetOptions :: TestEnvironmentOptions C.AlonzoEra
 defAlonzoTestnetOptions =
   TestnetOptions
     { testnetEra = C.AlonzoEra
@@ -58,7 +75,7 @@ defAlonzoTestnetOptions =
           }
     }
 
-defBabbageTestnetOptions :: Int -> TestnetOptions C.BabbageEra
+defBabbageTestnetOptions :: Int -> TestEnvironmentOptions C.BabbageEra
 defBabbageTestnetOptions protocolVersion =
   TestnetOptions
     { testnetEra = C.BabbageEra
@@ -72,7 +89,7 @@ defBabbageTestnetOptions protocolVersion =
           }
     }
 
-defConwayTestnetOptions :: TestnetOptions C.ConwayEra
+defConwayTestnetOptions :: TestEnvironmentOptions C.ConwayEra
 defConwayTestnetOptions =
   TestnetOptions
     { testnetEra = C.ConwayEra
@@ -86,7 +103,7 @@ defConwayTestnetOptions =
           }
     }
 
-shortEpochConwayTestnetOptions :: TestnetOptions C.ConwayEra
+shortEpochConwayTestnetOptions :: TestEnvironmentOptions C.ConwayEra
 shortEpochConwayTestnetOptions =
   defConwayTestnetOptions
     { testnetCardanoOptions =
@@ -95,15 +112,7 @@ shortEpochConwayTestnetOptions =
           }
     }
 
-data LocalNodeOptions era = LocalNodeOptions
-  { localNodeEra :: C.CardanoEra era
-  , localNodeProtocolVersion :: Int
-  , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
-  , localNodeTestnetMagic :: Int
-  }
-  deriving (Show)
-
-localNodeOptionsPreview :: LocalNodeOptions C.BabbageEra
+localNodeOptionsPreview :: TestEnvironmentOptions C.BabbageEra
 localNodeOptionsPreview =
   LocalNodeOptions
     { localNodeEra = C.BabbageEra
@@ -112,40 +121,32 @@ localNodeOptionsPreview =
     , localNodeTestnetMagic = 2
     }
 
-data TimedOut = ProcessExitTimedOut Int PHANDLE deriving (Show)
+testnetOptionsAlonzo6 :: TestEnvironmentOptions C.AlonzoEra
+testnetOptionsAlonzo6 = defAlonzoTestnetOptions
 
-instance Error TimedOut where
-  displayError (ProcessExitTimedOut t pid) =
-    "Timeout. Waited "
-      ++ show t
-      ++ "s in `cleanupTestnet` for process to exit. pid="
-      ++ show pid
+testnetOptionsBabbage7 :: TestEnvironmentOptions C.BabbageEra
+testnetOptionsBabbage7 = defBabbageTestnetOptions 7
 
-testnetOptionsAlonzo6 :: Either (LocalNodeOptions C.AlonzoEra) (TestnetOptions C.AlonzoEra)
-testnetOptionsAlonzo6 = Right defAlonzoTestnetOptions
+testnetOptionsBabbage8 :: TestEnvironmentOptions C.BabbageEra
+testnetOptionsBabbage8 = defBabbageTestnetOptions 8
 
-testnetOptionsBabbage7 :: Either (LocalNodeOptions C.BabbageEra) (TestnetOptions C.BabbageEra)
-testnetOptionsBabbage7 = Right $ defBabbageTestnetOptions 7
+testnetOptionsConway9 :: TestEnvironmentOptions C.ConwayEra
+testnetOptionsConway9 = defConwayTestnetOptions
 
-testnetOptionsBabbage8 :: Either (LocalNodeOptions C.BabbageEra) (TestnetOptions C.BabbageEra)
-testnetOptionsBabbage8 = Right $ defBabbageTestnetOptions 8
+testnetOptionsConway9Governance :: TestEnvironmentOptions C.ConwayEra
+testnetOptionsConway9Governance = shortEpochConwayTestnetOptions
 
-testnetOptionsConway9 :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
-testnetOptionsConway9 = Right defConwayTestnetOptions
+eraFromOptions :: TestEnvironmentOptions era -> C.CardanoEra era
+eraFromOptions options = case options of
+  TestnetOptions era _ _ -> era
+  LocalNodeOptions era _ _ _ -> era
 
-testnetOptionsConway9Governance
-  :: Either (LocalNodeOptions C.ConwayEra) (TestnetOptions C.ConwayEra)
-testnetOptionsConway9Governance = Right shortEpochConwayTestnetOptions
-
-eraFromOptions :: Either (LocalNodeOptions era) (TestnetOptions era) -> C.CardanoEra era
-eraFromOptions = either localNodeEra testnetEra
-
-eraFromOptionsM
-  :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m (C.CardanoEra era)
+eraFromOptionsM :: (MonadTest m) => TestEnvironmentOptions era -> m (C.CardanoEra era)
 eraFromOptionsM = return . eraFromOptions
 
-pvFromOptions :: (MonadTest m) => Either (LocalNodeOptions era) (TestnetOptions era) -> m Int
-pvFromOptions = return . either localNodeProtocolVersion testnetProtocolVersion
+pvFromOptions :: (MonadTest m) => TestEnvironmentOptions era -> m Int
+pvFromOptions (TestnetOptions _ pv _) = pure pv
+pvFromOptions (LocalNodeOptions _ pv _ _) = pure pv
 
 -- | Get path to where cardano-testnet files are
 getProjectBase :: (MonadIO m, MonadTest m) => m String
@@ -153,20 +154,20 @@ getProjectBase = liftIO . IO.canonicalizePath =<< HE.getProjectBase
 
 -- | Start a testnet with provided testnet options (including era and protocol version)
 startTestnet
-  :: C.CardanoEra era
-  -> TestnetOptions era
+  :: TestEnvironmentOptions era
   -> FilePath
   -> H.Integration
-      ( C.LocalNodeConnectInfo C.CardanoMode
+      ( C.LocalNodeConnectInfo
       , C.LedgerProtocolParameters era
       , C.NetworkId
       , Maybe [CTN.PoolNode]
       )
-startTestnet era testnetOptions tempAbsBasePath = do
+startTestnet LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
+startTestnet TestnetOptions{..} tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
       CTN.mkConf tempAbsBasePath
-  tn <- CTN.cardanoTestnet (testnetCardanoOptions testnetOptions) conf
+  tn <- CTN.cardanoTestnet testnetCardanoOptions conf
   -- needed to avoid duplication of directory in filepath
   let tmpAbsBasePath' = CTN.makeTmpBaseAbsPath $ CTN.tempAbsPath conf
 
@@ -182,7 +183,7 @@ startTestnet era testnetOptions tempAbsBasePath = do
           , C.localNodeSocketPath = socketPathAbs
           }
       networkId = getNetworkId tn
-  pparams <- Q.getProtocolParams era localNodeConnectInfo
+  pparams <- Q.getProtocolParams testnetEra localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
 
 cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
@@ -211,27 +212,25 @@ cleanupTestnet mPoolNodes =
       ClosedHandle _ -> return $ Right () -- do nothing if already closed
 
 connectToLocalNode
-  :: C.CardanoEra era
-  -> LocalNodeOptions era
+  :: TestEnvironmentOptions era
   -> FilePath
   -> H.Integration
-      ( C.LocalNodeConnectInfo C.CardanoMode
+      ( C.LocalNodeConnectInfo
       , C.LedgerProtocolParameters era
       , C.NetworkId
       , Maybe [CTN.PoolNode]
       )
-connectToLocalNode era localNodeOptions tempAbsPath = do
-  let localEnvDir' = localNodeEnvDir localNodeOptions
-
+connectToLocalNode TestnetOptions{} _ = error "TestnetOptions not supported"
+connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
   HE.createDirectoryIfMissing (tempAbsPath </> "utxo-keys")
   HE.createDirectoryIfMissing (tempAbsPath </> "sockets")
 
-  HE.createFileLink (localEnvDir' </> "test.skey") (tempAbsPath </> "utxo-keys/utxo1.skey")
-  HE.createFileLink (localEnvDir' </> "test.vkey") (tempAbsPath </> "utxo-keys/utxo1.vkey")
-  HE.createFileLink (localEnvDir' </> "ipc/node.socket") (tempAbsPath </> "sockets/node.socket")
+  HE.createFileLink (localNodeEnvDir </> "test.skey") (tempAbsPath </> "utxo-keys/utxo1.skey")
+  HE.createFileLink (localNodeEnvDir </> "test.vkey") (tempAbsPath </> "utxo-keys/utxo1.vkey")
+  HE.createFileLink (localNodeEnvDir </> "ipc/node.socket") (tempAbsPath </> "sockets/node.socket")
 
   let socketPathAbs = C.File $ tempAbsPath </> "sockets/node.socket"
-      networkId = C.Testnet $ C.NetworkMagic $ fromIntegral (localNodeTestnetMagic localNodeOptions)
+      networkId = C.Testnet $ C.NetworkMagic $ fromIntegral localNodeTestnetMagic
 
   -- Boilerplate codecs used for protocol serialisation. The number of epochSlots is specific
   -- to each blockchain instance. This value is used by cardano mainnet/testnet and only applies
@@ -243,32 +242,33 @@ connectToLocalNode era localNodeOptions tempAbsPath = do
           , C.localNodeNetworkId = networkId
           , C.localNodeSocketPath = socketPathAbs
           }
-  pparams <- Q.getProtocolParams era localNodeConnectInfo
+  pparams <- Q.getProtocolParams localNodeEra localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
 {- | Start testnet with cardano-testnet or use local node that's already
   connected to a public testnet
 -}
 setupTestEnvironment
-  :: Either (LocalNodeOptions era) (TestnetOptions era)
+  :: TestEnvironmentOptions era
   -> FilePath
   -> H.Integration
-      ( C.LocalNodeConnectInfo C.CardanoMode
+      ( C.LocalNodeConnectInfo
       , C.LedgerProtocolParameters era
       , C.NetworkId
       , Maybe [CTN.PoolNode]
       )
-setupTestEnvironment options tempAbsPath = do
-  case options of
-    Left localNodeOptions -> do
-      let era = localNodeEra localNodeOptions
-      liftIO $ putStrLn "\nConnecting to local node..."
-      connectToLocalNode era localNodeOptions tempAbsPath
-    Right testnetOptions -> do
-      let era = testnetEra testnetOptions
-      pv <- pvFromOptions options
-      liftIO $ putStrLn $ "\nStarting local testnet in " ++ show era ++ " PV" ++ show pv ++ "..."
-      startTestnet era testnetOptions tempAbsPath
+setupTestEnvironment testnetOptions@TestnetOptions{..} tempAbsPath = do
+  liftIO $
+    putStrLn $
+      "\nStarting local testnet in "
+        ++ show testnetEra
+        ++ " PV"
+        ++ show testnetProtocolVersion
+        ++ "..."
+  startTestnet testnetOptions tempAbsPath
+setupTestEnvironment localNodeOptions@LocalNodeOptions{} tempAbsPath = do
+  liftIO $ putStrLn "\nConnecting to local node..."
+  connectToLocalNode localNodeOptions tempAbsPath
 
 -- | Network ID of the testnet
 getNetworkId :: CTN.TestnetRuntime -> C.NetworkId

@@ -41,7 +41,7 @@ runTest
   :: (MonadIO m, MonadTest m)
   => TestInfo era
   -> IORef [TestResult]
-  -> Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m ()
 runTest testInfo resultsRef networkOptions testParams = do

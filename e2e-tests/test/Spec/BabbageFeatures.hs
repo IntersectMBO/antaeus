@@ -54,7 +54,7 @@ checkTxInfoV2TestInfo =
 
 checkTxInfoV2Test
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 checkTxInfoV2Test networkOptions TestParams{..} = do
@@ -92,9 +92,9 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
             U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
       timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
-      expTxInfoInputs = PS.txInfoInputs (txIn, txInAsTxOut)
-      expTxInfoReferenceInputs = PS.txInfoInputs (txIn, txInAsTxOut)
-      expTxInfoOutputs = PS.txInfoOutputs [txOut1, txOut2]
+      expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
+      expTxInfoReferenceInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
+      expTxInfoOutputs = PS.txInfoOutputs era [txOut1, txOut2]
       expTxInfoFee = PS.txInfoFee fee
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
@@ -163,7 +163,7 @@ referenceScriptMintTestInfo =
 
 referenceScriptMintTest
   :: (MonadTest m, MonadIO m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -248,7 +248,7 @@ referenceScriptInlineDatumSpendTestInfo =
 
 referenceScriptInlineDatumSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 referenceScriptInlineDatumSpendTest
@@ -335,7 +335,7 @@ referenceScriptDatumHashSpendTestInfo =
 
 referenceScriptDatumHashSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -427,7 +427,7 @@ inlineDatumSpendTestInfo =
 
 inlineDatumSpendTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -495,7 +495,7 @@ referenceInputWithV1ScriptErrorTestInfo =
 
 referenceInputWithV1ScriptErrorTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 referenceInputWithV1ScriptErrorTest
@@ -543,7 +543,7 @@ referenceScriptOutputWithV1ScriptErrorTestInfo =
 
 referenceScriptOutputWithV1ScriptErrorTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 referenceScriptOutputWithV1ScriptErrorTest
@@ -596,7 +596,7 @@ inlineDatumOutputWithV1ScriptErrorTestInfo =
 
 inlineDatumOutputWithV1ScriptErrorTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 inlineDatumOutputWithV1ScriptErrorTest
@@ -649,7 +649,7 @@ returnCollateralWithTokensValidScriptTestInfo =
 
 returnCollateralWithTokensValidScriptTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 returnCollateralWithTokensValidScriptTest
@@ -742,7 +742,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo =
 
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   :: (MonadIO m, MonadTest m)
-  => Either (TN.LocalNodeOptions era) (TN.TestnetOptions era)
+  => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest

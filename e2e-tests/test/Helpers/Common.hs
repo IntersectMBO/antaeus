@@ -5,19 +5,20 @@ module Helpers.Common where
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 
--- | Any CardanoEra with CardanoMode
-toEraInCardanoMode :: C.CardanoEra era -> C.EraInMode era C.CardanoMode
-toEraInCardanoMode era = fromMaybe $ C.toEraInMode era C.CardanoMode
-  where
-    fromMaybe Nothing = error $ "No mode for this era " ++ show era ++ " in CardanoMode"
-    fromMaybe (Just eim) = eim
-
 toShelleyBasedEra :: C.CardanoEra era -> C.ShelleyBasedEra era
 toShelleyBasedEra era =
   case era of
     C.AlonzoEra -> C.ShelleyBasedEraAlonzo
     C.BabbageEra -> C.ShelleyBasedEraBabbage
     C.ConwayEra -> C.ShelleyBasedEraConway
+    _ -> error "Must use Alonzo, Babbage or Conway era"
+
+toMaryEraOnwards :: C.CardanoEra era -> C.MaryEraOnwards era
+toMaryEraOnwards era =
+  case era of
+    C.AlonzoEra -> C.MaryEraOnwardsAlonzo
+    C.BabbageEra -> C.MaryEraOnwardsBabbage
+    C.ConwayEra -> C.MaryEraOnwardsConway
     _ -> error "Must use Alonzo, Babbage or Conway era"
 
 toConwayEraOnwards :: C.CardanoEra era -> C.ConwayEraOnwards era
