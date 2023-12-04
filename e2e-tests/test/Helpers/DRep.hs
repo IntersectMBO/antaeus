@@ -6,7 +6,6 @@ module Helpers.DRep where
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger (Voter)
 import Cardano.Api.Ledger qualified as C
-import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
@@ -30,5 +29,5 @@ generateDRepKeyCredentialsAndCertificate ceo = do
     dRepDeposit = C.Lovelace 0 -- dRepDeposit
     dRepRegReqs = C.DRepRegistrationRequirements ceo dRepVotingCredential dRepDeposit
     dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
-    dRepVoter = L.DRepVoter dRepVotingCredential
+    dRepVoter = C.DRepVoter dRepVotingCredential
   return $ DRep dRepSkey dRepKeyHash dRepRegCert dRepVoter

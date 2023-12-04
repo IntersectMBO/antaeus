@@ -12,6 +12,7 @@ import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Ledger.Era qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Functor ((<&>))
 import Data.List (isInfixOf)
 import Data.Map qualified as Map
 import Data.Word (Word32)
@@ -234,17 +235,24 @@ txCertificates era certs stakeCreds =
     era
     (C.BuildTxWith $ Map.fromList (stakeCreds `zip` repeat (C.KeyWitness C.KeyWitnessForStakeAddr)))
 
+-- Takens the action ID and a map of voters and their votes, builds multiple VotingProcedures
+-- and combines them into a single VotingProcedures
 buildVotingProcedures
   :: C.ShelleyBasedEra era
   -> C.ConwayEraOnwards era
-  -> C.TxId
+  -> C.TxId -- action id
   -> Word32
-  -> L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+  -> [(L.Voter (C.EraCrypto (C.ShelleyLedgerEra era)), C.Vote)]
   -> C.VotingProcedures era
-buildVotingProcedures sbe ceo txId txIx voter = C.shelleyBasedEraConstraints sbe $ do
+buildVotingProcedures sbe ceo txId txIx voters = C.shelleyBasedEraConstraints sbe $ do
   let gAID = C.createGovernanceActionId txId txIx
-      voteProcedure = C.createVotingProcedure ceo C.Yes Nothing
-  C.singletonVotingProcedures ceo voter gAID (C.unVotingProcedure voteProcedure)
+      votingProceduresList =
+        voters
+          <&> ( \(voter, vote) -> do
+                  let voteProcedure = C.createVotingProcedure ceo vote Nothing
+                  C.singletonVotingProcedures ceo voter gAID (C.unVotingProcedure voteProcedure)
+              )
+  foldr1 C.unsafeMergeVotingProcedures votingProceduresList
 
 buildTx
   :: (MonadIO m)
