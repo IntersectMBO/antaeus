@@ -15,4 +15,4 @@ mkAlwaysSucceedSpend _datum _redeemer _sc = ()
 -- AlwaysFails minting policy --
 
 mkAlwaysFailsPolicy :: P.BuiltinData -> P.BuiltinData -> ()
-mkAlwaysFailsPolicy _datum _sc = P.error ()
+mkAlwaysFailsPolicy _datum _sc = P.check $ P.error ()

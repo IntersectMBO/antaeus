@@ -53,7 +53,7 @@ Run `allure serve <test-report-xml>` to generate and host the Allure report.
 
 We're working on adding the following features to Antaeus:
 
-- Voltaire governance actions (coming in Conway era using PlutusV3 language version)
+- Voltaire governance actions (coming in Conway era using PlutusV3 language version).
 - CI execution with private testnet on commit (nix configuration coming soon).
 - Nightly CI test execution would be useful in public environments.
 

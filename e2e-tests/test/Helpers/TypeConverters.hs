@@ -67,10 +67,13 @@ toPlutusAddress address = Address (cardanoAddressCredential address) (cardanoSta
 fromCardanoAddressInEra :: C.AddressInEra era -> Address
 fromCardanoAddressInEra = toPlutusAddress
 
-fromCardanoTxOutValue :: C.TxOutValue era -> C.Value
-fromCardanoTxOutValue (C.TxOutAdaOnly _ 0) = mempty
-fromCardanoTxOutValue (C.TxOutAdaOnly _ lovelace) = C.lovelaceToValue lovelace
-fromCardanoTxOutValue (C.TxOutValue _ value) = value
+fromCardanoTxOutValue :: C.ShelleyBasedEra era -> C.TxOutValue era -> C.Value
+fromCardanoTxOutValue _ (C.TxOutValueByron l) = C.lovelaceToValue l
+fromCardanoTxOutValue era (C.TxOutValueShelleyBased _ v) = C.fromLedgerValue era v
+
+-- fromCardanoTxOutValue (C.TxOutAdaOnly _ 0) = mempty
+-- fromCardanoTxOutValue (C.TxOutAdaOnly _ lovelace) = C.lovelaceToValue lovelace
+-- fromCardanoTxOutValue (C.TxOutValue _ value) = value
 
 fromCardanoTxOutDatum :: C.TxOutDatum C.CtxTx era -> PV2.OutputDatum
 fromCardanoTxOutDatum C.TxOutDatumNone =
@@ -108,41 +111,41 @@ fromCardanoTxOutDatumHash' (C.TxOutDatumHash _ h) =
 fromCardanoTxOutDatumHash' (C.TxOutDatumInline _ d) =
   Just $ PV1.DatumHash $ PlutusTx.toBuiltin (C.serialiseToRawBytes (C.hashScriptDataBytes d))
 
-fromCardanoTxOutToPV1TxInfoTxOut :: C.TxOut C.CtxTx era -> PV1.TxOut
-fromCardanoTxOutToPV1TxInfoTxOut (C.TxOut _ _ C.TxOutDatumInline{} _) =
+fromCardanoTxOutToPV1TxInfoTxOut :: C.ShelleyBasedEra era -> C.TxOut C.CtxTx era -> PV1.TxOut
+fromCardanoTxOutToPV1TxInfoTxOut _ (C.TxOut _ _ C.TxOutDatumInline{} _) =
   error "V1 TxOut doesn't support inline datum"
-fromCardanoTxOutToPV1TxInfoTxOut (C.TxOut _ _ _ C.ReferenceScript{}) =
+fromCardanoTxOutToPV1TxInfoTxOut _ (C.TxOut _ _ _ C.ReferenceScript{}) =
   error "V1 TxOut doesn't support reference scripts"
-fromCardanoTxOutToPV1TxInfoTxOut (C.TxOut addr value dh _) = do
+fromCardanoTxOutToPV1TxInfoTxOut sbe (C.TxOut addr value dh _) = do
   PV1.TxOut
     (fromCardanoAddressInEra addr)
-    (fromCardanoValue $ fromCardanoTxOutValue value)
+    (fromCardanoValue $ fromCardanoTxOutValue sbe value)
     (fromCardanoTxOutDatumHash dh)
 
-fromCardanoTxOutToPV1TxInfoTxOut' :: C.TxOut C.CtxUTxO era -> PV1.TxOut
-fromCardanoTxOutToPV1TxInfoTxOut' (C.TxOut _ _ C.TxOutDatumInline{} _) =
+fromCardanoTxOutToPV1TxInfoTxOut' :: C.ShelleyBasedEra era -> C.TxOut C.CtxUTxO era -> PV1.TxOut
+fromCardanoTxOutToPV1TxInfoTxOut' _ (C.TxOut _ _ C.TxOutDatumInline{} _) =
   error "V1 TxOut doesn't support inline datum"
-fromCardanoTxOutToPV1TxInfoTxOut' (C.TxOut _ _ _ C.ReferenceScript{}) =
+fromCardanoTxOutToPV1TxInfoTxOut' _ (C.TxOut _ _ _ C.ReferenceScript{}) =
   error "V1 TxOut doesn't support reference scripts"
-fromCardanoTxOutToPV1TxInfoTxOut' (C.TxOut addr value dh _) = do
+fromCardanoTxOutToPV1TxInfoTxOut' sbe (C.TxOut addr value dh _) = do
   PV1.TxOut
     (fromCardanoAddressInEra addr)
-    (fromCardanoValue $ fromCardanoTxOutValue value)
+    (fromCardanoValue $ fromCardanoTxOutValue sbe value)
     (fromCardanoTxOutDatumHash' dh)
 
-fromCardanoTxOutToPV2TxInfoTxOut :: C.TxOut C.CtxTx era -> PV2.TxOut
-fromCardanoTxOutToPV2TxInfoTxOut (C.TxOut addr value datum refScript) =
+fromCardanoTxOutToPV2TxInfoTxOut :: C.ShelleyBasedEra era -> C.TxOut C.CtxTx era -> PV2.TxOut
+fromCardanoTxOutToPV2TxInfoTxOut sbe (C.TxOut addr value datum refScript) =
   PV2.TxOut
     (fromCardanoAddressInEra addr)
-    (fromCardanoValue $ fromCardanoTxOutValue value)
+    (fromCardanoValue $ fromCardanoTxOutValue sbe value)
     (fromCardanoTxOutDatum datum)
     (refScriptToScriptHash refScript)
 
-fromCardanoTxOutToPV2TxInfoTxOut' :: C.TxOut C.CtxUTxO era -> PV2.TxOut
-fromCardanoTxOutToPV2TxInfoTxOut' (C.TxOut addr value datum refScript) =
+fromCardanoTxOutToPV2TxInfoTxOut' :: C.ShelleyBasedEra era -> C.TxOut C.CtxUTxO era -> PV2.TxOut
+fromCardanoTxOutToPV2TxInfoTxOut' sbe (C.TxOut addr value datum refScript) =
   PV2.TxOut
     (fromCardanoAddressInEra addr)
-    (fromCardanoValue $ fromCardanoTxOutValue value)
+    (fromCardanoValue $ fromCardanoTxOutValue sbe value)
     (fromCardanoTxOutDatum' datum)
     (refScriptToScriptHash refScript)
 

@@ -13,8 +13,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.adoc for how to update index-state
 index-state:
-  , hackage.haskell.org 2023-11-01T11:11:00Z
-  , cardano-haskell-packages 2023-11-01T11:11:00Z
+  , hackage.haskell.org 2023-11-26T11:11:00Z
+  , cardano-haskell-packages 2023-11-26T11:11:00Z
 packages: e2e-tests
 
 -- We never, ever, want this.
@@ -53,7 +53,6 @@ constraints:
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-node
-    tag: 4634cde42af9777733b18496a4d4036eaa48a204
+    tag: 8715beb886b1068a906bbfdab012a5c8130fc4d1
     subdir:
       cardano-testnet
-

@@ -24,6 +24,7 @@ module PlutusScripts.V2TxInfo (
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
+import Helpers.Common (toShelleyBasedEra)
 import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import Helpers.TypeConverters (
   fromCardanoPaymentKeyHash,
@@ -88,15 +89,15 @@ checkV2TxInfoRedeemer expIns expRefIns expOuts expFee expMint expDCert expWdrl e
   toScriptData $
     V2TxInfo expIns expRefIns expOuts expFee expMint expDCert expWdrl expRange expSigs expReds expData
 
-txInfoInputs :: (C.TxIn, C.TxOut C.CtxUTxO era) -> PlutusV2.TxInInfo
-txInfoInputs (txIn, txOut) = do
+txInfoInputs :: C.CardanoEra era -> (C.TxIn, C.TxOut C.CtxUTxO era) -> PlutusV2.TxInInfo
+txInfoInputs era (txIn, txOut) = do
   PlutusV2.TxInInfo
     { PlutusV2.txInInfoOutRef = fromCardanoTxIn txIn
-    , PlutusV2.txInInfoResolved = fromCardanoTxOutToPV2TxInfoTxOut' txOut
+    , PlutusV2.txInInfoResolved = fromCardanoTxOutToPV2TxInfoTxOut' (toShelleyBasedEra era) txOut
     }
 
-txInfoOutputs :: [C.TxOut C.CtxTx era] -> [PlutusV2.TxOut]
-txInfoOutputs = map fromCardanoTxOutToPV2TxInfoTxOut
+txInfoOutputs :: C.CardanoEra era -> [C.TxOut C.CtxTx era] -> [PlutusV2.TxOut]
+txInfoOutputs era = map (fromCardanoTxOutToPV2TxInfoTxOut (toShelleyBasedEra era))
 
 txInfoFee :: C.Lovelace -> PlutusV2.Value
 txInfoFee = fromCardanoValue . C.lovelaceToValue

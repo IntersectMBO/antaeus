@@ -7,23 +7,23 @@
 
 module Helpers.Tx where
 
-import Cardano.Api (SubmitResult (SubmitFail, SubmitSuccess))
 import Cardano.Api qualified as C
-import Cardano.Api.Ledger qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
+import Cardano.Ledger.Era qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf)
-import Data.Map (singleton)
 import Data.Map qualified as Map
 import Data.Word (Word32)
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
-import Helpers.Common (toEraInCardanoMode, toShelleyBasedEra)
+import Helpers.Common (toMaryEraOnwards, toShelleyBasedEra)
 import Helpers.Utils qualified as U
 
-newtype SubmitError = SubmitError String
+newtype SubmitError = SubmitError C.TxValidationErrorInCardanoMode
+  deriving (Show)
 
 notSupportedError :: (Show e) => e -> String
 notSupportedError e = show e ++ " not supported"
@@ -47,7 +47,7 @@ isTxBodyErrorNonAdaAssetsUnbalanced expectedError (Left (C.TxBodyErrorNonAdaAsse
 isTxBodyErrorNonAdaAssetsUnbalanced _ _ = False
 
 isSubmitError :: String -> Either SubmitError () -> Bool
-isSubmitError expectedError (Left (SubmitError error)) = expectedError `isInfixOf` error
+isSubmitError expectedError (Left (SubmitError error)) = expectedError `isInfixOf` show error
 isSubmitError _ _ = False
 
 -- | Build TxOut for spending or minting with no datum or reference script present
@@ -56,10 +56,12 @@ txOut
   -> C.Value
   -> C.Address C.ShelleyAddr
   -> C.TxOut C.CtxTx era
-txOut era value address =
+txOut era value address = do
+  let meo = toMaryEraOnwards era
+      sbe = toShelleyBasedEra era
   C.TxOut
     (U.unsafeFromRight $ C.anyAddressInEra era $ C.toAddressAny address)
-    (C.inEonForEra (error $ notSupportedError era) (\e -> C.TxOutValue e value) era)
+    (C.shelleyBasedEraConstraints sbe $ C.TxOutValueShelleyBased sbe (C.toLedgerValue meo value))
     C.TxOutDatumNone
     C.ReferenceScriptNone
 
@@ -203,7 +205,7 @@ pubkeyTxIns =
 
 txInWitness
   :: C.TxIn
-  -> (C.Witness C.WitCtxTxIn era)
+  -> C.Witness C.WitCtxTxIn era
   -> (C.TxIn, C.BuildTxWith C.BuildTx (C.Witness C.WitCtxTxIn era))
 txInWitness txIn wit = (txIn, C.BuildTxWith wit)
 
@@ -223,32 +225,31 @@ txMintValue era tv m = C.inEonForEra (error $ notSupportedError era) (\e -> C.Tx
 txCertificates
   :: C.CardanoEra era
   -> [C.Certificate era]
-  -> C.StakeCredential
+  -> [C.StakeCredential]
   -> C.TxCertificates C.BuildTx era
-txCertificates era certs stakeCred =
+txCertificates era certs stakeCreds =
   C.inEonForEra
     (error $ notSupportedError era)
     (\e -> C.TxCertificates e certs)
     era
-    (C.BuildTxWith $ singleton stakeCred (C.KeyWitness C.KeyWitnessForStakeAddr))
+    (C.BuildTxWith $ Map.fromList (stakeCreds `zip` repeat (C.KeyWitness C.KeyWitnessForStakeAddr)))
 
 buildVotingProcedures
   :: C.ShelleyBasedEra era
   -> C.ConwayEraOnwards era
   -> C.TxId
   -> Word32
-  -> C.VotingCredential era
+  -> L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
   -> C.VotingProcedures era
-buildVotingProcedures sbe ceo txId txIx vc = C.shelleyBasedEraConstraints sbe $ do
+buildVotingProcedures sbe ceo txId txIx voter = C.shelleyBasedEraConstraints sbe $ do
   let gAID = C.createGovernanceActionId txId txIx
       voteProcedure = C.createVotingProcedure ceo C.Yes Nothing
-      drepVoter = C.DRepVoter (C.unVotingCredential vc)
-  C.singletonVotingProcedures ceo drepVoter gAID (C.unVotingProcedure voteProcedure)
+  C.singletonVotingProcedures ceo voter gAID (C.unVotingProcedure voteProcedure)
 
 buildTx
   :: (MonadIO m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
   -> C.SigningKey C.PaymentKey
@@ -259,7 +260,7 @@ buildTx era localNodeConnectInfo txBody changeAddress sKey =
 buildTxWithAnyWitness
   :: (MonadIO m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
   -> [C.ShelleyWitnessSigningKey]
@@ -270,7 +271,7 @@ buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress sKeys =
 buildTxWithWitnessOverride
   :: (MonadIO m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
   -> Maybe Word
@@ -288,7 +289,7 @@ buildTxWithWitnessOverride era localNodeConnectInfo txBody changeAddress mWitnes
 buildTxWithError
   :: (MonadIO m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
   -> Maybe Word
@@ -369,31 +370,32 @@ signTx era txbody skey =
 submitTx
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Tx era
   -> m ()
 submitTx era localNodeConnectInfo tx = do
-  submitResult :: SubmitResult (C.TxValidationErrorInMode C.CardanoMode) <-
-    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode tx (toEraInCardanoMode era)
+  submitResult :: C.SubmitResult era <-
+    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode era tx
   failOnTxSubmitFail submitResult
   where
-    failOnTxSubmitFail :: (Show a, MonadTest m) => SubmitResult a -> m ()
+    failOnTxSubmitFail :: (Show a, MonadTest m) => C.SubmitResult a -> m ()
     failOnTxSubmitFail = \case
-      SubmitFail reason -> H.failMessage GHC.callStack $ "Transaction failed: " <> show reason
-      SubmitSuccess -> pure ()
+      C.SubmitFail reason -> H.failMessage GHC.callStack $ "Transaction failed: " <> show reason
+      C.SubmitSuccess -> pure ()
 
 submitTx'
   :: (MonadIO m, MonadTest m)
   => C.CardanoEra era
-  -> C.LocalNodeConnectInfo C.CardanoMode
+  -> C.LocalNodeConnectInfo
   -> C.Tx era
   -> m (Either SubmitError ())
 submitTx' era localNodeConnectInfo tx = do
-  submitResult :: SubmitResult (C.TxValidationErrorInMode C.CardanoMode) <-
-    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode tx (toEraInCardanoMode era)
+  submitResult :: C.SubmitResult era <-
+    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode era tx
   returnErrorOnTxSubmitFail submitResult
   where
-    returnErrorOnTxSubmitFail :: (Show a, MonadTest m) => SubmitResult a -> m (Either SubmitError ())
+    returnErrorOnTxSubmitFail
+      :: (MonadTest m) => C.SubmitResult C.TxValidationErrorInCardanoMode -> m (Either SubmitError ())
     returnErrorOnTxSubmitFail = \case
-      SubmitFail reason -> pure $ Left $ SubmitError $ show reason
-      SubmitSuccess -> pure $ Right ()
+      C.SubmitFail reason -> pure $ Left $ SubmitError reason
+      C.SubmitSuccess -> pure $ Right ()
