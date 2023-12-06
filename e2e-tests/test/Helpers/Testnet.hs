@@ -332,16 +332,23 @@ pool1
   :: (MonadIO m, MonadTest m)
   => FilePath
   -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey)
-pool1 tempAbsPath = (\(sKey, _, _, stakeKeyHash, _, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
+pool1 tempAbsPath =
+  (\(sKey, _, _, stakeKeyHash, _, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
+
+pool1StakePoolKeyHash
+  :: (MonadIO m, MonadTest m)
+  => FilePath
+  -> m (KeyHash 'StakePool StandardCrypto)
+pool1StakePoolKeyHash tempAbsPath =
+  (\(_, _, _, _, _, pool1StakePoolKeyHash) -> pool1StakePoolKeyHash) <$> pool1All tempAbsPath
 
 pool1Voter
   :: (MonadIO m, MonadTest m)
   => C.ConwayEraOnwards era
   -> FilePath
   -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
-pool1Voter ceo tempAbsPath = do
-  (_, _, _, _, _, pool1StakePoolKeyHash) <- pool1All tempAbsPath
-  return $ StakePoolVoter $ C.conwayEraOnwardsConstraints ceo pool1StakePoolKeyHash
+pool1Voter ceo tempAbsPath =
+  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo =<< pool1StakePoolKeyHash tempAbsPath
 
 pool1All
   :: (MonadIO m, MonadTest m)

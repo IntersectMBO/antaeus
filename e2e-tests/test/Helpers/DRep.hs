@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 
 data DRep era = DRep
   { dRepSKey :: C.SigningKey C.DRepKey
-  , dRepKeyHash :: C.KeyHash 'C.DRepRole C.StandardCrypto
+  , dRepCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
   , dRepRegCert :: C.Certificate era
   , dRepVoter :: Voter (C.EraCrypto (C.ShelleyLedgerEra era))
   }
@@ -30,4 +30,4 @@ generateDRepKeyCredentialsAndCertificate ceo = do
     dRepRegReqs = C.DRepRegistrationRequirements ceo dRepVotingCredential dRepDeposit
     dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
     dRepVoter = C.DRepVoter dRepVotingCredential
-  return $ DRep dRepSkey dRepKeyHash dRepRegCert dRepVoter
+  return $ DRep dRepSkey (C.DRepCredential dRepVotingCredential) dRepRegCert dRepVoter
