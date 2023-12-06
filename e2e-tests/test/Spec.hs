@@ -89,7 +89,7 @@ pv6Tests resultsRef = integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
-  liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
+  liftIO $ putStrLn $ "\nNumber of test failures in suite: " ++ (show $ length failureMessages)
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 pv7Tests :: IORef [TestResult] -> H.Property
@@ -123,7 +123,7 @@ pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
-  liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
+  liftIO $ putStrLn $ "\nNumber of test failures in suite: " ++ (show $ length failureMessages)
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 pv8Tests :: IORef [TestResult] -> H.Property
@@ -159,7 +159,7 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
-  liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
+  liftIO $ putStrLn $ "\nNumber of test failures in suite: " ++ (show $ length failureMessages)
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 pv9Tests :: IORef [TestResult] -> H.Property
@@ -198,7 +198,7 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
-  liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
+  liftIO $ putStrLn $ "\nNumber of test failures in suite: " ++ (show $ length failureMessages)
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 -- uses short epochs for testing governance actions
@@ -233,11 +233,12 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.hardForkProposalAndVoteTestInfo committee staking dRep
     , run $ Conway.infoProposalAndVoteTestInfo committee staking dRep
     , run $ Conway.unregisterDRepTestInfo staking dRep
-    -- TODO: add test to unregister stake pool
+    , run $ Conway.retireStakePoolTestInfo staking
+    -- TODO: add test to unregister staking
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
-  liftIO $ putStrLn $ "Number of test failures in suite: " ++ (show $ length failureMessages)
+  liftIO $ putStrLn $ "\nNumber of test failures in suite: " ++ (show $ length failureMessages)
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
 debugTests :: IORef [TestResult] -> H.Property

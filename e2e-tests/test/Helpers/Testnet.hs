@@ -41,6 +41,7 @@ import Cardano.Api.Ledger (
   StandardCrypto,
   Voter (StakePoolVoter),
  )
+import Cardano.Testnet (Conf (tempAbsPath))
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
 import Hedgehog qualified as H
@@ -328,19 +329,15 @@ w1
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
 w1 tempAbsPath networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
 
-pool1
-  :: (MonadIO m, MonadTest m)
-  => FilePath
-  -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey)
-pool1 tempAbsPath =
-  (\(sKey, _, _, stakeKeyHash, _, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
-
-pool1StakePoolKeyHash
-  :: (MonadIO m, MonadTest m)
-  => FilePath
-  -> m (KeyHash 'StakePool StandardCrypto)
-pool1StakePoolKeyHash tempAbsPath =
-  (\(_, _, _, _, _, pool1StakePoolKeyHash) -> pool1StakePoolKeyHash) <$> pool1All tempAbsPath
+data TestnetStakePool = TestnetStakePool
+  { stakePoolSKey :: C.SigningKey C.StakePoolKey
+  , stakePoolVKey :: C.VerificationKey C.StakePoolKey
+  , stakePoolVKeyHash :: C.Hash C.StakePoolKey
+  , stakePoolKeyHash :: C.Hash C.StakeKey
+  , stakePoolVrfHash :: C.Hash C.VrfKey
+  , stakePoolPoolKeyHash :: KeyHash 'StakePool StandardCrypto
+  }
+  deriving (Show)
 
 pool1Voter
   :: (MonadIO m, MonadTest m)
@@ -348,19 +345,13 @@ pool1Voter
   -> FilePath
   -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
 pool1Voter ceo tempAbsPath =
-  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo =<< pool1StakePoolKeyHash tempAbsPath
+  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo . stakePoolPoolKeyHash
+    =<< pool1All tempAbsPath
 
 pool1All
   :: (MonadIO m, MonadTest m)
   => FilePath
-  -> m
-      ( C.SigningKey C.StakePoolKey
-      , C.VerificationKey C.StakePoolKey
-      , C.Hash C.StakePoolKey
-      , C.Hash C.StakeKey
-      , C.Hash C.VrfKey
-      , KeyHash 'StakePool StandardCrypto
-      )
+  -> m TestnetStakePool
 pool1All tempAbsPath = do
   let pool1SKeyFile = C.File $ tempAbsPath </> "pools/cold1.skey"
   mPool1SKey :: Maybe (C.SigningKey C.StakePoolKey) <-
@@ -372,6 +363,7 @@ pool1All tempAbsPath = do
     maybeReadAs (C.AsVerificationKey C.AsStakePoolKey) pool1VerificationKeyFile
   let pool1VKey = fromJust mPool1VKey
       pool1VKeyHash = C.verificationKeyHash pool1VKey
+      C.StakePoolKeyHash pool1StakePoolKeyHash = pool1VKeyHash
 
   let pool1StakingRewardsFile = C.File $ tempAbsPath </> "pools/staking-reward1.vkey"
   mPool1StakingRewards :: Maybe (C.VerificationKey C.StakeKey) <-
@@ -382,7 +374,12 @@ pool1All tempAbsPath = do
   mPool1VrfKey :: Maybe (C.VerificationKey C.VrfKey) <-
     maybeReadAs (C.AsVerificationKey C.AsVrfKey) pool1VrfKeyFile
   let pool1VrfKeyHash = C.verificationKeyHash (fromJust mPool1VrfKey)
-      C.StakePoolKeyHash pool1StakePoolKeyHash = C.verificationKeyHash pool1VKey
 
-  return
-    (pool1SKey, pool1VKey, pool1VKeyHash, pool1StakeKeyHash, pool1VrfKeyHash, pool1StakePoolKeyHash)
+  return $
+    TestnetStakePool
+      pool1SKey
+      pool1VKey
+      pool1VKeyHash
+      pool1StakeKeyHash
+      pool1VrfKeyHash
+      pool1StakePoolKeyHash
