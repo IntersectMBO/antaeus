@@ -33,6 +33,14 @@ import System.Directory qualified as IO
 import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
 
+import Cardano.Api.Ledger (
+  Credential (KeyHashObj),
+  EraCrypto,
+  KeyHash,
+  KeyRole (StakePool),
+  StandardCrypto,
+  Voter (StakePoolVoter),
+ )
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
 import Hedgehog qualified as H
@@ -108,7 +116,8 @@ shortEpochConwayTestnetOptions =
   defConwayTestnetOptions
     { testnetCardanoOptions =
         (testnetCardanoOptions defConwayTestnetOptions)
-          { CTN.cardanoEpochLength = 200 -- 20 second epoch for testing outcome of governance actions
+          { CTN.cardanoActiveSlotsCoeff = 0.5 -- adjusted from deafult due to short epoch length
+          , CTN.cardanoEpochLength = 200 -- 20 second epoch for testing outcome of governance actions
           }
     }
 
@@ -323,7 +332,16 @@ pool1
   :: (MonadIO m, MonadTest m)
   => FilePath
   -> m (C.SigningKey C.StakePoolKey, C.Hash C.StakeKey)
-pool1 tempAbsPath = (\(sKey, _, _, stakeKeyHash, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
+pool1 tempAbsPath = (\(sKey, _, _, stakeKeyHash, _, _) -> (sKey, stakeKeyHash)) <$> pool1All tempAbsPath
+
+pool1Voter
+  :: (MonadIO m, MonadTest m)
+  => C.ConwayEraOnwards era
+  -> FilePath
+  -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
+pool1Voter ceo tempAbsPath = do
+  (_, _, _, _, _, pool1StakePoolKeyHash) <- pool1All tempAbsPath
+  return $ StakePoolVoter $ C.conwayEraOnwardsConstraints ceo pool1StakePoolKeyHash
 
 pool1All
   :: (MonadIO m, MonadTest m)
@@ -334,6 +352,7 @@ pool1All
       , C.Hash C.StakePoolKey
       , C.Hash C.StakeKey
       , C.Hash C.VrfKey
+      , KeyHash 'StakePool StandardCrypto
       )
 pool1All tempAbsPath = do
   let pool1SKeyFile = C.File $ tempAbsPath </> "pools/cold1.skey"
@@ -356,5 +375,7 @@ pool1All tempAbsPath = do
   mPool1VrfKey :: Maybe (C.VerificationKey C.VrfKey) <-
     maybeReadAs (C.AsVerificationKey C.AsVrfKey) pool1VrfKeyFile
   let pool1VrfKeyHash = C.verificationKeyHash (fromJust mPool1VrfKey)
+      C.StakePoolKeyHash pool1StakePoolKeyHash = C.verificationKeyHash pool1VKey
 
-  return (pool1SKey, pool1VKey, pool1VKeyHash, pool1StakeKeyHash, pool1VrfKeyHash)
+  return
+    (pool1SKey, pool1VKey, pool1VKeyHash, pool1StakeKeyHash, pool1VrfKeyHash, pool1StakePoolKeyHash)

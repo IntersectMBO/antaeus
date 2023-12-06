@@ -213,22 +213,25 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
 
   -- generate DRep and staking keys and credentials to use in tests
   let ceo = toConwayEraOnwards $ TN.eraFromOptions options
-  dRep <- liftIO $ generateDRepKeyCredentialsAndCertificate ceo
-  staking <- liftIO $ generateStakeKeyCredentialAndCertificate ceo
-  committee <- liftIO $ generateCommitteeKeysAndCertificate ceo
+  pool1Voter <- TN.pool1Voter ceo tempAbsPath
+  dRep <- generateDRepKeyCredentialsAndCertificate ceo
+  staking <- generateStakeKeyCredentialAndCertificate ceo pool1Voter
+  committee <- generateCommitteeKeysAndCertificate ceo
 
   sequence_
     [ run $ Conway.registerStakingTestInfo staking
     , run $ Conway.registerDRepTestInfo staking dRep
     , run $ Conway.delegateToDRepTestInfo dRep staking
-    , run $ Conway.registerCommitteeTestInfo staking committee
-    , run $ Conway.constitutionProposalAndVoteTestInfo dRep
+    , -- TODO: add test to delegate to stake pool
+      run $ Conway.registerCommitteeTestInfo staking committee
+    , -- TODO: add committee voting to tests
+      run $ Conway.constitutionProposalAndVoteTestInfo dRep
     , run $ Conway.committeeProposalAndVoteTestInfo dRep committee
-    , run $ Conway.noConfidenceProposalAndVoteTestInfo dRep
+    , run $ Conway.noConfidenceProposalAndVoteTestInfo staking dRep
     , run $ Conway.parameterChangeProposalAndVoteTestInfo dRep
-    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo dRep staking
-    , run $ Conway.hardForkProposalAndVoteTestInfo dRep
-    , run $ Conway.infoProposalAndVoteTestInfo dRep
+    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo staking dRep
+    , run $ Conway.hardForkProposalAndVoteTestInfo staking dRep
+    , run $ Conway.infoProposalAndVoteTestInfo staking dRep
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef

@@ -36,7 +36,7 @@ import Helpers.DRep (
   DRep (DRep, dRepKeyHash, dRepRegCert, dRepSKey, dRepVoter),
  )
 import Helpers.Query qualified as Q
-import Helpers.Staking (Staking (Staking, stakeCred, stakeRegCert, stakeSKey))
+import Helpers.Staking (Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey))
 import Helpers.Test (assert, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
@@ -350,6 +350,7 @@ delegateToDRepTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
+constitutionProposalAndVoteTestInfo :: DRep era -> TestInfo era
 constitutionProposalAndVoteTestInfo dRep =
   TestInfo
     { testName = "constitutionProposalAndVoteTest"
@@ -429,7 +430,8 @@ constitutionProposalAndVoteTest
     -- vote on the constituion
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes)] -- SPO not allowed to vote on constitution
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -499,6 +501,7 @@ committeeProposalAndVoteTest
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
     (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1Voter <- TN.pool1Voter (toConwayEraOnwards era) tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -550,7 +553,8 @@ committeeProposalAndVoteTest
     -- vote on the committee
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes), (pool1Voter, C.Yes)]
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -578,19 +582,21 @@ committeeProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check new committee is enacted (will influence future voting)
 
-noConfidenceProposalAndVoteTestInfo dRep =
+noConfidenceProposalAndVoteTestInfo staking dRep =
   TestInfo
     { testName = "noConfidenceProposalAndVoteTest"
     , testDescription = "Propose and vote on a motion of no-confidence"
-    , test = noConfidenceProposalAndVoteTest dRep
+    , test = noConfidenceProposalAndVoteTest staking dRep
     }
 noConfidenceProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
+  => Staking era
+  -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 noConfidenceProposalAndVoteTest
+  Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -645,7 +651,8 @@ noConfidenceProposalAndVoteTest
     -- vote on the motion of no-confidence
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -742,7 +749,8 @@ parameterChangeProposalAndVoteTest
     -- vote on the updated protocol parameters
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -770,22 +778,22 @@ parameterChangeProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check protocol parameter update is enacted
 
-treasuryWithdrawalProposalAndVoteTestInfo dRep staking =
+treasuryWithdrawalProposalAndVoteTestInfo staking dRep =
   TestInfo
     { testName = "treasuryWithdrawalProposalAndVoteTest"
     , testDescription = "Propose and vote on a treasury withdrawal"
-    , test = treasuryWithdrawalProposalAndVoteTest dRep staking
+    , test = treasuryWithdrawalProposalAndVoteTest staking dRep
     }
 treasuryWithdrawalProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
-  -> Staking era
+  => Staking era
+  -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 treasuryWithdrawalProposalAndVoteTest
-  DRep{..}
   Staking{..}
+  DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
@@ -840,7 +848,8 @@ treasuryWithdrawalProposalAndVoteTest
     -- vote on the treasury withdrawal
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -875,19 +884,21 @@ mkProtocolVersionOrErr (majorProtVer, minorProtVer) =
     Nothing ->
       error $ "mkProtocolVersionOrErr: invalid protocol version " <> show (majorProtVer, minorProtVer)
 
-hardForkProposalAndVoteTestInfo dRep =
+hardForkProposalAndVoteTestInfo staking dRep =
   TestInfo
     { testName = "hardForkProposalAndVoteTest"
     , testDescription = "Propose and vote on a hard fork"
-    , test = hardForkProposalAndVoteTest dRep
+    , test = hardForkProposalAndVoteTest staking dRep
     }
 hardForkProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
+  => Staking era
+  -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 hardForkProposalAndVoteTest
+  Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -944,7 +955,8 @@ hardForkProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
@@ -972,19 +984,21 @@ hardForkProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
 
-infoProposalAndVoteTestInfo dRep =
+infoProposalAndVoteTestInfo staking dRep =
   TestInfo
     { testName = "infoProposalAndVoteTest"
     , testDescription = "Propose and vote on an Info action"
-    , test = infoProposalAndVoteTest dRep
+    , test = infoProposalAndVoteTest staking dRep
     }
 infoProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
+  => Staking era
+  -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 infoProposalAndVoteTest
+  Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -1039,7 +1053,8 @@ infoProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 dRepVoter
+        votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
