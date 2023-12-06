@@ -207,7 +207,9 @@ registerStakingTest
         w1StakeRegTxBodyContent
         w1Address
         (Just 2) -- witnesses
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessStakeKey stakeSKey
+        ]
     Tx.submitTx era localNodeConnectInfo signedW1StakeRegTx1
     let expTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
     w1StakeRegResultTxOut <-
@@ -350,26 +352,27 @@ delegateToDRepTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
-constitutionProposalAndVoteTestInfo :: DRep era -> TestInfo era
-constitutionProposalAndVoteTestInfo dRep =
+constitutionProposalAndVoteTestInfo committee dRep =
   TestInfo
     { testName = "constitutionProposalAndVoteTest"
     , testDescription = "Propose and vote on new constitution"
-    , test = constitutionProposalAndVoteTest dRep
+    , test = constitutionProposalAndVoteTest committee dRep
     }
 constitutionProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
+  => Committee era
+  -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 constitutionProposalAndVoteTest
+  Committee{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    (_pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -430,7 +433,7 @@ constitutionProposalAndVoteTest
     -- vote on the constituion
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes)] -- SPO not allowed to vote on constitution
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on constitution
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -440,6 +443,7 @@ constitutionProposalAndVoteTest
             }
 
     let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -449,8 +453,8 @@ constitutionProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
         , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -553,7 +557,7 @@ committeeProposalAndVoteTest
     -- vote on the committee
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes), (pool1Voter, C.Yes)]
+        votes = [(dRepVoter, C.Yes), (pool1Voter, C.Yes)] -- committee member not allowed to vote on committee
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -562,7 +566,7 @@ committeeProposalAndVoteTest
             , C.txOuts = [tx2Out1]
             }
 
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+    let castDrep (C.DRepSigningKey drepSK) = C.PaymentSigningKey drepSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -651,6 +655,7 @@ noConfidenceProposalAndVoteTest
     -- vote on the motion of no-confidence
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        -- committee not allowed to vote on motion of no-confidence
         votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
@@ -680,25 +685,27 @@ noConfidenceProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check motion of no-confidence is enacted
 
-parameterChangeProposalAndVoteTestInfo dRep =
+parameterChangeProposalAndVoteTestInfo committee dRep =
   TestInfo
     { testName = "parameterChangeProposalAndVoteTest"
     , testDescription = "Propose and vote on a change to the protocol parameters"
-    , test = parameterChangeProposalAndVoteTest dRep
+    , test = parameterChangeProposalAndVoteTest committee dRep
     }
 parameterChangeProposalAndVoteTest
   :: (MonadTest m, MonadIO m, L.ConwayEraPParams (C.ShelleyLedgerEra era))
-  => DRep era
+  => Committee era
+  -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 parameterChangeProposalAndVoteTest
+  Committee{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    (_pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -749,7 +756,7 @@ parameterChangeProposalAndVoteTest
     -- vote on the updated protocol parameters
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -759,6 +766,7 @@ parameterChangeProposalAndVoteTest
             }
 
     let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -768,8 +776,8 @@ parameterChangeProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
         , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -778,27 +786,29 @@ parameterChangeProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check protocol parameter update is enacted
 
-treasuryWithdrawalProposalAndVoteTestInfo staking dRep =
+treasuryWithdrawalProposalAndVoteTestInfo committee staking dRep =
   TestInfo
     { testName = "treasuryWithdrawalProposalAndVoteTest"
     , testDescription = "Propose and vote on a treasury withdrawal"
-    , test = treasuryWithdrawalProposalAndVoteTest staking dRep
+    , test = treasuryWithdrawalProposalAndVoteTest committee staking dRep
     }
 treasuryWithdrawalProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
+  => Committee era
+  -> Staking era
   -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 treasuryWithdrawalProposalAndVoteTest
+  Committee{..}
   Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    (_pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -848,7 +858,7 @@ treasuryWithdrawalProposalAndVoteTest
     -- vote on the treasury withdrawal
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -858,6 +868,7 @@ treasuryWithdrawalProposalAndVoteTest
             }
 
     let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -867,8 +878,8 @@ treasuryWithdrawalProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
         , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -884,20 +895,22 @@ mkProtocolVersionOrErr (majorProtVer, minorProtVer) =
     Nothing ->
       error $ "mkProtocolVersionOrErr: invalid protocol version " <> show (majorProtVer, minorProtVer)
 
-hardForkProposalAndVoteTestInfo staking dRep =
+hardForkProposalAndVoteTestInfo committee staking dRep =
   TestInfo
     { testName = "hardForkProposalAndVoteTest"
     , testDescription = "Propose and vote on a hard fork"
-    , test = hardForkProposalAndVoteTest staking dRep
+    , test = hardForkProposalAndVoteTest committee staking dRep
     }
 hardForkProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
+  => Committee era
+  -> Staking era
   -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 hardForkProposalAndVoteTest
+  Committee{..}
   Staking{..}
   DRep{..}
   networkOptions
@@ -955,7 +968,7 @@ hardForkProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -965,6 +978,7 @@ hardForkProposalAndVoteTest
             }
 
     let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -972,10 +986,11 @@ hardForkProposalAndVoteTest
         localNodeConnectInfo
         tx2BodyContent
         w1Address
-        (Just 3) -- witnesses
+        (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey pool1SKey
         , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -984,20 +999,22 @@ hardForkProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
 
-infoProposalAndVoteTestInfo staking dRep =
+infoProposalAndVoteTestInfo committee staking dRep =
   TestInfo
     { testName = "infoProposalAndVoteTest"
     , testDescription = "Propose and vote on an Info action"
-    , test = infoProposalAndVoteTest staking dRep
+    , test = infoProposalAndVoteTest committee staking dRep
     }
 infoProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
+  => Committee era
+  -> Staking era
   -> DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 infoProposalAndVoteTest
+  Committee{..}
   Staking{..}
   DRep{..}
   networkOptions
@@ -1053,7 +1070,7 @@ infoProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -1063,6 +1080,7 @@ infoProposalAndVoteTest
             }
 
     let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -1070,10 +1088,11 @@ infoProposalAndVoteTest
         localNodeConnectInfo
         tx2BodyContent
         w1Address
-        (Just 3) -- witnesses
+        (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey pool1SKey
         , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
