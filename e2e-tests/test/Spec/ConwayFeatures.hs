@@ -33,7 +33,7 @@ import Hedgehog.Internal.Property (MonadTest, (===))
 import Helpers.Committee
 import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
 import Helpers.DRep (
-  DRep (DRep, dRepKeyHash, dRepRegCert, dRepSKey, dRepVoter),
+  DRep (DRep, dRepCred, dRepRegCert, dRepSKey, dRepVoter),
  )
 import Helpers.Query qualified as Q
 import Helpers.Staking (Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey))
@@ -325,9 +325,57 @@ delegateToDRepTest
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      dRepCred = C.DRepCredential $ C.KeyHashObj dRepKeyHash
       dRepDelegatee = C.DelegVote $ C.conwayEraOnwardsConstraints ceo dRepCred
       w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred dRepDelegatee
+      w1StakeDelgCert = C.makeStakeAddressDelegationCertificate w1StakeDelgReqs
+
+      stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      stakeDelegTxBodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
+          , C.txCertificates = Tx.txCertificates era [w1StakeDelgCert] [stakeCred]
+          , C.txOuts = [stakeDelegTxOut]
+          }
+    signedStakeDelegTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        stakeDelegTxBodyContent
+        w1Address
+        (Just 2)
+        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
+    let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
+    stakeDelegResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show stakeDelegResultTxOut
+    success
+
+delegateToStakePoolTestInfo staking =
+  TestInfo
+    { testName = "delegateToStakePoolTest"
+    , testDescription = "Delegate stake to SPO (for staking)"
+    , test = delegateToStakePoolTest staking
+    }
+delegateToStakePoolTest
+  :: (MonadTest m, MonadIO m)
+  => Staking era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+delegateToStakePoolTest
+  Staking{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    pool1StakePoolKeyHash <- TN.pool1StakePoolKeyHash tempAbsPath
+    let ceo = toConwayEraOnwards era
+
+    stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      stakePool1Delegatee = C.DelegStake $ C.conwayEraOnwardsConstraints ceo pool1StakePoolKeyHash
+      w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred stakePool1Delegatee
       w1StakeDelgCert = C.makeStakeAddressDelegationCertificate w1StakeDelgReqs
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address

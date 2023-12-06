@@ -222,9 +222,9 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     [ run $ Conway.registerStakingTestInfo staking
     , run $ Conway.registerDRepTestInfo staking dRep
     , run $ Conway.delegateToDRepTestInfo dRep staking
-    , -- TODO: add test to delegate to stake pool
-      -- TODO: add test to register stake pool
-      run $ Conway.registerCommitteeTestInfo staking committee
+    , -- TODO: add test to register stake pool
+      run $ Conway.delegateToStakePoolTestInfo staking
+    , run $ Conway.registerCommitteeTestInfo staking committee
     , -- TODO: add committee voting to tests
       run $ Conway.constitutionProposalAndVoteTestInfo committee dRep
     , run $ Conway.committeeProposalAndVoteTestInfo dRep committee
