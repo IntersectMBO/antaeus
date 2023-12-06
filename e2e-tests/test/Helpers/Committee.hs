@@ -56,3 +56,6 @@ generateCommitteeKeysAndCertificate ceo = do
       committeeHotSKey
       committeeHotKeyAuthCert
       committeeVoter
+
+castCommittee :: C.SigningKey C.CommitteeHotKey -> C.SigningKey C.PaymentKey
+castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK

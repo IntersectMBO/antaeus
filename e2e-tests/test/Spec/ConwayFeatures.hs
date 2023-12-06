@@ -30,11 +30,9 @@ import GHC.Num (Natural)
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
-import Helpers.Committee
+import Helpers.Committee (Committee (..), castCommittee)
 import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
-import Helpers.DRep (
-  DRep (DRep, dRepCred, dRepRegCert, dRepSKey, dRepVoter),
- )
+import Helpers.DRep (DRep (..), castDrep)
 import Helpers.Query qualified as Q
 import Helpers.Staking (Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey))
 import Helpers.Test (assert, success)
@@ -325,7 +323,7 @@ delegateToDRepTest
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      dRepDelegatee = C.DelegVote $ C.conwayEraOnwardsConstraints ceo dRepCred
+      dRepDelegatee = C.DelegVote $ C.conwayEraOnwardsConstraints ceo dRepLedgerCred
       w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred dRepDelegatee
       w1StakeDelgCert = C.makeStakeAddressDelegationCertificate w1StakeDelgReqs
 
@@ -490,9 +488,6 @@ constitutionProposalAndVoteTest
             , C.txOuts = [tx2Out1]
             }
 
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
-        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
-
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
         era
@@ -614,8 +609,6 @@ committeeProposalAndVoteTest
             , C.txOuts = [tx2Out1]
             }
 
-    let castDrep (C.DRepSigningKey drepSK) = C.PaymentSigningKey drepSK
-
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
         era
@@ -712,8 +705,6 @@ noConfidenceProposalAndVoteTest
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
             }
-
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -813,9 +804,6 @@ parameterChangeProposalAndVoteTest
             , C.txOuts = [tx2Out1]
             }
 
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
-        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
-
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
         era
@@ -914,9 +902,6 @@ treasuryWithdrawalProposalAndVoteTest
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
             }
-
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
-        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
 
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
@@ -1025,9 +1010,6 @@ hardForkProposalAndVoteTest
             , C.txOuts = [tx2Out1]
             }
 
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
-        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
-
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
         era
@@ -1127,9 +1109,6 @@ infoProposalAndVoteTest
             , C.txOuts = [tx2Out1]
             }
 
-    let castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
-        castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
-
     signedTx2 <-
       Tx.buildTxWithWitnessOverride
         era
@@ -1148,6 +1127,56 @@ infoProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
+
+unregisterDRepTestInfo staking drep =
+  TestInfo
+    { testName = "unregisterDRepTest"
+    , testDescription = "Unregister DRep"
+    , test = unregisterDRepTest staking drep
+    }
+unregisterDRepTest
+  :: (MonadTest m, MonadIO m)
+  => Staking era
+  -> DRep era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+unregisterDRepTest
+  Staking{..}
+  DRep{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let ceo = toConwayEraOnwards era
+
+    stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      w1StakeDelgReqs = C.DRepUnregistrationRequirements ceo dRepCred 0
+      dRepUnRegCert = C.makeDrepUnregistrationCertificate w1StakeDelgReqs
+
+      stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      stakeDelegTxBodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
+          , C.txCertificates = Tx.txCertificates era [dRepUnRegCert] [stakeCred]
+          , C.txOuts = [stakeDelegTxOut]
+          }
+
+    signedStakeDelegTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        stakeDelegTxBodyContent
+        w1Address
+        (Just 2)
+        [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey (castDrep dRepSKey)]
+    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
+    let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
+    stakeDelegResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show stakeDelegResultTxOut
+    success
 
 -- TODO: test with script using txInfoCurrentTreasuryAmount (Just and Nothing)
 -- TODO: test with script using txInfoTreasuryDonation (Just and Nothing)

@@ -225,16 +225,15 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , -- TODO: add test to register stake pool
       run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo staking committee
-    , -- TODO: add committee voting to tests
-      run $ Conway.constitutionProposalAndVoteTestInfo committee dRep
+    , run $ Conway.constitutionProposalAndVoteTestInfo committee dRep
     , run $ Conway.committeeProposalAndVoteTestInfo dRep committee
     , run $ Conway.noConfidenceProposalAndVoteTestInfo staking dRep
     , run $ Conway.parameterChangeProposalAndVoteTestInfo committee dRep
     , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee staking dRep
     , run $ Conway.hardForkProposalAndVoteTestInfo committee staking dRep
     , run $ Conway.infoProposalAndVoteTestInfo committee staking dRep
-    -- TODO: add test to deregister drep
-    -- TODO: add test to deregister stake pool
+    , run $ Conway.unregisterDRepTestInfo staking dRep
+    -- TODO: add test to unregister stake pool
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
