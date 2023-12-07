@@ -32,9 +32,12 @@ import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
 import Helpers.Committee (Committee (..), castCommittee)
 import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
-import Helpers.DRep (DRep (..), castDrep)
+import Helpers.DRep (DRep (..), castDRep, stakeDelegateCert)
 import Helpers.Query qualified as Q
-import Helpers.Staking (Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey))
+import Helpers.Staking (
+  Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey, stakeUnregCert),
+  stakeDelegCert,
+ )
 import Helpers.Test (assert, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet (TestnetStakePool (..))
@@ -322,9 +325,7 @@ delegateToDRepTest
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      dRepDelegatee = C.DelegVote $ C.conwayEraOnwardsConstraints ceo dRepLedgerCred
-      w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred dRepDelegatee
-      w1StakeDelgCert = C.makeStakeAddressDelegationCertificate w1StakeDelgReqs
+      w1StakeDelgCert = stakeDelegateCert ceo dRepLedgerCred stakeCred
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
@@ -371,9 +372,7 @@ delegateToStakePoolTest
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     pool1StakePoolKeyHash <- stakePoolPoolKeyHash <$> TN.pool1All tempAbsPath
     let
-      stakePool1Delegatee = C.DelegStake $ C.conwayEraOnwardsConstraints ceo pool1StakePoolKeyHash
-      w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred stakePool1Delegatee
-      w1StakeDelgCert = C.makeStakeAddressDelegationCertificate w1StakeDelgReqs
+      w1StakeDelgCert = stakeDelegCert ceo pool1StakePoolKeyHash stakeCred
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
@@ -495,7 +494,7 @@ constitutionProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -614,7 +613,7 @@ committeeProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (stakePoolSKey pool1)
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -711,7 +710,7 @@ noConfidenceProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (stakePoolSKey pool1)
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -808,7 +807,7 @@ parameterChangeProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -907,7 +906,7 @@ treasuryWithdrawalProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -1015,7 +1014,7 @@ hardForkProposalAndVoteTest
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (stakePoolSKey pool1)
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -1114,7 +1113,7 @@ infoProposalAndVoteTest
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (stakePoolSKey pool1)
-        , C.WitnessPaymentKey (castDrep dRepSKey)
+        , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -1144,31 +1143,71 @@ unregisterDRepTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    let ceo = toConwayEraOnwards era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      w1StakeDelgReqs = C.DRepUnregistrationRequirements ceo dRepCred 0
-      dRepUnRegCert = C.makeDrepUnregistrationCertificate w1StakeDelgReqs
-
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepUnRegCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [dRepUnregCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
           }
 
-    signedStakeDelegTx <-
+    signedDRepUnregTx <-
       Tx.buildTxWithWitnessOverride
         era
         localNodeConnectInfo
         stakeDelegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey (castDrep dRepSKey)]
-    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
-    let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
+        [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey (castDRep dRepSKey)]
+    Tx.submitTx era localNodeConnectInfo signedDRepUnregTx
+    let expTxIn = Tx.txIn (Tx.txId signedDRepUnregTx) 0
+    stakeDelegResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show stakeDelegResultTxOut
+    success
+
+unregisterStakingTestInfo staking =
+  TestInfo
+    { testName = "unregisterStakingTest"
+    , testDescription = "Unregister DRep"
+    , test = unregisterStakingTest staking
+    }
+unregisterStakingTest
+  :: (MonadTest m, MonadIO m)
+  => Staking era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+unregisterStakingTest
+  Staking{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+
+    stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      stakeDelegTxBodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
+          , C.txCertificates = Tx.txCertificates era [stakeUnregCert] [stakeCred]
+          , C.txOuts = [stakeDelegTxOut]
+          }
+
+    signedStakeUnregTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        stakeDelegTxBodyContent
+        w1Address
+        (Just 2)
+        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+    Tx.submitTx era localNodeConnectInfo signedStakeUnregTx
+    let expTxIn = Tx.txIn (Tx.txId signedStakeUnregTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
     H.annotate $ show stakeDelegResultTxOut
@@ -1202,20 +1241,17 @@ retireStakePoolTest
     H.annotate $ show currentEpoch
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    pool1UnregCert <- TN.pool1UnregCert ceo (currentEpoch + 1) tempAbsPath
     let
-      pool1RetireReqs =
-        C.StakePoolRetirementRequirementsConwayOnwards ceo pool1StakeKeyHash (currentEpoch + 1)
-      pool1UnRegCert = C.makeStakePoolRetirementCertificate pool1RetireReqs
-
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [pool1UnRegCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [pool1UnregCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
           }
 
-    signedStakeDelegTx <-
+    signedPoolRetireTx <-
       Tx.buildTxWithWitnessOverride
         era
         localNodeConnectInfo
@@ -1223,8 +1259,8 @@ retireStakePoolTest
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey pool1SKey]
-    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
-    let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
+    Tx.submitTx era localNodeConnectInfo signedPoolRetireTx
+    let expTxIn = Tx.txIn (Tx.txId signedPoolRetireTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
     H.annotate $ show stakeDelegResultTxOut
