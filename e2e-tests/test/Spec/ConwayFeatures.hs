@@ -37,6 +37,7 @@ import Helpers.Query qualified as Q
 import Helpers.Staking (Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey))
 import Helpers.Test (assert, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
+import Helpers.Testnet (TestnetStakePool (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -205,9 +206,7 @@ registerStakingTest
         w1StakeRegTxBodyContent
         w1Address
         (Just 2) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakeKey stakeSKey
-        ]
+        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx era localNodeConnectInfo signedW1StakeRegTx1
     let expTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
     w1StakeRegResultTxOut <-
@@ -367,10 +366,10 @@ delegateToStakePoolTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1StakePoolKeyHash <- TN.pool1StakePoolKeyHash tempAbsPath
     let ceo = toConwayEraOnwards era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    pool1StakePoolKeyHash <- stakePoolPoolKeyHash <$> TN.pool1All tempAbsPath
     let
       stakePool1Delegatee = C.DelegStake $ C.conwayEraOnwardsConstraints ceo pool1StakePoolKeyHash
       w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred stakePool1Delegatee
@@ -418,18 +417,17 @@ constitutionProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (_pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch0 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch0 ++ " should be Epoch0"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch1 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch1"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch1 ++ " should be Epoch1"
+    H.annotate $ show currentEpoch2
 
     -- check no existing constitution hash
     existingConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
@@ -448,6 +446,7 @@ constitutionProposalAndVoteTest
     -- build a transaction to propose the constituion
 
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    pool1KeyHash <- stakePoolKeyHash <$> TN.pool1All tempAbsPath
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
@@ -456,7 +455,7 @@ constitutionProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          pool1KeyHash
           (C.ProposeNewConstitution C.SNothing anchor)
           anchor
 
@@ -505,19 +504,16 @@ constitutionProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
 
-    currentEpoch1' <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch1' ++ " should still be Epoch1"
-
     -- wait for next epoch before asserting for new constitution
-    currentEpoch2 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
-        =<< Q.getCurrentEpoch era localNodeConnectInfo
-
-    H.annotate $ show currentEpoch2 ++ " should be Epoch2"
     currentEpoch3 <-
       Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch3"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch3 ++ " should be Epoch3"
+    H.annotate $ show currentEpoch3
+
+    currentEpoch4 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch4"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch4
 
     -- wait 2 seconds at start of epoch to account for any delay with constitution enactment
     liftIO $ threadDelay 2_000_000
@@ -547,19 +543,19 @@ committeeProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1 <- TN.pool1All tempAbsPath
     pool1Voter <- TN.pool1Voter (toConwayEraOnwards era) tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch3 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch3 ++ " should be Epoch3"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch4 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch4"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch4 ++ " should be Epoch4"
+    H.annotate $ show currentEpoch2
 
     -- build a transaction to propose the new committee
 
@@ -570,14 +566,14 @@ committeeProposalAndVoteTest
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
       prevConstitutionalCommittee = []
-      newConstitutionalCommittee = Map.singleton committeeColdKeyHash (currentEpoch4 + 1)
+      newConstitutionalCommittee = Map.singleton committeeColdKeyHash (currentEpoch2 + 1)
       quorum = 1 % 1
       proposal =
         C.createProposalProcedure
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          (stakePoolKeyHash pool1)
           (C.ProposeNewCommittee C.SNothing prevConstitutionalCommittee newConstitutionalCommittee quorum)
           anchor
 
@@ -617,7 +613,7 @@ committeeProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessStakePoolKey (stakePoolSKey pool1)
         , C.WitnessPaymentKey (castDrep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -647,18 +643,18 @@ noConfidenceProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch5 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch5 ++ " should be Epoch5"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch6 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch6"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch6 ++ " should be Epoch6"
+    H.annotate $ show currentEpoch2
 
     -- build a transaction to propose the motion of no-confidence
 
@@ -673,7 +669,7 @@ noConfidenceProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          (stakePoolKeyHash pool1)
           (C.MotionOfNoConfidence C.SNothing)
           anchor
 
@@ -714,7 +710,7 @@ noConfidenceProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessStakePoolKey (stakePoolSKey pool1)
         , C.WitnessPaymentKey (castDrep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -744,18 +740,18 @@ parameterChangeProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (_pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch7 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch7 ++ " should be Epoch7"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch8 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch8"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch8 ++ " should be Epoch8"
+    H.annotate $ show currentEpoch2
 
     -- build a transaction to propose a change to the protocol parameters
 
@@ -772,7 +768,7 @@ parameterChangeProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          (stakePoolKeyHash pool1)
           (C.UpdatePParams C.SNothing pparamsUpdate)
           anchor
 
@@ -844,18 +840,18 @@ treasuryWithdrawalProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (_pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch9 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch9 ++ " should be Epoch9"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch10 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch10"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch10 ++ " should be Epoch10"
+    H.annotate $ show currentEpoch2
 
     -- build a transaction to propose a treasury withdrawal
 
@@ -871,7 +867,7 @@ treasuryWithdrawalProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          (stakePoolKeyHash pool1)
           (C.TreasuryWithdrawal tWithdrawal)
           anchor
 
@@ -950,18 +946,18 @@ hardForkProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch11 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch11 ++ " should be Epoch11"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch12 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch12"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch12 ++ " should be Epoch12"
+    H.annotate $ show currentEpoch2
 
     -- build a transaction to propose a treasury withdrawal
 
@@ -978,7 +974,7 @@ hardForkProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          (stakePoolKeyHash pool1)
           (C.InitiateHardfork C.SNothing nextPv)
           anchor
 
@@ -1018,7 +1014,7 @@ hardForkProposalAndVoteTest
         w1Address
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessStakePoolKey (stakePoolSKey pool1)
         , C.WitnessPaymentKey (castDrep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
@@ -1051,18 +1047,18 @@ infoProposalAndVoteTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    (pool1SKey, pool1StakeKeyHash) <- TN.pool1 tempAbsPath
+    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
-    currentEpoch13 <- Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch13 ++ " should be Epoch13"
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
 
     -- wait for next epoch to start before proposing governance action
-    currentEpoch14 <-
-      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch14"
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
         =<< Q.getCurrentEpoch era localNodeConnectInfo
-    H.annotate $ show currentEpoch14 ++ " should be Epoch14"
+    H.annotate $ show currentEpoch2
 
     -- build a transaction to propose an Info action
 
@@ -1077,7 +1073,7 @@ infoProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1StakeKeyHash
+          (stakePoolKeyHash pool1)
           C.InfoAct
           anchor
 
@@ -1117,7 +1113,7 @@ infoProposalAndVoteTest
         w1Address
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey pool1SKey
+        , C.WitnessStakePoolKey (stakePoolSKey pool1)
         , C.WitnessPaymentKey (castDrep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
@@ -1171,6 +1167,62 @@ unregisterDRepTest
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey (castDrep dRepSKey)]
+    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
+    let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
+    stakeDelegResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show stakeDelegResultTxOut
+    success
+
+retireStakePoolTestInfo staking =
+  TestInfo
+    { testName = "retireStakePoolTestInfo"
+    , testDescription = "Retire stake pool"
+    , test = retireStakePoolTest staking
+    }
+retireStakePoolTest
+  :: (MonadTest m, MonadIO m)
+  => Staking era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+retireStakePoolTest
+  Staking{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    pool1SKey <- stakePoolSKey <$> TN.pool1All tempAbsPath
+    pool1StakeKeyHash <- stakePoolVKeyHash <$> TN.pool1All tempAbsPath
+    H.annotate $ show pool1StakeKeyHash
+    let ceo = toConwayEraOnwards era
+    H.annotate $ show pool1StakeKeyHash
+
+    currentEpoch <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch
+
+    stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      pool1RetireReqs =
+        C.StakePoolRetirementRequirementsConwayOnwards ceo pool1StakeKeyHash (currentEpoch + 1)
+      pool1UnRegCert = C.makeStakePoolRetirementCertificate pool1RetireReqs
+
+      stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      stakeDelegTxBodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
+          , C.txCertificates = Tx.txCertificates era [pool1UnRegCert] [stakeCred]
+          , C.txOuts = [stakeDelegTxOut]
+          }
+
+    signedStakeDelegTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        stakeDelegTxBodyContent
+        w1Address
+        (Just 2)
+        [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey pool1SKey]
     Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
     stakeDelegResultTxOut <-
