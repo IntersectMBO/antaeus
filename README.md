@@ -3,7 +3,6 @@
   <h2>Antaeus</h2>
 </div>
 
-
 Antaeus is a framework for end-to-end testing Cardano Haskell APIs. It leverages [cardano-testnet](https://github.com/input-output-hk/cardano-node/tree/master/cardano-testnet) to configure and launch a local Cardano testnet, and [cardano-api](https://github.com/input-output-hk/cardano-node/tree/master/cardano-api) to build transactions and query the ledger state. The primary focus of these tests is on functionality involving Plutus scripts.
 
 
