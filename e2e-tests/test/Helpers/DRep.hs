@@ -14,6 +14,7 @@ data DRep era = DRep
   , dRepCred :: C.Credential 'C.DRepRole (C.EraCrypto (C.ShelleyLedgerEra era))
   , dRepLedgerCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
   , dRepRegCert :: C.Certificate era
+  , dRepUnregCert :: C.Certificate era
   , dRepVoter :: Voter (C.EraCrypto (C.ShelleyLedgerEra era))
   }
   deriving (Show)
@@ -30,9 +31,27 @@ generateDRepKeyCredentialsAndCertificate ceo = do
     dRepDeposit = C.Lovelace 0 -- dRepDeposit
     dRepRegReqs = C.DRepRegistrationRequirements ceo dRepVotingCredential dRepDeposit
     dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
+    dRepUnregReqs = C.DRepUnregistrationRequirements ceo dRepVotingCredential 0
+    dRepUnregCert = C.makeDrepUnregistrationCertificate dRepUnregReqs
     dRepVoter = C.DRepVoter dRepVotingCredential
   return $
-    DRep dRepSkey dRepVotingCredential (C.DRepCredential dRepVotingCredential) dRepRegCert dRepVoter
+    DRep
+      dRepSkey
+      dRepVotingCredential
+      (C.DRepCredential dRepVotingCredential)
+      dRepRegCert
+      dRepUnregCert
+      dRepVoter
 
-castDrep :: C.SigningKey C.DRepKey -> C.SigningKey C.PaymentKey
-castDrep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+castDRep :: C.SigningKey C.DRepKey -> C.SigningKey C.PaymentKey
+castDRep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
+
+stakeDelegateCert
+  :: C.ConwayEraOnwards era
+  -> C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
+  -> C.StakeCredential
+  -> C.Certificate era
+stakeDelegateCert ceo dRepLedgerCred stakeCred = do
+  let dRepDelegatee = C.DelegVote $ C.conwayEraOnwardsConstraints ceo dRepLedgerCred
+      w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred dRepDelegatee
+  C.makeStakeAddressDelegationCertificate w1StakeDelgReqs

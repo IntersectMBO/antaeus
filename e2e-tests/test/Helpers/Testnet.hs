@@ -33,6 +33,7 @@ import System.Directory qualified as IO
 import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
 
+import Cardano.Api (ConwayEraOnwards)
 import Cardano.Api.Ledger (
   Credential (KeyHashObj),
   EraCrypto,
@@ -339,15 +340,6 @@ data TestnetStakePool = TestnetStakePool
   }
   deriving (Show)
 
-pool1Voter
-  :: (MonadIO m, MonadTest m)
-  => C.ConwayEraOnwards era
-  -> FilePath
-  -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
-pool1Voter ceo tempAbsPath =
-  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo . stakePoolPoolKeyHash
-    =<< pool1All tempAbsPath
-
 pool1All
   :: (MonadIO m, MonadTest m)
   => FilePath
@@ -383,3 +375,19 @@ pool1All tempAbsPath = do
       pool1StakeKeyHash
       pool1VrfKeyHash
       pool1StakePoolKeyHash
+
+pool1UnregCert
+  :: (MonadIO m, MonadTest m) => ConwayEraOnwards era -> C.EpochNo -> FilePath -> m (C.Certificate era)
+pool1UnregCert ceo epochNo tempAbsPath = do
+  pool1Data <- pool1All tempAbsPath
+  let retireReqs = C.StakePoolRetirementRequirementsConwayOnwards ceo (stakePoolVKeyHash pool1Data) epochNo
+  pure $ C.makeStakePoolRetirementCertificate retireReqs
+
+pool1Voter
+  :: (MonadIO m, MonadTest m)
+  => C.ConwayEraOnwards era
+  -> FilePath
+  -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
+pool1Voter ceo tempAbsPath =
+  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo . stakePoolPoolKeyHash
+    =<< pool1All tempAbsPath
