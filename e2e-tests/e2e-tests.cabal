@@ -116,6 +116,7 @@ test-suite antaeus-test
     Helpers.Error
     Helpers.Query
     Helpers.ScriptUtils
+    Helpers.StakePool
     Helpers.Staking
     Helpers.Test
     Helpers.TestData

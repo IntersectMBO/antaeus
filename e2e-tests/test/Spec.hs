@@ -17,6 +17,7 @@ import Hedgehog qualified as H
 import Helpers.Committee (generateCommitteeKeysAndCertificate)
 import Helpers.Common (toConwayEraOnwards)
 import Helpers.DRep (generateDRepKeyCredentialsAndCertificate)
+import Helpers.StakePool (generateStakePoolKeyCredentialsAndCertificate)
 import Helpers.Staking (generateStakeKeyCredentialAndCertificate)
 import Helpers.Test (integrationRetryWorkspace, runTest)
 import Helpers.TestData (TestParams (..))
@@ -213,28 +214,29 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
 
   -- generate DRep and staking keys and credentials to use in tests
   let ceo = toConwayEraOnwards $ TN.eraFromOptions options
-  pool1Voter <- TN.pool1Voter ceo tempAbsPath
+  -- pool1Voter <- TN.pool1Voter ceo tempAbsPath -- to be replaced with newly registered pool
+  stakePool <- generateStakePoolKeyCredentialsAndCertificate ceo networkId
   dRep <- generateDRepKeyCredentialsAndCertificate ceo
-  staking <- generateStakeKeyCredentialAndCertificate ceo pool1Voter
+  staking <- generateStakeKeyCredentialAndCertificate ceo stakePool
   committee <- generateCommitteeKeysAndCertificate ceo
 
   sequence_
-    [ run $ Conway.registerStakingTestInfo staking
-    , run $ Conway.registerDRepTestInfo staking dRep
+    [ run $ Conway.registerStakePoolTestInfo stakePool
+    , run $ Conway.registerStakingTestInfo staking
+    , run $ Conway.registerDRepTestInfo dRep
     , run $ Conway.delegateToDRepTestInfo dRep staking
-    , -- TODO: add test to register stake pool
-      run $ Conway.delegateToStakePoolTestInfo staking
-    , run $ Conway.registerCommitteeTestInfo staking committee
-    , run $ Conway.constitutionProposalAndVoteTestInfo committee dRep
-    , run $ Conway.committeeProposalAndVoteTestInfo dRep committee
-    , run $ Conway.noConfidenceProposalAndVoteTestInfo staking dRep
-    , run $ Conway.parameterChangeProposalAndVoteTestInfo committee dRep
-    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee staking dRep
-    , run $ Conway.hardForkProposalAndVoteTestInfo committee staking dRep
-    , run $ Conway.infoProposalAndVoteTestInfo committee staking dRep
-    , run $ Conway.unregisterDRepTestInfo staking dRep
+    , run $ Conway.delegateToStakePoolTestInfo staking
+    , run $ Conway.registerCommitteeTestInfo committee
+    , run $ Conway.constitutionProposalAndVoteTestInfo committee dRep staking
+    , run $ Conway.committeeProposalAndVoteTestInfo committee dRep staking
+    , run $ Conway.noConfidenceProposalAndVoteTestInfo dRep staking
+    , run $ Conway.parameterChangeProposalAndVoteTestInfo committee dRep staking
+    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee dRep staking
+    , run $ Conway.hardForkProposalAndVoteTestInfo committee dRep staking
+    , run $ Conway.infoProposalAndVoteTestInfo committee dRep staking
+    , run $ Conway.unregisterDRepTestInfo dRep
     , run $ Conway.unregisterStakingTestInfo staking
-    , run $ Conway.retireStakePoolTestInfo staking
+    , run $ Conway.retireStakePoolTestInfo stakePool
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef

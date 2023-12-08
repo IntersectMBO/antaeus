@@ -32,15 +32,15 @@ import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
 import Helpers.Committee (Committee (..), castCommittee)
 import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
-import Helpers.DRep (DRep (..), castDRep, stakeDelegateCert)
+import Helpers.DRep (DRep (..), castDRep, voteDelegateCert)
 import Helpers.Query qualified as Q
+import Helpers.StakePool (StakePool (..), makeStakePoolRetireCertification)
 import Helpers.Staking (
-  Staking (Staking, stakeCred, stakePoolVoter, stakeRegCert, stakeSKey, stakeUnregCert),
+  Staking (Staking, stakeCred, stakeDelegationPool, stakeRegCert, stakeSKey, stakeUnregCert),
   stakeDelegCert,
  )
 import Helpers.Test (assert, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
-import Helpers.Testnet (TestnetStakePool (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
@@ -173,6 +173,49 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
   assert "txOut has tokens" txOutHasTokenValue
 
+registerStakePoolTestInfo stakePool =
+  TestInfo
+    { testName = "registerStakePoolTest"
+    , testDescription = "Register a stake pool (for voting)"
+    , test = registerStakePoolTest stakePool
+    }
+registerStakePoolTest
+  :: (MonadTest m, MonadIO m)
+  => StakePool era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+registerStakePoolTest
+  StakePool{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+
+    sPRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      regSPTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      regSPTxBodyContent =
+        (Tx.emptyTxBodyContent era pparams)
+          { C.txIns = Tx.pubkeyTxIns [sPRegTxIn]
+          , C.txCertificates = Tx.txCertificates era [sPRegCert] [sPStakeCred]
+          , C.txOuts = [regSPTxOut]
+          }
+    signedRegSPTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        regSPTxBodyContent
+        w1Address
+        (Just 3)
+        [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey sPSKey, C.WitnessStakeKey sPRewardKey]
+    Tx.submitTx era localNodeConnectInfo signedRegSPTx
+    let expTxIn = Tx.txIn (Tx.txId signedRegSPTx) 0
+    regDRepResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show regDRepResultTxOut
+    success
+
 registerStakingTestInfo staking =
   TestInfo
     { testName = "registerStakingTest"
@@ -217,21 +260,19 @@ registerStakingTest
     H.annotate $ show w1StakeRegResultTxOut
     success
 
-registerDRepTestInfo staking dRep =
+registerDRepTestInfo dRep =
   TestInfo
     { testName = "registerDRepTest"
     , testDescription = "Register a DRep address (for voting)"
-    , test = registerDRepTest staking dRep
+    , test = registerDRepTest dRep
     }
 registerDRepTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
-  -> DRep era
+  => DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 registerDRepTest
-  Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -244,7 +285,7 @@ registerDRepTest
       regDRepTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepRegCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
           , C.txOuts = [regDRepTxOut]
           }
     signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
@@ -255,21 +296,19 @@ registerDRepTest
     H.annotate $ show regDRepResultTxOut
     success
 
-registerCommitteeTestInfo staking committee =
+registerCommitteeTestInfo committee =
   TestInfo
     { testName = "registerCommitteeTest"
     , testDescription = "Register a committee member (for voting)"
-    , test = registerCommitteeTest staking committee
+    , test = registerCommitteeTest committee
     }
 registerCommitteeTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
-  -> Committee era
+  => Committee era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 registerCommitteeTest
-  Staking{..}
   Committee{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -283,7 +322,7 @@ registerCommitteeTest
       committeeRegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [committeeRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] []
           , C.txOuts = [committeeRegTxOut]
           }
     signedCommitteeRegTx <-
@@ -325,13 +364,13 @@ delegateToDRepTest
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      w1StakeDelgCert = stakeDelegateCert ceo dRepLedgerCred stakeCred
+      voteDelgCert = voteDelegateCert ceo dRepLedgerCred stakeCred
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [w1StakeDelgCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [voteDelgCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
           }
     signedStakeDelegTx <-
@@ -370,9 +409,8 @@ delegateToStakePoolTest
     let ceo = toConwayEraOnwards era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    pool1StakePoolKeyHash <- stakePoolPoolKeyHash <$> TN.pool1All tempAbsPath
     let
-      w1StakeDelgCert = stakeDelegCert ceo pool1StakePoolKeyHash stakeCred
+      w1StakeDelgCert = stakeDelegCert ceo (sPLedgerKeyHash stakeDelegationPool) stakeCred
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
@@ -396,22 +434,24 @@ delegateToStakePoolTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
-constitutionProposalAndVoteTestInfo committee dRep =
+constitutionProposalAndVoteTestInfo committee dRep staking =
   TestInfo
     { testName = "constitutionProposalAndVoteTest"
     , testDescription = "Propose and vote on new constitution"
-    , test = constitutionProposalAndVoteTest committee dRep
+    , test = constitutionProposalAndVoteTest committee dRep staking
     }
 constitutionProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => Committee era
   -> DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 constitutionProposalAndVoteTest
   Committee{..}
   DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
@@ -445,7 +485,6 @@ constitutionProposalAndVoteTest
     -- build a transaction to propose the constituion
 
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    pool1KeyHash <- stakePoolKeyHash <$> TN.pool1All tempAbsPath
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
@@ -454,7 +493,7 @@ constitutionProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          pool1KeyHash
+          (sPStakeKeyHash stakeDelegationPool)
           (C.ProposeNewConstitution C.SNothing anchor)
           anchor
 
@@ -522,28 +561,28 @@ constitutionProposalAndVoteTest
     constituionHash === newConstitutionHash -- debug assertion
     assert "expected constitution hash matches query result" (constituionHash == newConstitutionHash)
 
-committeeProposalAndVoteTestInfo dRep committee =
+committeeProposalAndVoteTestInfo committee dRep staking =
   TestInfo
     { testName = "committeeProposalAndVoteTest"
     , testDescription = "Propose and vote on new constitutional committee"
-    , test = committeeProposalAndVoteTest dRep committee
+    , test = committeeProposalAndVoteTest committee dRep staking
     }
 committeeProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => DRep era
-  -> Committee era
+  => Committee era
+  -> DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 committeeProposalAndVoteTest
-  DRep{..}
   Committee{..}
+  DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1 <- TN.pool1All tempAbsPath
-    pool1Voter <- TN.pool1Voter (toConwayEraOnwards era) tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -572,7 +611,7 @@ committeeProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (stakePoolKeyHash pool1)
+          (sPStakeKeyHash stakeDelegationPool)
           (C.ProposeNewCommittee C.SNothing prevConstitutionalCommittee newConstitutionalCommittee quorum)
           anchor
 
@@ -595,7 +634,8 @@ committeeProposalAndVoteTest
     -- vote on the committee
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(dRepVoter, C.Yes), (pool1Voter, C.Yes)] -- committee member not allowed to vote on committee
+        -- committee member not allowed to vote on committee update
+        votes = [(dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -612,7 +652,7 @@ committeeProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey (stakePoolSKey pool1)
+        , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (castDRep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -622,27 +662,26 @@ committeeProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check new committee is enacted (will influence future voting)
 
-noConfidenceProposalAndVoteTestInfo staking dRep =
+noConfidenceProposalAndVoteTestInfo dRep staking =
   TestInfo
     { testName = "noConfidenceProposalAndVoteTest"
     , testDescription = "Propose and vote on a motion of no-confidence"
-    , test = noConfidenceProposalAndVoteTest staking dRep
+    , test = noConfidenceProposalAndVoteTest dRep staking
     }
 noConfidenceProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
-  -> DRep era
+  => DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 noConfidenceProposalAndVoteTest
-  Staking{..}
   DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -668,7 +707,7 @@ noConfidenceProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (stakePoolKeyHash pool1)
+          (sPStakeKeyHash stakeDelegationPool)
           (C.MotionOfNoConfidence C.SNothing)
           anchor
 
@@ -692,7 +731,7 @@ noConfidenceProposalAndVoteTest
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
         -- committee not allowed to vote on motion of no-confidence
-        votes = [(dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votes = [(dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -709,7 +748,7 @@ noConfidenceProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey (stakePoolSKey pool1)
+        , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (castDRep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
@@ -719,27 +758,28 @@ noConfidenceProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check motion of no-confidence is enacted
 
-parameterChangeProposalAndVoteTestInfo committee dRep =
+parameterChangeProposalAndVoteTestInfo committee dRep staking =
   TestInfo
     { testName = "parameterChangeProposalAndVoteTest"
     , testDescription = "Propose and vote on a change to the protocol parameters"
-    , test = parameterChangeProposalAndVoteTest committee dRep
+    , test = parameterChangeProposalAndVoteTest committee dRep staking
     }
 parameterChangeProposalAndVoteTest
   :: (MonadTest m, MonadIO m, L.ConwayEraPParams (C.ShelleyLedgerEra era))
   => Committee era
   -> DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 parameterChangeProposalAndVoteTest
   Committee{..}
   DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -767,7 +807,7 @@ parameterChangeProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (stakePoolKeyHash pool1)
+          (sPStakeKeyHash stakeDelegationPool)
           (C.UpdatePParams C.SNothing pparamsUpdate)
           anchor
 
@@ -817,29 +857,28 @@ parameterChangeProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check protocol parameter update is enacted
 
-treasuryWithdrawalProposalAndVoteTestInfo committee staking dRep =
+treasuryWithdrawalProposalAndVoteTestInfo committee dRep staking =
   TestInfo
     { testName = "treasuryWithdrawalProposalAndVoteTest"
     , testDescription = "Propose and vote on a treasury withdrawal"
-    , test = treasuryWithdrawalProposalAndVoteTest committee staking dRep
+    , test = treasuryWithdrawalProposalAndVoteTest committee dRep staking
     }
 treasuryWithdrawalProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => Committee era
-  -> Staking era
   -> DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 treasuryWithdrawalProposalAndVoteTest
   Committee{..}
-  Staking{..}
   DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -866,7 +905,7 @@ treasuryWithdrawalProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (stakePoolKeyHash pool1)
+          (sPStakeKeyHash stakeDelegationPool)
           (C.TreasuryWithdrawal tWithdrawal)
           anchor
 
@@ -923,29 +962,28 @@ mkProtocolVersionOrErr (majorProtVer, minorProtVer) =
     Nothing ->
       error $ "mkProtocolVersionOrErr: invalid protocol version " <> show (majorProtVer, minorProtVer)
 
-hardForkProposalAndVoteTestInfo committee staking dRep =
+hardForkProposalAndVoteTestInfo committee dRep staking =
   TestInfo
     { testName = "hardForkProposalAndVoteTest"
     , testDescription = "Propose and vote on a hard fork"
-    , test = hardForkProposalAndVoteTest committee staking dRep
+    , test = hardForkProposalAndVoteTest committee dRep staking
     }
 hardForkProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => Committee era
-  -> Staking era
   -> DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 hardForkProposalAndVoteTest
   Committee{..}
-  Staking{..}
   DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -973,7 +1011,7 @@ hardForkProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (stakePoolKeyHash pool1)
+          (sPStakeKeyHash stakeDelegationPool)
           (C.InitiateHardfork C.SNothing nextPv)
           anchor
 
@@ -996,7 +1034,7 @@ hardForkProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -1013,7 +1051,7 @@ hardForkProposalAndVoteTest
         w1Address
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey (stakePoolSKey pool1)
+        , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
@@ -1024,29 +1062,28 @@ hardForkProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
 
-infoProposalAndVoteTestInfo committee staking dRep =
+infoProposalAndVoteTestInfo committee dRep staking =
   TestInfo
     { testName = "infoProposalAndVoteTest"
     , testDescription = "Propose and vote on an Info action"
-    , test = infoProposalAndVoteTest committee staking dRep
+    , test = infoProposalAndVoteTest committee dRep staking
     }
 infoProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => Committee era
-  -> Staking era
   -> DRep era
+  -> Staking era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 infoProposalAndVoteTest
   Committee{..}
-  Staking{..}
   DRep{..}
+  Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1 <- TN.pool1All tempAbsPath
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -1072,7 +1109,7 @@ infoProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (stakePoolKeyHash pool1)
+          (sPStakeKeyHash stakeDelegationPool)
           C.InfoAct
           anchor
 
@@ -1095,7 +1132,7 @@ infoProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (stakePoolVoter, C.Yes)]
+        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent era pparams)
@@ -1112,7 +1149,7 @@ infoProposalAndVoteTest
         w1Address
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessStakePoolKey (stakePoolSKey pool1)
+        , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (castDRep dRepSKey)
         , C.WitnessPaymentKey (castCommittee committeeHotSKey)
         ]
@@ -1123,21 +1160,19 @@ infoProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
 
-unregisterDRepTestInfo staking drep =
+unregisterDRepTestInfo drep =
   TestInfo
     { testName = "unregisterDRepTest"
     , testDescription = "Unregister DRep"
-    , test = unregisterDRepTest staking drep
+    , test = unregisterDRepTest drep
     }
 unregisterDRepTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
-  -> DRep era
+  => DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 unregisterDRepTest
-  Staking{..}
   DRep{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -1150,7 +1185,7 @@ unregisterDRepTest
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepUnregCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [dRepUnregCert] []
           , C.txOuts = [stakeDelegTxOut]
           }
 
@@ -1213,41 +1248,37 @@ unregisterStakingTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
-retireStakePoolTestInfo staking =
+retireStakePoolTestInfo stakePool =
   TestInfo
     { testName = "retireStakePoolTestInfo"
     , testDescription = "Retire stake pool"
-    , test = retireStakePoolTest staking
+    , test = retireStakePoolTest stakePool
     }
 retireStakePoolTest
   :: (MonadTest m, MonadIO m)
-  => Staking era
+  => StakePool era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
 retireStakePoolTest
-  Staking{..}
+  stakePool@StakePool{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    pool1SKey <- stakePoolSKey <$> TN.pool1All tempAbsPath
-    pool1StakeKeyHash <- stakePoolVKeyHash <$> TN.pool1All tempAbsPath
-    H.annotate $ show pool1StakeKeyHash
     let ceo = toConwayEraOnwards era
-    H.annotate $ show pool1StakeKeyHash
 
     currentEpoch <- Q.getCurrentEpoch era localNodeConnectInfo
     H.annotate $ show currentEpoch
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    pool1UnregCert <- TN.pool1UnregCert ceo (currentEpoch + 1) tempAbsPath
     let
+      retireSPCert = makeStakePoolRetireCertification ceo stakePool (currentEpoch + 1)
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [pool1UnregCert] [stakeCred]
+          , C.txCertificates = Tx.txCertificates era [retireSPCert] [sPStakeCred]
           , C.txOuts = [stakeDelegTxOut]
           }
 
@@ -1258,7 +1289,7 @@ retireStakePoolTest
         stakeDelegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey pool1SKey]
+        [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey sPSKey]
     Tx.submitTx era localNodeConnectInfo signedPoolRetireTx
     let expTxIn = Tx.txIn (Tx.txId signedPoolRetireTx) 0
     stakeDelegResultTxOut <-
