@@ -4,9 +4,8 @@
 module Helpers.Committee where
 
 import Cardano.Api qualified as C
-import Cardano.Api.Ledger (Voter)
 import Cardano.Api.Ledger qualified as C
-import Cardano.Api.Shelley qualified as C
+import Cardano.Api.Shelley qualified as C hiding (Voter)
 import Cardano.Ledger.Keys qualified as Keys
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
@@ -16,7 +15,7 @@ data Committee era = Committee
   , committeeColdKeyHash :: C.Hash C.CommitteeColdKey
   , committeeHotSKey :: C.SigningKey C.CommitteeHotKey
   , committeeHotKeyAuthCert :: C.Certificate era
-  , committeeVoter :: Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+  , committeeVoter :: C.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
   }
   deriving (Show)
 

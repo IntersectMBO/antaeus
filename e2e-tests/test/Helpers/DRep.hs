@@ -4,9 +4,8 @@
 module Helpers.DRep where
 
 import Cardano.Api qualified as C
-import Cardano.Api.Ledger (Voter)
 import Cardano.Api.Ledger qualified as C
-import Cardano.Api.Shelley qualified as C
+import Cardano.Api.Shelley qualified as C hiding (Voter)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 data DRep era = DRep
@@ -15,7 +14,7 @@ data DRep era = DRep
   , dRepLedgerCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
   , dRepRegCert :: C.Certificate era
   , dRepUnregCert :: C.Certificate era
-  , dRepVoter :: Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+  , dRepVoter :: C.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
   }
   deriving (Show)
 
@@ -26,6 +25,7 @@ generateDRepKeyCredentialsAndCertificate
 generateDRepKeyCredentialsAndCertificate ceo = do
   dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
   let
+    -- TODO: also support DRepScriptHash, DRepAlwaysAbstain and DRepAlwaysNoConfidence
     C.DRepKeyHash dRepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
     dRepVotingCredential = C.conwayEraOnwardsConstraints ceo $ C.KeyHashObj dRepKeyHash
     dRepDeposit = C.Lovelace 0 -- dRepDeposit
@@ -46,12 +46,12 @@ generateDRepKeyCredentialsAndCertificate ceo = do
 castDRep :: C.SigningKey C.DRepKey -> C.SigningKey C.PaymentKey
 castDRep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
 
-stakeDelegateCert
+voteDelegateCert
   :: C.ConwayEraOnwards era
   -> C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
   -> C.StakeCredential
   -> C.Certificate era
-stakeDelegateCert ceo dRepLedgerCred stakeCred = do
+voteDelegateCert ceo dRepLedgerCred stakeCred = do
   let dRepDelegatee = C.DelegVote $ C.conwayEraOnwardsConstraints ceo dRepLedgerCred
       w1StakeDelgReqs = C.StakeDelegationRequirementsConwayOnwards ceo stakeCred dRepDelegatee
   C.makeStakeAddressDelegationCertificate w1StakeDelgReqs
