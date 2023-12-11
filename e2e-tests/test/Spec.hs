@@ -16,7 +16,10 @@ import GHC.IORef (newIORef)
 import Hedgehog qualified as H
 import Helpers.Committee (generateCommitteeKeysAndCertificate)
 import Helpers.Common (toConwayEraOnwards)
-import Helpers.DRep (generateDRepKeyCredentialsAndCertificate)
+import Helpers.DRep (
+  generateDRepKeyCredentialsAndCertificate,
+  produceDRepScriptCredentialsAndCertificate,
+ )
 import Helpers.StakePool (generateStakePoolKeyCredentialsAndCertificate)
 import Helpers.Staking (generateStakeKeyCredentialAndCertificate)
 import Helpers.Test (integrationRetryWorkspace, runTest)
@@ -30,6 +33,7 @@ import Helpers.TestResults (
  )
 import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
+import PlutusScripts.Always.V_1_0 (alwaysSucceedSpendScriptHashV2)
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins as Builtins
@@ -216,27 +220,33 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
   let ceo = toConwayEraOnwards $ TN.eraFromOptions options
   -- pool1Voter <- TN.pool1Voter ceo tempAbsPath -- to be replaced with newly registered pool
   stakePool <- generateStakePoolKeyCredentialsAndCertificate ceo networkId
-  dRep <- generateDRepKeyCredentialsAndCertificate ceo
+  keyDRep <- generateDRepKeyCredentialsAndCertificate ceo
+  scriptDRep <- produceDRepScriptCredentialsAndCertificate ceo alwaysSucceedSpendScriptHashV2
   staking <- generateStakeKeyCredentialAndCertificate ceo stakePool
   committee <- generateCommitteeKeysAndCertificate ceo
 
   sequence_
     [ run $ Conway.registerStakePoolTestInfo stakePool
     , run $ Conway.registerStakingTestInfo staking
-    , run $ Conway.registerDRepTestInfo dRep
-    , run $ Conway.delegateToDRepTestInfo dRep staking
+    , run $ Conway.registerDRepTestInfo keyDRep
+    , run $ Conway.registerDRepTestInfo scriptDRep
+    , run $ Conway.delegateToDRepTestInfo keyDRep staking
+    , run $ Conway.delegateToDRepTestInfo scriptDRep staking
     , run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo committee
-    , run $ Conway.constitutionProposalAndVoteTestInfo committee dRep staking
-    , run $ Conway.committeeProposalAndVoteTestInfo committee dRep staking
-    , run $ Conway.noConfidenceProposalAndVoteTestInfo dRep staking
-    , run $ Conway.parameterChangeProposalAndVoteTestInfo committee dRep staking
-    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee dRep staking
-    , run $ Conway.hardForkProposalAndVoteTestInfo committee dRep staking
-    , run $ Conway.infoProposalAndVoteTestInfo committee dRep staking
-    , run $ Conway.unregisterDRepTestInfo dRep
-    , run $ Conway.unregisterStakingTestInfo staking
+    , -- TODO: at tests for voting as script DRep
+      run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep staking
+    , run $ Conway.committeeProposalAndVoteTestInfo committee keyDRep staking
+    , run $ Conway.noConfidenceProposalAndVoteTestInfo keyDRep staking
+    , run $ Conway.parameterChangeProposalAndVoteTestInfo committee keyDRep staking
+    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee keyDRep staking
+    , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
+    , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
+    , run $ Conway.unregisterDRepTestInfo keyDRep
+    , -- , run $ Conway.unregisterDRepTestInfo scriptDRep -- TODO: use script witness to enable test
+      run $ Conway.unregisterStakingTestInfo staking
     , run $ Conway.retireStakePoolTestInfo stakePool
+    -- TODO: test vote rejection with script evaluation failure
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
