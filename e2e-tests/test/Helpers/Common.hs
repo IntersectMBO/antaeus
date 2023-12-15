@@ -1,9 +1,21 @@
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Helpers.Common where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
+import Helpers.DRep qualified as DRep
+
+data KeyOrScript a = Key a | Script a
+
+instance Show (KeyOrScript (DRep.DRep era)) where
+  show (Key DRep.KeyDRep{}) = "key"
+  show (Script DRep.ScriptDRep{}) = "script"
+
+showKeyOrScript :: DRep.DRep era -> String
+showKeyOrScript kDRep@DRep.KeyDRep{} = show $ Key kDRep
+showKeyOrScript sDRep@DRep.ScriptDRep{} = show $ Script sDRep
 
 toShelleyBasedEra :: C.CardanoEra era -> C.ShelleyBasedEra era
 toShelleyBasedEra era =

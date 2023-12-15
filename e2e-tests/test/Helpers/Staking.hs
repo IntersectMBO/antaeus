@@ -4,7 +4,6 @@
 module Helpers.Staking where
 
 import Cardano.Api qualified as C
-import Cardano.Api.Ledger (KeyHash, KeyRole (StakePool), StandardCrypto)
 import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -36,7 +35,7 @@ generateStakeKeyCredentialAndCertificate ceo stakePool = do
 
 stakeDelegCert
   :: C.ConwayEraOnwards era
-  -> KeyHash 'StakePool StandardCrypto
+  -> C.KeyHash 'C.StakePool C.StandardCrypto
   -> C.StakeCredential
   -> C.Certificate era
 stakeDelegCert ceo stakePoolKeyHash stakeCred = do

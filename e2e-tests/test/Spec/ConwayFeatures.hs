@@ -30,9 +30,11 @@ import GHC.Num (Natural)
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as H
 import Hedgehog.Internal.Property (MonadTest, (===))
-import Helpers.Committee (Committee (..), castCommittee)
-import Helpers.Common (toConwayEraOnwards, toShelleyBasedEra)
-import Helpers.DRep (DRep (..), castDRep, voteDelegateCert)
+import Helpers.Committee (Committee (..))
+import Helpers.Committee qualified as CC
+import Helpers.Common (showKeyOrScript, toConwayEraOnwards, toShelleyBasedEra)
+import Helpers.DRep (DRep (..))
+import Helpers.DRep qualified as DRep
 import Helpers.Query qualified as Q
 import Helpers.StakePool (StakePool (..), makeStakePoolRetireCertification)
 import Helpers.Staking (
@@ -260,10 +262,11 @@ registerStakingTest
     H.annotate $ show w1StakeRegResultTxOut
     success
 
+registerDRepTestInfo :: DRep era -> TestInfo era
 registerDRepTestInfo dRep =
   TestInfo
-    { testName = "registerDRepTest"
-    , testDescription = "Register a DRep address (for voting)"
+    { testName = "registerDRepTest (" ++ showKeyOrScript dRep ++ ")"
+    , testDescription = "Register a " ++ showKeyOrScript dRep ++ " DRep (for voting)"
     , test = registerDRepTest dRep
     }
 registerDRepTest
@@ -272,29 +275,36 @@ registerDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRepTest
-  DRep{..}
-  networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+registerDRepTest KeyDRep{dRepRegCert = c} = registerDRep c
+registerDRepTest ScriptDRep{dRepRegCert = c} = registerDRep c
+registerDRep
+  :: (MonadTest m, MonadIO m)
+  => C.Certificate era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+registerDRep dRepRegCert networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+  era <- TN.eraFromOptionsM networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
-    dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    let
-      regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-      regDRepTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
-          { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
-          , C.txOuts = [regDRepTxOut]
-          }
-    signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedRegDRepTx
-    let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
-    regDRepResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
-    H.annotate $ show regDRepResultTxOut
-    success
+  dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+  let
+    regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+    -- TODO: add DRep script witness
+    regDRepTxBodyContent =
+      (Tx.emptyTxBodyContent era pparams)
+        { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
+        , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
+        , C.txOuts = [regDRepTxOut]
+        }
+  -- TODO: add DRep key witness (if KeyDRep)
+  signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
+  Tx.submitTx era localNodeConnectInfo signedRegDRepTx
+  let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
+  regDRepResultTxOut <-
+    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+  H.annotate $ show regDRepResultTxOut
+  success
 
 registerCommitteeTestInfo committee =
   TestInfo
@@ -340,11 +350,11 @@ registerCommitteeTest
     H.annotate $ show regDRepResultTxOut
     success
 
-delegateToDRepTestInfo dRep staking =
+delegateToDRepTestInfo keyDRep staking =
   TestInfo
-    { testName = "delegateToDRepTest"
-    , testDescription = "Delegate stake to DRep (for vote delegation)"
-    , test = delegateToDRepTest dRep staking
+    { testName = "delegateToDRepTest (" ++ showKeyOrScript keyDRep ++ ")"
+    , testDescription = "Delegate stake to " ++ showKeyOrScript keyDRep ++ " DRep (for vote delegation)"
+    , test = delegateToDRepTest keyDRep staking
     }
 delegateToDRepTest
   :: (MonadTest m, MonadIO m)
@@ -353,8 +363,10 @@ delegateToDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-delegateToDRepTest
-  DRep{..}
+delegateToDRepTest KeyDRep{dRepLedgerCred = c} = delegateToDRep c
+delegateToDRepTest ScriptDRep{dRepLedgerCred = c} = delegateToDRep c
+delegateToDRep
+  dRepLedgerCred
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -364,7 +376,7 @@ delegateToDRepTest
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      voteDelgCert = voteDelegateCert ceo dRepLedgerCred stakeCred
+      voteDelgCert = DRep.voteDelegateCert ceo dRepLedgerCred stakeCred
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
@@ -450,7 +462,7 @@ constitutionProposalAndVoteTest
   -> m (Maybe String)
 constitutionProposalAndVoteTest
   Committee{..}
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -533,8 +545,8 @@ constitutionProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (castDRep dRepSKey)
-        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -560,6 +572,7 @@ constitutionProposalAndVoteTest
     newConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
     constituionHash === newConstitutionHash -- debug assertion
     assert "expected constitution hash matches query result" (constituionHash == newConstitutionHash)
+constitutionProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "constitutionProposalAndVoteTest: ScriptDRep not supported"
 
 committeeProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -577,7 +590,7 @@ committeeProposalAndVoteTest
   -> m (Maybe String)
 committeeProposalAndVoteTest
   Committee{..}
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -653,7 +666,7 @@ committeeProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -661,6 +674,7 @@ committeeProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check new committee is enacted (will influence future voting)
+committeeProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "committeeProposalAndVoteTest: ScriptDRep not supported"
 
 noConfidenceProposalAndVoteTestInfo dRep staking =
   TestInfo
@@ -676,7 +690,7 @@ noConfidenceProposalAndVoteTest
   -> TestParams era
   -> m (Maybe String)
 noConfidenceProposalAndVoteTest
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -749,7 +763,7 @@ noConfidenceProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -757,6 +771,7 @@ noConfidenceProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check motion of no-confidence is enacted
+noConfidenceProposalAndVoteTest ScriptDRep{} _ _ _ = error "noConfidenceProposalAndVoteTest: ScriptDRep not supported"
 
 parameterChangeProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -774,7 +789,7 @@ parameterChangeProposalAndVoteTest
   -> m (Maybe String)
 parameterChangeProposalAndVoteTest
   Committee{..}
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -847,8 +862,8 @@ parameterChangeProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (castDRep dRepSKey)
-        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -856,6 +871,8 @@ parameterChangeProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check protocol parameter update is enacted
+parameterChangeProposalAndVoteTest _ ScriptDRep{} _ _ _ =
+  error "parameterChangeProposalAndVoteTest: ScriptDRep not supported"
 
 treasuryWithdrawalProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -873,7 +890,7 @@ treasuryWithdrawalProposalAndVoteTest
   -> m (Maybe String)
 treasuryWithdrawalProposalAndVoteTest
   Committee{..}
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -945,8 +962,8 @@ treasuryWithdrawalProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (castDRep dRepSKey)
-        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -954,6 +971,8 @@ treasuryWithdrawalProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check treasury withdrawal is enacted
+treasuryWithdrawalProposalAndVoteTest _ ScriptDRep{} _ _ _ =
+  error "treasuryWithdrawalProposalAndVoteTest: ScriptDRep not supported"
 
 mkProtocolVersionOrErr :: (Natural, Natural) -> L.ProtVer
 mkProtocolVersionOrErr (majorProtVer, minorProtVer) =
@@ -978,7 +997,7 @@ hardForkProposalAndVoteTest
   -> m (Maybe String)
 hardForkProposalAndVoteTest
   Committee{..}
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -1052,8 +1071,8 @@ hardForkProposalAndVoteTest
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (castDRep dRepSKey)
-        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -1061,6 +1080,7 @@ hardForkProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
+hardForkProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "hardForkProposalAndVoteTest: ScriptDRep not supported"
 
 infoProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -1078,7 +1098,7 @@ infoProposalAndVoteTest
   -> m (Maybe String)
 infoProposalAndVoteTest
   Committee{..}
-  DRep{..}
+  KeyDRep{..}
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -1150,8 +1170,8 @@ infoProposalAndVoteTest
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (castDRep dRepSKey)
-        , C.WitnessPaymentKey (castCommittee committeeHotSKey)
+        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx era localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -1159,12 +1179,13 @@ infoProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
+infoProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "infoProposalAndVoteTest: ScriptDRep not supported"
 
-unregisterDRepTestInfo drep =
+unregisterDRepTestInfo dRep =
   TestInfo
-    { testName = "unregisterDRepTest"
-    , testDescription = "Unregister DRep"
-    , test = unregisterDRepTest drep
+    { testName = "unregisterDRepTest (" ++ showKeyOrScript dRep ++ ")"
+    , testDescription = "Unregister " ++ showKeyOrScript dRep ++ "DRep"
+    , test = unregisterDRepTest dRep
     }
 unregisterDRepTest
   :: (MonadTest m, MonadIO m)
@@ -1172,31 +1193,37 @@ unregisterDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-unregisterDRepTest
-  DRep{..}
+unregisterDRepTest dRep@KeyDRep{} = unregisterDRep dRep
+unregisterDRepTest dRep@ScriptDRep{} = unregisterDRep dRep
+unregisterDRep
+  dRep
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
-    stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    unRegDRepTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-      stakeDelegTxBodyContent =
+      unRegDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      -- TODO: add DRep script witness
+      unRegDRepTxBodyContent =
         (Tx.emptyTxBodyContent era pparams)
-          { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepUnregCert] []
-          , C.txOuts = [stakeDelegTxOut]
+          { C.txIns = Tx.pubkeyTxIns [unRegDRepTxIn]
+          , C.txCertificates = Tx.txCertificates era [dRepUnregCert dRep] []
+          , C.txOuts = [unRegDRepTxOut]
           }
 
     signedDRepUnregTx <-
       Tx.buildTxWithWitnessOverride
         era
         localNodeConnectInfo
-        stakeDelegTxBodyContent
+        unRegDRepTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey (castDRep dRepSKey)]
+        ( case dRep of
+            KeyDRep{} -> [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey $ DRep.castDRep (dRepSKey dRep)]
+            ScriptDRep{} -> [C.WitnessPaymentKey w1SKey]
+        )
     Tx.submitTx era localNodeConnectInfo signedDRepUnregTx
     let expTxIn = Tx.txIn (Tx.txId signedDRepUnregTx) 0
     stakeDelegResultTxOut <-
