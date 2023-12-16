@@ -33,7 +33,7 @@ import Helpers.TestResults (
  )
 import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
-import PlutusScripts.Always.V_1_0 (alwaysSucceedSpendScriptHashV2)
+import PlutusScripts.Always.V_1_0 qualified as PS_1_0
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins as Builtins
@@ -221,7 +221,7 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
   -- pool1Voter <- TN.pool1Voter ceo tempAbsPath -- to be replaced with newly registered pool
   stakePool <- generateStakePoolKeyCredentialsAndCertificate ceo networkId
   keyDRep <- generateDRepKeyCredentialsAndCertificate ceo
-  scriptDRep <- produceDRepScriptCredentialsAndCertificate ceo alwaysSucceedSpendScriptHashV2
+  scriptDRep <- produceDRepScriptCredentialsAndCertificate ceo PS_1_0.alwaysSucceedPolicyScriptHashV2
   staking <- generateStakeKeyCredentialAndCertificate ceo stakePool
   committee <- generateCommitteeKeysAndCertificate ceo
 
@@ -234,8 +234,8 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.delegateToDRepTestInfo scriptDRep staking
     , run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo committee
-    , -- TODO: at tests for voting as script DRep
-      run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep staking
+    , -- TODO: add tests for voting as script DRep
+      run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep scriptDRep staking
     , run $ Conway.committeeProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.noConfidenceProposalAndVoteTestInfo keyDRep staking
     , run $ Conway.parameterChangeProposalAndVoteTestInfo committee keyDRep staking
@@ -243,7 +243,8 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.unregisterDRepTestInfo keyDRep
-    , -- , run $ Conway.unregisterDRepTestInfo scriptDRep -- TODO: use script witness to enable test
+    , -- TODO: use script witness once ledger supports it to enable test
+      -- , run $ Conway.unregisterDRepTestInfo scriptDRep
       run $ Conway.unregisterStakingTestInfo staking
     , run $ Conway.retireStakePoolTestInfo stakePool
     -- TODO: test vote rejection with script evaluation failure

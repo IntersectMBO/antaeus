@@ -63,7 +63,7 @@ import PlutusScripts.V2TxInfo qualified as PS (
   txInfoSigs,
  )
 
--- NOTE: Does not yet check V3 TxInfo fields
+-- TODO: finish implementing regression checks
 checkTxInfoV3TestInfo =
   TestInfo
     { testName = "checkTxInfoV3Test"
@@ -278,8 +278,8 @@ registerDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRepTest KeyDRep{dRepRegCert = c} = registerDRep c
-registerDRepTest ScriptDRep{dRepRegCert = c} = registerDRep c
+registerDRepTest KeyDRep{kDRepRegCert = c} = registerDRep c
+registerDRepTest ScriptDRep{sDRepRegCert = c} = registerDRep c
 registerDRep
   :: (MonadTest m, MonadIO m)
   => C.Certificate era
@@ -294,7 +294,7 @@ registerDRep dRepRegCert networkOptions TestParams{localNodeConnectInfo, pparams
   dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
   let
     regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-    -- TODO: add DRep script witness
+    -- TODO: add DRep script witness (once ledger supports it)
     regDRepTxBodyContent =
       (Tx.emptyTxBodyContent sbe pparams)
         { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
@@ -368,8 +368,8 @@ delegateToDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-delegateToDRepTest KeyDRep{dRepLedgerCred = c} = delegateToDRep c
-delegateToDRepTest ScriptDRep{dRepLedgerCred = c} = delegateToDRep c
+delegateToDRepTest KeyDRep{kDRepLedgerCred = c} = delegateToDRep c
+delegateToDRepTest ScriptDRep{sDRepLedgerCred = c} = delegateToDRep c
 delegateToDRep
   dRepLedgerCred
   Staking{..}
@@ -452,15 +452,16 @@ delegateToStakePoolTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
-constitutionProposalAndVoteTestInfo committee dRep staking =
+constitutionProposalAndVoteTestInfo committee kDRep sDRep staking =
   TestInfo
     { testName = "constitutionProposalAndVoteTest"
     , testDescription = "Propose and vote on new constitution"
-    , test = constitutionProposalAndVoteTest committee dRep staking
+    , test = constitutionProposalAndVoteTest committee kDRep sDRep staking
     }
 constitutionProposalAndVoteTest
   :: (MonadTest m, MonadIO m)
   => Committee era
+  -> DRep era
   -> DRep era
   -> Staking era
   -> TN.TestEnvironmentOptions era
@@ -469,6 +470,7 @@ constitutionProposalAndVoteTest
 constitutionProposalAndVoteTest
   Committee{..}
   KeyDRep{..}
+  ScriptDRep{} -- will be used
   Staking{..}
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
@@ -494,6 +496,7 @@ constitutionProposalAndVoteTest
     let constitutionPath = tempAbsPath <> "/constituion.txt"
     H.writeFile constitutionPath "a new way of life"
     constituionBS <- H.evalIO $ BS.readFile constitutionPath
+    -- TODO: add constitution script (proposal policy) once implemented in cardano-api
     let
       constituionHash = show (Crypto.hashWith id constituionBS :: Crypto.Hash Crypto.Blake2b_256 BS.ByteString)
       constitutionUrl = U.unsafeFromMaybe $ C.textToUrl "https://example.com/constituion.txt"
@@ -515,6 +518,14 @@ constitutionProposalAndVoteTest
           (C.ProposeNewConstitution C.SNothing anchor)
           anchor
 
+      {-- TODO: check proposal onchain with minting policy (once ledger supports it)
+        plutusProposalProcedure = fromCardanoProposal sbe proposal
+        -- proposalProcedureItems' = C.fromProposalProcedure sbe proposal
+        -- plutusProposalProcedure' = fromCardanoProposal proposalProcedureItems'
+        tokenValues = C.valueFromList [(PS_1_1.verifyProposalProceduresAssetIdV3, 1)]
+        mintWitness = Map.fromList [PS_1_1.verifyProposalProceduresMintWitnessV3 sbe [plutusProposalProcedure]]
+        --}
+
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
@@ -534,12 +545,20 @@ constitutionProposalAndVoteTest
     -- vote on the constituion
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on constitution
+        -- NOTE : sDRepVoter uses alwaysSucceed
+        -- tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+        -- mintWitness = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+        -- collateral = Tx.txInsCollateral era [tx2In3]
+        -- SPO not allowed to vote on constitution
+        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes)] -- , (sDRepVoter, C.Yes)]
+        -- TODO: build votes in plutus format as redeemer
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , -- , C.txInsCollateral = collateral
+              -- , C.txMintValue = Tx.txMintValue era tokenValues mintWitness
+              C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -551,7 +570,7 @@ constitutionProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
@@ -578,7 +597,8 @@ constitutionProposalAndVoteTest
     newConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
     constituionHash === newConstitutionHash -- debug assertion
     assert "expected constitution hash matches query result" (constituionHash == newConstitutionHash)
-constitutionProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "constitutionProposalAndVoteTest: ScriptDRep not supported"
+constitutionProposalAndVoteTest _ ScriptDRep{} _ _ _ _ = error "ScriptDRep in wrong arg"
+constitutionProposalAndVoteTest _ _ KeyDRep{} _ _ _ = error "KeyDRep in wrong arg"
 
 committeeProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -654,7 +674,7 @@ committeeProposalAndVoteTest
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
         -- committee member not allowed to vote on committee update
-        votes = [(dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
+        votes = [(kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -672,7 +692,7 @@ committeeProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -751,7 +771,7 @@ noConfidenceProposalAndVoteTest
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
         -- committee not allowed to vote on motion of no-confidence
-        votes = [(dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
+        votes = [(kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -769,7 +789,7 @@ noConfidenceProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -777,7 +797,8 @@ noConfidenceProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check motion of no-confidence is enacted
-noConfidenceProposalAndVoteTest ScriptDRep{} _ _ _ = error "noConfidenceProposalAndVoteTest: ScriptDRep not supported"
+noConfidenceProposalAndVoteTest ScriptDRep{} _ _ _ =
+  error "noConfidenceProposalAndVoteTest: ScriptDRep not yet supported"
 
 parameterChangeProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -851,7 +872,7 @@ parameterChangeProposalAndVoteTest
     -- vote on the updated protocol parameters
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
+        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -868,7 +889,7 @@ parameterChangeProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
@@ -878,7 +899,7 @@ parameterChangeProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check protocol parameter update is enacted
 parameterChangeProposalAndVoteTest _ ScriptDRep{} _ _ _ =
-  error "parameterChangeProposalAndVoteTest: ScriptDRep not supported"
+  error "parameterChangeProposalAndVoteTest: ScriptDRep not yet supported"
 
 treasuryWithdrawalProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -951,7 +972,7 @@ treasuryWithdrawalProposalAndVoteTest
     -- vote on the treasury withdrawal
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
+        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -968,7 +989,7 @@ treasuryWithdrawalProposalAndVoteTest
         w1Address
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
@@ -978,7 +999,7 @@ treasuryWithdrawalProposalAndVoteTest
     H.annotate $ show result2TxOut
     success -- TODO: check treasury withdrawal is enacted
 treasuryWithdrawalProposalAndVoteTest _ ScriptDRep{} _ _ _ =
-  error "treasuryWithdrawalProposalAndVoteTest: ScriptDRep not supported"
+  error "treasuryWithdrawalProposalAndVoteTest: ScriptDRep not yet supported"
 
 mkProtocolVersionOrErr :: (Natural, Natural) -> L.ProtVer
 mkProtocolVersionOrErr (majorProtVer, minorProtVer) =
@@ -1059,7 +1080,7 @@ hardForkProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
+        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -1077,7 +1098,7 @@ hardForkProposalAndVoteTest
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
@@ -1086,7 +1107,7 @@ hardForkProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
-hardForkProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "hardForkProposalAndVoteTest: ScriptDRep not supported"
+hardForkProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "hardForkProposalAndVoteTest: ScriptDRep not yet supported"
 
 infoProposalAndVoteTestInfo committee dRep staking =
   TestInfo
@@ -1158,7 +1179,7 @@ infoProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
+        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -1176,7 +1197,7 @@ infoProposalAndVoteTest
         (Just 4) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
@@ -1185,7 +1206,7 @@ infoProposalAndVoteTest
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
-infoProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "infoProposalAndVoteTest: ScriptDRep not supported"
+infoProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "infoProposalAndVoteTest: ScriptDRep not yet supported"
 
 unregisterDRepTestInfo dRep =
   TestInfo
@@ -1216,9 +1237,13 @@ unregisterDRep
       unRegDRepTxBodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [unRegDRepTxIn]
-          , C.txCertificates = Tx.txCertificates era [dRepUnregCert dRep] []
+          , C.txCertificates = Tx.txCertificates era [kDRepUnregCert dRep] []
           , C.txOuts = [unRegDRepTxOut]
           }
+      unRegDRepTxWitnesses =
+        case dRep of
+          KeyDRep{} -> [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey $ DRep.castDRep (kDRepSKey dRep)]
+          ScriptDRep{} -> [C.WitnessPaymentKey w1SKey]
 
     signedDRepUnregTx <-
       Tx.buildTxWithWitnessOverride
@@ -1226,11 +1251,8 @@ unregisterDRep
         localNodeConnectInfo
         unRegDRepTxBodyContent
         w1Address
-        (Just 2)
-        ( case dRep of
-            KeyDRep{} -> [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey $ DRep.castDRep (dRepSKey dRep)]
-            ScriptDRep{} -> [C.WitnessPaymentKey w1SKey]
-        )
+        (Just $ fromIntegral $ length unRegDRepTxWitnesses)
+        unRegDRepTxWitnesses
     Tx.submitTx sbe localNodeConnectInfo signedDRepUnregTx
     let expTxIn = Tx.txIn (Tx.txId signedDRepUnregTx) 0
     stakeDelegResultTxOut <-

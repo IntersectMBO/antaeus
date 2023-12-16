@@ -148,6 +148,8 @@ test-suite antaeus-test
     PlutusScripts.BLS.VerifyOverG2.V_1_1
     PlutusScripts.BLS.Vrf.Common
     PlutusScripts.BLS.Vrf.V_1_1
+    PlutusScripts.Governance.Common
+    PlutusScripts.Governance.V_1_1
     PlutusScripts.Hashing.Common
     PlutusScripts.Hashing.V_1_0
     PlutusScripts.Hashing.V_1_1
@@ -157,6 +159,7 @@ test-suite antaeus-test
     PlutusScripts.SECP256k1.V_1_1
     PlutusScripts.V1TxInfo
     PlutusScripts.V2TxInfo
+    PlutusScripts.V3TxInfo
     Spec.AlonzoFeatures
     Spec.BabbageFeatures
     Spec.Builtins
