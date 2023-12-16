@@ -20,6 +20,7 @@ import Control.Monad (forM)
 import Control.Monad.IO.Class (MonadIO)
 import Data.Functor ((<&>))
 import Hedgehog (MonadTest)
+import Helpers.Common (toShelleyBasedEra)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestInfo (..), TestParams (..))
@@ -44,6 +45,7 @@ buildAndSubmit
   -> m (C.Value, C.TxIn)
 buildAndSubmit era lnci pparams txIn@(C.TxIn _id ix) collateral address skey assetId mintWitness = do
   let
+    sbe = toShelleyBasedEra era
     -- use unique asset quantity for each script to assist debugging
     assetQuantity = txIxToQuantity ix + 1
     txTokenValue = C.valueFromList [(assetId, assetQuantity)]
@@ -52,14 +54,14 @@ buildAndSubmit era lnci pparams txIn@(C.TxIn _id ix) collateral address skey ass
     outputLovelaceValue = C.lovelaceToValue $ 3_000_000 + (C.quantityToLovelace assetQuantity * 100_000)
     txOut = Tx.txOut era (outputLovelaceValue <> txTokenValue) address
     txBodyContent =
-      (Tx.emptyTxBodyContent era pparams)
+      (Tx.emptyTxBodyContent sbe pparams)
         { C.txIns = Tx.pubkeyTxIns [txIn]
         , C.txInsCollateral = collateral
         , C.txMintValue = Tx.txMintValue era txTokenValue txMintWitness
         , C.txOuts = [txOut]
         }
   signedTx <- Tx.buildTx era lnci txBodyContent address skey
-  Tx.submitTx era lnci signedTx
+  Tx.submitTx sbe lnci signedTx
   return (txTokenValue, Tx.txIn (Tx.txId signedTx) 0)
 
 verifyBlsFunctionsTestInfo =
@@ -79,6 +81,7 @@ verifyBlsFunctionsTest networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let numberOfBlsScripts = 9
+      sbe = toShelleyBasedEra era
 
   -- produce an input for each script to run in its own transaction
 
@@ -86,12 +89,12 @@ verifyBlsFunctionsTest networkOptions TestParams{..} = do
   let
     tx1Outs = replicate numberOfBlsScripts (Tx.txOut era (C.lovelaceToValue 10_000_000) w1Address)
     tx1BodyContent =
-      (Tx.emptyTxBodyContent era pparams)
+      (Tx.emptyTxBodyContent sbe pparams)
         { C.txIns = Tx.pubkeyTxIns [tx1In]
         , C.txOuts = tx1Outs
         }
   signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx1
+  Tx.submitTx sbe localNodeConnectInfo signedTx1
   let expectedTxIns = [0 .. numberOfBlsScripts - 1] <&> Tx.txIn (Tx.txId signedTx1)
   Q.waitForTxInAtAddress
     era
@@ -104,23 +107,23 @@ verifyBlsFunctionsTest networkOptions TestParams{..} = do
   let
     tx2Collateral = Tx.txInsCollateral era [Tx.txIn (Tx.txId signedTx1) numberOfBlsScripts]
     alles =
-      [ (1, PS.verifyBlsSimpleAssetIdV3, PS.verifyBlsSimpleMintWitnessV3 era)
-      , (2, PS.verifyBlsVrfAssetIdV3, PS.verifyBlsVrfMintWitnessV3 era)
-      , (3, PS.verifyBlsGroth16AssetIdV3, PS.verifyBlsGroth16MintWitnessV3 era)
-      , (4, PS.verifyBlsSigG1AssetIdV3, PS.verifyBlsSigG1MintWitnessV3 era)
-      , (5, PS.verifyBlsSigG2AssetIdV3, PS.verifyBlsSigG2MintWitnessV3 era)
+      [ (1, PS.verifyBlsSimpleAssetIdV3, PS.verifyBlsSimpleMintWitnessV3 sbe)
+      , (2, PS.verifyBlsVrfAssetIdV3, PS.verifyBlsVrfMintWitnessV3 sbe)
+      , (3, PS.verifyBlsGroth16AssetIdV3, PS.verifyBlsGroth16MintWitnessV3 sbe)
+      , (4, PS.verifyBlsSigG1AssetIdV3, PS.verifyBlsSigG1MintWitnessV3 sbe)
+      , (5, PS.verifyBlsSigG2AssetIdV3, PS.verifyBlsSigG2MintWitnessV3 sbe)
       ,
         ( 6
         , PS.verifyBlsAggregateSigSingleKeyG1AssetIdV3
-        , PS.verifyBlsAggregateSigSingleKeyG1MintWitnessV3 era
+        , PS.verifyBlsAggregateSigSingleKeyG1MintWitnessV3 sbe
         )
       ,
         ( 7
         , PS.verifyBlsAggregateSigMultiKeyG2AssetIdV3
-        , PS.verifyBlsAggregateSigMultiKeyG2MintWitnessV3 era
+        , PS.verifyBlsAggregateSigMultiKeyG2MintWitnessV3 sbe
         )
-      , (8, PS.verifyBlsSchnorrG1AssetIdV3, PS.verifyBlsSchnorrG1MintWitnessV3 era)
-      , (9, PS.verifyBlsSchnorrG2AssetIdV3, PS.verifyBlsSchnorrG2MintWitnessV3 era)
+      , (8, PS.verifyBlsSchnorrG1AssetIdV3, PS.verifyBlsSchnorrG1MintWitnessV3 sbe)
+      , (9, PS.verifyBlsSchnorrG2AssetIdV3, PS.verifyBlsSchnorrG2MintWitnessV3 sbe)
       ]
   tokenValuesAndTxIns <- forM alles $ \(assetCount, assetId, mintWitness) ->
     buildAndSubmit

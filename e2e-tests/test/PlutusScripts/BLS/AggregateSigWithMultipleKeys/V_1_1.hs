@@ -44,12 +44,12 @@ verifyBlsAggregateSigMultiKeyG2Redeemer :: C.HashableScriptData
 verifyBlsAggregateSigMultiKeyG2Redeemer = H.toScriptData redeemerParams
 
 verifyBlsAggregateSigMultiKeyG2MintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyBlsAggregateSigMultiKeyG2MintWitnessV3 era =
+verifyBlsAggregateSigMultiKeyG2MintWitnessV3 sbe =
   ( H.policyIdV3 verifyBlsAggregateSigMultiKeyG2PolicyV3
   , H.mintScriptWitness
-      era
+      sbe
       H.plutusL3
       (Left verifyBlsAggregateSigMultiKeyG2PolicyScriptV3)
       verifyBlsAggregateSigMultiKeyG2Redeemer

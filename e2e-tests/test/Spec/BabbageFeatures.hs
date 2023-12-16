@@ -61,6 +61,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction
 
@@ -119,12 +120,12 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
           expTxInfoData
       mintWitnesses =
         Map.fromList
-          [ PS.checkV2TxInfoMintWitnessV2 era redeemer executionUnits1
-          , PS_1_0.alwaysSucceedMintWitnessV2' era executionUnits2
+          [ PS.checkV2TxInfoMintWitnessV2 sbe redeemer executionUnits1
+          , PS_1_0.alwaysSucceedMintWitnessV2' sbe executionUnits2
           ]
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsReference = Tx.txInsReference era [txIn]
           , C.txInsCollateral = collateral
@@ -137,11 +138,11 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
-  txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx (toShelleyBasedEra era) txbody (C.WitnessPaymentKey w1SKey)
+  txbody <- Tx.buildRawTx sbe txBodyContent
+  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
   let signedTx = C.makeSignedTransaction [kw] txbody
 
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
 
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
   resultTxOut <-
@@ -169,6 +170,7 @@ referenceScriptMintTest
 referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold reference script
 
@@ -193,13 +195,13 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [refScriptTxOut, otherTxOut]
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let refScriptTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
   Q.waitForTxInAtAddress era localNodeConnectInfo w1Address refScriptTxIn "waitForTxInAtAddress"
@@ -209,18 +211,18 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
   let (tokenValues, mintWitnesses) = case era of
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 6)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era (Just refScriptTxIn)]
+          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe (Just refScriptTxIn)]
           )
         C.ConwayEra ->
           -- TODO: use PS_1_1.alwaysSucceedPolicyScriptV3 when PlutusV3 is supported again
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 6)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era (Just refScriptTxIn)]
+          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe (Just refScriptTxIn)]
           )
       collateral = Tx.txInsCollateral era [otherTxIn]
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
 
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [otherTxIn]
           , C.txInsCollateral = collateral
           , C.txInsReference = Tx.txInsReference era [refScriptTxIn]
@@ -229,7 +231,7 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
           }
 
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx2
+  Tx.submitTx sbe localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
   resultTxOut <-
@@ -256,6 +258,7 @@ referenceScriptInlineDatumSpendTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     -- build a transaction to hold reference script
 
@@ -284,13 +287,13 @@ referenceScriptInlineDatumSpendTest
           C.ConwayEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
         scriptTxOut = Tx.txOutWithInlineDatum era (C.lovelaceToValue 10_000_000) scriptAddress (PS.toScriptData ())
         txBodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txOuts = [refScriptTxOut, otherTxOut, scriptTxOut]
             }
 
     signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx
+    Tx.submitTx sbe localNodeConnectInfo signedTx
     let refScriptTxIn = Tx.txIn (Tx.txId signedTx) 0
         otherTxIn = Tx.txIn (Tx.txId signedTx) 1
         txInAtScript = Tx.txIn (Tx.txId signedTx) 2
@@ -299,16 +302,16 @@ referenceScriptInlineDatumSpendTest
     -- build a transaction to mint token using reference script
 
     let witness = case era of
-          C.BabbageEra -> PS_1_0.alwaysSucceedSpendWitnessV2 era (Just refScriptTxIn) Nothing
+          C.BabbageEra -> PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) Nothing
           -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-          C.ConwayEra -> PS_1_0.alwaysSucceedSpendWitnessV2 era (Just refScriptTxIn) Nothing
+          C.ConwayEra -> PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) Nothing
         scriptTxIn = Tx.txInWitness txInAtScript witness
         collateral = Tx.txInsCollateral era [otherTxIn]
         adaValue = C.lovelaceToValue 4_200_000
         txOut = Tx.txOut era adaValue w1Address
 
         txBodyContent2 =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = [scriptTxIn]
             , C.txInsReference = Tx.txInsReference era [refScriptTxIn]
             , C.txInsCollateral = collateral
@@ -316,7 +319,7 @@ referenceScriptInlineDatumSpendTest
             }
 
     signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
     -- Query for txo and assert it contains newly minted token
     resultTxOut <-
@@ -341,6 +344,7 @@ referenceScriptDatumHashSpendTest
 referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold reference script
 
@@ -371,13 +375,13 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
       scriptTxOut = Tx.txOutWithDatumHash era (C.lovelaceToValue 10_000_000) scriptAddress datum
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [refScriptTxOut, otherTxOut, scriptTxOut]
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let refScriptTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
       txInAtScript = Tx.txIn (Tx.txId signedTx) 2
@@ -389,18 +393,18 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
         C.BabbageEra ->
           Tx.txInWitness
             txInAtScript
-            (PS_1_0.alwaysSucceedSpendWitnessV2 era (Just refScriptTxIn) (Just datum))
+            (PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) (Just datum))
         C.ConwayEra ->
           Tx.txInWitness
             txInAtScript
             -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-            (PS_1_0.alwaysSucceedSpendWitnessV2 era (Just refScriptTxIn) (Just datum))
+            (PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) (Just datum))
       collateral = Tx.txInsCollateral era [otherTxIn]
       adaValue = C.lovelaceToValue 4_200_000
       txOut = Tx.txOut era adaValue w1Address
 
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = [scriptTxIn]
           , C.txInsReference = Tx.txInsReference era [refScriptTxIn]
           , C.txInsCollateral = collateral
@@ -408,7 +412,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
           }
 
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx2
+  Tx.submitTx sbe localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
   resultTxOut <-
@@ -433,6 +437,7 @@ inlineDatumSpendTest
 inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold inline datum at script address
 
@@ -446,13 +451,13 @@ inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, ne
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [scriptTxOut, otherTxOut]
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let txInAtScript = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
   Q.waitForTxInAtAddress era localNodeConnectInfo scriptAddress txInAtScript "waitForTxInAtAddress"
@@ -462,22 +467,22 @@ inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, ne
   let
     -- without reference script
     scriptTxIn = case era of
-      C.BabbageEra -> Tx.txInWitness txInAtScript (PS_1_0.alwaysSucceedSpendWitnessV2 era Nothing Nothing)
+      C.BabbageEra -> Tx.txInWitness txInAtScript (PS_1_0.alwaysSucceedSpendWitnessV2 sbe Nothing Nothing)
       -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-      C.ConwayEra -> Tx.txInWitness txInAtScript (PS_1_0.alwaysSucceedSpendWitnessV2 era Nothing Nothing)
+      C.ConwayEra -> Tx.txInWitness txInAtScript (PS_1_0.alwaysSucceedSpendWitnessV2 sbe Nothing Nothing)
     collateral = Tx.txInsCollateral era [otherTxIn]
     adaValue = C.lovelaceToValue 4_200_000
     txOut = Tx.txOut era adaValue w1Address
 
     txBodyContent2 =
-      (Tx.emptyTxBodyContent era pparams)
+      (Tx.emptyTxBodyContent sbe pparams)
         { C.txIns = [scriptTxIn]
         , C.txInsCollateral = collateral
         , C.txOuts = [txOut]
         }
 
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx2
+  Tx.submitTx sbe localNodeConnectInfo signedTx2
   let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains newly minted token
   resultTxOut <-
@@ -503,16 +508,17 @@ referenceInputWithV1ScriptErrorTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
     let tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
-        mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+        mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
         collateral = Tx.txInsCollateral era [txIn]
         txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
 
         txBodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txInsReference = Tx.txInsReference era [txIn]
@@ -551,11 +557,12 @@ referenceScriptOutputWithV1ScriptErrorTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
     let tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
-        mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+        mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
         collateral = Tx.txInsCollateral era [txIn]
         txOut =
           Tx.txOutWithRefScript
@@ -565,7 +572,7 @@ referenceScriptOutputWithV1ScriptErrorTest
             (PS.unPlutusScriptV2 PS_1_0.alwaysSucceedSpendScriptV2)
 
         txBodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -604,11 +611,12 @@ inlineDatumOutputWithV1ScriptErrorTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
     let tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
-        mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+        mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
         collateral = Tx.txInsCollateral era [txIn]
         txOut =
           Tx.txOutWithInlineDatum
@@ -618,7 +626,7 @@ inlineDatumOutputWithV1ScriptErrorTest
             (PS.toScriptData ())
 
         txBodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -657,6 +665,7 @@ returnCollateralWithTokensValidScriptTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -666,14 +675,14 @@ returnCollateralWithTokensValidScriptTest
           C.AlonzoEra -> error "Alonzo era is unsupported in this test"
           C.BabbageEra ->
             ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
-            , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+            , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
             -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
             ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
             , Map.fromList
                 -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-                [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+                [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
         collateral = Tx.txInsCollateral era [txIn]
         txOut =
@@ -684,7 +693,7 @@ returnCollateralWithTokensValidScriptTest
             (PS.toScriptData ())
 
         txBodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -692,7 +701,7 @@ returnCollateralWithTokensValidScriptTest
             }
 
     signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx
+    Tx.submitTx sbe localNodeConnectInfo signedTx
     let txIn2 = Tx.txIn (Tx.txId signedTx) 0
     Q.waitForTxInAtAddress era localNodeConnectInfo w1Address txIn2 "waitForTxInAtAddress"
 
@@ -713,7 +722,7 @@ returnCollateralWithTokensValidScriptTest
         colReturnTxOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
 
         txBodyContent2 =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn2]
             , C.txInsCollateral = collateral2
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -722,7 +731,7 @@ returnCollateralWithTokensValidScriptTest
             }
 
     signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 0
     -- Query for txo and assert it contains newly minted token
     resultTxOut <-
@@ -750,6 +759,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
@@ -759,21 +769,21 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
           C.AlonzoEra -> error "Alonzo era is unsupported in this test"
           C.BabbageEra ->
             ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
-            , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+            , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
             -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
             ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
             , Map.fromList
                 -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-                [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+                [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
         collateral = Tx.txInsCollateral era [txIn]
         txOutAmount = 10_000_000
         txOut = Tx.txOut era (C.lovelaceToValue txOutAmount <> tokenValues) w1Address
 
         txBodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn]
             , C.txInsCollateral = collateral
             , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -781,7 +791,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
             }
 
     signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx
+    Tx.submitTx sbe localNodeConnectInfo signedTx
     let collateralTxIn = Tx.txIn (Tx.txId signedTx) 0
     Q.waitForTxInAtAddress era localNodeConnectInfo w1Address collateralTxIn "waitForTxInAtAddress"
 
@@ -792,13 +802,13 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
     let (tokenValues2, mintWitnesses2) = case era of
           C.BabbageEra ->
             ( C.valueFromList [(PS_1_0.alwaysFailsAssetIdV2, 1)]
-            , Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 era Nothing]
+            , Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
             -- TODO: use PS_1_1.alwaysFailsAssetIdV3 when PlutusV3 is supported again
             ( C.valueFromList [(PS_1_0.alwaysFailsAssetIdV2, 1)]
             , -- TODO: use PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-              Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 era Nothing]
+              Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 sbe Nothing]
             )
         collateral2 = Tx.txInsCollateral era [collateralTxIn]
         txOut1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
@@ -809,7 +819,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
         totalCollateralAmount = txOutAmount - colReturnAmount
 
         txBodyContent2 =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [txIn2]
             , C.txInsCollateral = collateral2
             , C.txMintValue = Tx.txMintValue era tokenValues2 mintWitnesses2
@@ -820,7 +830,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
             }
 
     signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
 
     -- Query for return collateral txo and assert presence of ada and tokens from the first tx
     let expectedTxIn = Tx.txIn (Tx.txId signedTx2) 3 -- collateral return index is n outputs (including change)

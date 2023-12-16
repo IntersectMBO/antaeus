@@ -144,8 +144,8 @@ withDatumInTx era datum (C.TxOut e v _ rs) =
 
 -- | Empty transaction body to begin building from.
 emptyTxBodyContent
-  :: C.CardanoEra era -> C.LedgerProtocolParameters era -> C.TxBodyContent C.BuildTx era
-emptyTxBodyContent era pparams = (C.defaultTxBodyContent era){C.txProtocolParams = C.BuildTxWith $ Just pparams}
+  :: C.ShelleyBasedEra era -> C.LedgerProtocolParameters era -> C.TxBodyContent C.BuildTx era
+emptyTxBodyContent sbe pparams = (C.defaultTxBodyContent sbe){C.txProtocolParams = C.BuildTxWith $ Just pparams}
 
 txFee :: C.CardanoEra era -> C.Lovelace -> C.TxFee era
 txFee era =
@@ -357,10 +357,10 @@ buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride 
 -- | Build txbody with no calculated change, fees or execution unit
 buildRawTx
   :: (MonadTest m)
-  => C.CardanoEra era
+  => C.ShelleyBasedEra era
   -> C.TxBodyContent C.BuildTx era
   -> m (C.TxBody era)
-buildRawTx era = HE.leftFail . C.createAndValidateTransactionBody era -- TODO: handle error
+buildRawTx sbe = HE.leftFail . C.createAndValidateTransactionBody sbe -- TODO: handle error
 
 -- | Witness txbody with signing key when not using convenience build function
 signTx
@@ -377,13 +377,13 @@ signTx era txbody skey =
 
 submitTx
   :: (MonadIO m, MonadTest m)
-  => C.CardanoEra era
+  => C.ShelleyBasedEra era
   -> C.LocalNodeConnectInfo
   -> C.Tx era
   -> m ()
-submitTx era localNodeConnectInfo tx = do
+submitTx sbe localNodeConnectInfo tx = do
   submitResult :: C.SubmitResult era <-
-    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode era tx
+    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode sbe tx
   failOnTxSubmitFail submitResult
   where
     failOnTxSubmitFail :: (Show a, MonadTest m) => C.SubmitResult a -> m ()
@@ -393,13 +393,13 @@ submitTx era localNodeConnectInfo tx = do
 
 submitTx'
   :: (MonadIO m, MonadTest m)
-  => C.CardanoEra era
+  => C.ShelleyBasedEra era
   -> C.LocalNodeConnectInfo
   -> C.Tx era
   -> m (Either SubmitError ())
-submitTx' era localNodeConnectInfo tx = do
+submitTx' sbe localNodeConnectInfo tx = do
   submitResult :: C.SubmitResult era <-
-    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode era tx
+    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode sbe tx
   returnErrorOnTxSubmitFail submitResult
   where
     returnErrorOnTxSubmitFail

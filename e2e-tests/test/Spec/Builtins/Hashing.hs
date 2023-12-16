@@ -16,6 +16,7 @@ import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
 import Hedgehog (MonadTest)
+import Helpers.Common (toShelleyBasedEra)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestInfo (..), TestParams (..))
@@ -40,6 +41,7 @@ checkHashingFunctionsTest
 checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction
 
@@ -48,22 +50,22 @@ checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparam
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4)]
-          , Map.fromList [PS_1_0.checkHashingMintWitnessV1 era]
+          , Map.fromList [PS_1_0.checkHashingMintWitnessV1 sbe]
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4), (PS_1_0.checkHashingAssetIdV2, 2)]
-          , Map.fromList [PS_1_0.checkHashingMintWitnessV1 era, PS_1_0.checkHashingMintWitnessV2 era]
+          , Map.fromList [PS_1_0.checkHashingMintWitnessV1 sbe, PS_1_0.checkHashingMintWitnessV2 sbe]
           )
         C.ConwayEra ->
           -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
           ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4), (PS_1_0.checkHashingAssetIdV2, 2)]
           , -- TODO: add PS_1_1.checkHashingMintWitnessV3 when PlutusV3 is supported again
-            Map.fromList [PS_1_0.checkHashingMintWitnessV1 era, PS_1_0.checkHashingMintWitnessV2 era]
+            Map.fromList [PS_1_0.checkHashingMintWitnessV1 sbe, PS_1_0.checkHashingMintWitnessV2 sbe]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
       collateral = Tx.txInsCollateral era [txIn]
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -72,7 +74,7 @@ checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparam
 
   -- Build and submit transaction
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
 
   -- Query for txo and assert it contains newly minting tokens to prove successful use of SECP256k1 builtins

@@ -52,25 +52,25 @@ alwaysSucceedPolicyTxInfoRedeemerV3 =
 Use Nothing to include script in witness, else provide TxIn to reference script
 -}
 alwaysSucceedMintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn -- maybe reference input
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-alwaysSucceedMintWitnessV3 era Nothing =
+alwaysSucceedMintWitnessV3 sbe Nothing =
   ( policyIdV3 alwaysSucceedPolicy
-  , mintScriptWitness era plutusL3 (Left alwaysSucceedPolicyScriptV3) (toScriptData ())
+  , mintScriptWitness sbe plutusL3 (Left alwaysSucceedPolicyScriptV3) (toScriptData ())
   )
-alwaysSucceedMintWitnessV3 era (Just refTxIn) =
+alwaysSucceedMintWitnessV3 sbe (Just refTxIn) =
   ( policyIdV3 alwaysSucceedPolicy
-  , mintScriptWitness era plutusL3 (Right refTxIn) (toScriptData ())
+  , mintScriptWitness sbe plutusL3 (Right refTxIn) (toScriptData ())
   )
 
 alwaysSucceedMintWitnessV3'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-alwaysSucceedMintWitnessV3' era exunits =
+alwaysSucceedMintWitnessV3' sbe exunits =
   ( policyIdV3 alwaysSucceedPolicy
-  , mintScriptWitness' era plutusL3 (Left alwaysSucceedPolicyScriptV3) (toScriptData ()) exunits
+  , mintScriptWitness' sbe plutusL3 (Left alwaysSucceedPolicyScriptV3) (toScriptData ()) exunits
   )
 
 -- AlwaysSucceeds validator --
@@ -85,7 +85,7 @@ alwaysSucceedSpendScriptHashV3 :: C.ScriptHash
 alwaysSucceedSpendScriptHashV3 = C.hashScript $ C.PlutusScript C.PlutusScriptV3 alwaysSucceedSpendScriptV3
 
 alwaysSucceedSpendWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn
   -> Maybe C.HashableScriptData
   -> C.Witness C.WitCtxTxIn era
@@ -122,23 +122,23 @@ alwaysFailsPolicyTxInfoRedeemerV3 =
 Use Nothing to include script in witness, else provide TxIn to reference script
 -}
 alwaysFailsMintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn -- maybe reference input
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-alwaysFailsMintWitnessV3 era Nothing =
+alwaysFailsMintWitnessV3 sbe Nothing =
   ( policyIdV3 alwaysFailsPolicy
-  , mintScriptWitness era plutusL3 (Left alwaysFailsPolicyScriptV3) (toScriptData ())
+  , mintScriptWitness sbe plutusL3 (Left alwaysFailsPolicyScriptV3) (toScriptData ())
   )
-alwaysFailsMintWitnessV3 era (Just refTxIn) =
+alwaysFailsMintWitnessV3 sbe (Just refTxIn) =
   ( policyIdV3 alwaysFailsPolicy
-  , mintScriptWitness era plutusL3 (Right refTxIn) (toScriptData ())
+  , mintScriptWitness sbe plutusL3 (Right refTxIn) (toScriptData ())
   )
 
 alwaysFailsMintWitnessV3'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-alwaysFailsMintWitnessV3' era exunits =
+alwaysFailsMintWitnessV3' sbe exunits =
   ( policyIdV3 alwaysFailsPolicy
-  , mintScriptWitness' era plutusL3 (Left alwaysFailsPolicyScriptV3) (toScriptData ()) exunits
+  , mintScriptWitness' sbe plutusL3 (Left alwaysFailsPolicyScriptV3) (toScriptData ()) exunits
   )

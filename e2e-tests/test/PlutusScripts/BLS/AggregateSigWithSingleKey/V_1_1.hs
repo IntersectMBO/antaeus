@@ -40,12 +40,12 @@ verifyAggregateSigSingleKeyG1Redeemer :: C.HashableScriptData
 verifyAggregateSigSingleKeyG1Redeemer = H.toScriptData redeemerParams
 
 verifyBlsAggregateSigSingleKeyG1MintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyBlsAggregateSigSingleKeyG1MintWitnessV3 era =
+verifyBlsAggregateSigSingleKeyG1MintWitnessV3 sbe =
   ( H.policyIdV3 verifyAggregateSigSingleKeyG1PolicyV3
   , H.mintScriptWitness
-      era
+      sbe
       H.plutusL3
       (Left verifyAggregateSigSingleKeyG1PolicyScriptV3)
       verifyAggregateSigSingleKeyG1Redeemer

@@ -69,9 +69,9 @@ verifyBlsGroth16Redeemer :: C.HashableScriptData
 verifyBlsGroth16Redeemer = H.toScriptData groth16Scalar
 
 verifyBlsGroth16MintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyBlsGroth16MintWitnessV3 era =
+verifyBlsGroth16MintWitnessV3 sbe =
   ( H.policyIdV3 verifyBlsGroth16PolicyV3
-  , H.mintScriptWitness era H.plutusL3 (Left verifyBlsGroth16PolicyScriptV3) verifyBlsGroth16Redeemer
+  , H.mintScriptWitness sbe H.plutusL3 (Left verifyBlsGroth16PolicyScriptV3) verifyBlsGroth16Redeemer
   )

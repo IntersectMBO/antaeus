@@ -54,7 +54,7 @@ plutusL3 = C.PlutusScriptLanguage C.PlutusScriptV3
  Zero execution units can only be used with convenience build function.
 -}
 mintScriptWitness
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.HashableScriptData
@@ -101,7 +101,7 @@ mintScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV3) (Right refT
 
 -- Witness token mint with explicit execution units. Used when building raw txbody content.
 mintScriptWitness'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.HashableScriptData
@@ -149,7 +149,7 @@ mintScriptWitness' era lang@(C.PlutusScriptLanguage C.PlutusScriptV3) (Right ref
     redeemer
 
 spendScriptWitness
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ScriptLanguage lang
   -> Either (C.PlutusScript lang) C.TxIn -- either script or reference to script
   -> C.ScriptDatum C.WitCtxTxIn
@@ -203,7 +203,7 @@ spendScriptWitness era lang@(C.PlutusScriptLanguage C.PlutusScriptV3) (Right ref
 
 -- | Produce ScriptLanguageInEra. Throw error when era doesn't support the script language.
 maybeScriptWitness
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ScriptLanguage l
   -> Maybe (C.ScriptLanguageInEra l era)
   -> C.ScriptLanguageInEra l era
