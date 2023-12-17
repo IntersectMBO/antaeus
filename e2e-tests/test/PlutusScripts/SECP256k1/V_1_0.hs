@@ -54,19 +54,19 @@ verifySchnorrAssetIdV2 :: C.AssetId
 verifySchnorrAssetIdV2 = C.AssetId (policyIdV2 verifySchnorrPolicy) schnorrAssetName
 
 verifySchnorrMintWitnessV1
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifySchnorrMintWitnessV1 era =
+verifySchnorrMintWitnessV1 sbe =
   ( policyIdV1 verifySchnorrPolicy
-  , mintScriptWitness era plutusL1 (Left verifySchnorrPolicyScriptV1) (toScriptData ())
+  , mintScriptWitness sbe plutusL1 (Left verifySchnorrPolicyScriptV1) (toScriptData ())
   )
 
 verifySchnorrMintWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifySchnorrMintWitnessV2 era =
+verifySchnorrMintWitnessV2 sbe =
   ( policyIdV2 verifySchnorrPolicy
-  , mintScriptWitness era plutusL2 (Left verifySchnorrPolicyScriptV2) (toScriptData ())
+  , mintScriptWitness sbe plutusL2 (Left verifySchnorrPolicyScriptV2) (toScriptData ())
   )
 
 -- ECDSA minting policy --
@@ -90,17 +90,17 @@ verifyEcdsaAssetIdV2 :: C.AssetId
 verifyEcdsaAssetIdV2 = C.AssetId (policyIdV2 verifyEcdsaPolicy) ecdsaAssetName
 
 verifyEcdsaMintWitnessV1
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyEcdsaMintWitnessV1 era =
+verifyEcdsaMintWitnessV1 sbe =
   ( policyIdV1 verifyEcdsaPolicy
-  , mintScriptWitness era plutusL1 (Left verifyEcdsaPolicyScriptV1) verifyEcdsaRedeemer
+  , mintScriptWitness sbe plutusL1 (Left verifyEcdsaPolicyScriptV1) verifyEcdsaRedeemer
   )
 
 verifyEcdsaMintWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyEcdsaMintWitnessV2 era =
+verifyEcdsaMintWitnessV2 sbe =
   ( policyIdV2 verifyEcdsaPolicy
-  , mintScriptWitness era plutusL2 (Left verifyEcdsaPolicyScriptV2) verifyEcdsaRedeemer
+  , mintScriptWitness sbe plutusL2 (Left verifyEcdsaPolicyScriptV2) verifyEcdsaRedeemer
   )

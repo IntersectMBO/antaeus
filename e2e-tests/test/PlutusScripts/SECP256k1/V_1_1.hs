@@ -50,7 +50,7 @@ verifySchnorrAssetIdV3 :: C.AssetId
 verifySchnorrAssetIdV3 = C.AssetId (policyIdV3 verifySchnorrPolicy) schnorrAssetName
 
 verifySchnorrMintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifySchnorrMintWitnessV3 era =
   ( policyIdV3 verifySchnorrPolicy
@@ -77,9 +77,9 @@ verifyEcdsaAssetIdV3 :: C.AssetId
 verifyEcdsaAssetIdV3 = C.AssetId (policyIdV3 verifyEcdsaPolicy) ecdsaAssetName
 
 verifyEcdsaMintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyEcdsaMintWitnessV3 era =
+verifyEcdsaMintWitnessV3 sbe =
   ( policyIdV3 verifyEcdsaPolicy
-  , mintScriptWitness era plutusL3 (Left verifyEcdsaPolicyScriptV3) verifyEcdsaRedeemer
+  , mintScriptWitness sbe plutusL3 (Left verifyEcdsaPolicyScriptV3) verifyEcdsaRedeemer
   )

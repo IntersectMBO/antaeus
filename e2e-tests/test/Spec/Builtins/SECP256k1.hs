@@ -17,6 +17,7 @@ import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
 import Hedgehog (MonadTest)
 import Hedgehog.Internal.Property (annotate)
+import Helpers.Common (toShelleyBasedEra)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestInfo (..), TestParams (..))
@@ -45,6 +46,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
   era <- TN.eraFromOptionsM networkOptions
   pv <- TN.pvFromOptions networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction
 
@@ -53,12 +55,12 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
   let (tokenValues, mintWitnesses, plutusVersion) = case era of
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.verifySchnorrAssetIdV1, 4), (PS_1_0.verifyEcdsaAssetIdV1, 2)]
-          , Map.fromList [PS_1_0.verifySchnorrMintWitnessV1 era, PS_1_0.verifyEcdsaMintWitnessV1 era]
+          , Map.fromList [PS_1_0.verifySchnorrMintWitnessV1 sbe, PS_1_0.verifyEcdsaMintWitnessV1 sbe]
           , show C.PlutusV1
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.verifySchnorrAssetIdV2, 4), (PS_1_0.verifyEcdsaAssetIdV2, 2)]
-          , Map.fromList [PS_1_0.verifySchnorrMintWitnessV2 era, PS_1_0.verifyEcdsaMintWitnessV2 era]
+          , Map.fromList [PS_1_0.verifySchnorrMintWitnessV2 sbe, PS_1_0.verifyEcdsaMintWitnessV2 sbe]
           , show C.PlutusV2
           )
         C.ConwayEra ->
@@ -71,15 +73,15 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
           , Map.fromList
               -- TODO: add PS_1_1.verifySchnorrMintWitnessV3 and
               -- PS_1_1.verifyEcdsaMintWitnessV3 when PlutusV3 is supported again
-              [ PS_1_0.verifySchnorrMintWitnessV2 era
-              , PS_1_0.verifyEcdsaMintWitnessV2 era
+              [ PS_1_0.verifySchnorrMintWitnessV2 sbe
+              , PS_1_0.verifyEcdsaMintWitnessV2 sbe
               ]
           , show C.PlutusV3
           )
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
       collateral = Tx.txInsCollateral era [txIn]
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -114,7 +116,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
     False -> do
       -- Build and submit transaction
       signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-      Tx.submitTx era localNodeConnectInfo signedTx
+      Tx.submitTx sbe localNodeConnectInfo signedTx
       let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
 
       -- Query for txo and assert it contains newly minting tokens to prove successful use of SECP256k1 builtins

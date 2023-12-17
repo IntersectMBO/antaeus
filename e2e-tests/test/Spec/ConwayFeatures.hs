@@ -81,6 +81,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction
 
@@ -140,12 +141,12 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
           expTxInfoData
       mintWitnesses =
         Map.fromList
-          [ PS.checkV2TxInfoMintWitnessV2 era redeemer executionUnits1
-          , PS_1_0.alwaysSucceedMintWitnessV2' era executionUnits2
+          [ PS.checkV2TxInfoMintWitnessV2 sbe redeemer executionUnits1
+          , PS_1_0.alwaysSucceedMintWitnessV2' sbe executionUnits2
           ]
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsReference = Tx.txInsReference era [txIn]
           , C.txInsCollateral = collateral
@@ -158,11 +159,11 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
-  txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx (toShelleyBasedEra era) txbody (C.WitnessPaymentKey w1SKey)
+  txbody <- Tx.buildRawTx sbe txBodyContent
+  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
   let signedTx = C.makeSignedTransaction [kw] txbody
 
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
 
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
   resultTxOut <-
@@ -193,12 +194,13 @@ registerStakePoolTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     sPRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       regSPTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       regSPTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [sPRegTxIn]
           , C.txCertificates = Tx.txCertificates era [sPRegCert] [sPStakeCred]
           , C.txOuts = [regSPTxOut]
@@ -211,7 +213,7 @@ registerStakePoolTest
         w1Address
         (Just 3)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey sPSKey, C.WitnessStakeKey sPRewardKey]
-    Tx.submitTx era localNodeConnectInfo signedRegSPTx
+    Tx.submitTx sbe localNodeConnectInfo signedRegSPTx
     let expTxIn = Tx.txIn (Tx.txId signedRegSPTx) 0
     regDRepResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -236,13 +238,14 @@ registerStakingTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     w1StakeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       adaValue = C.lovelaceToValue 2_000_000
       w1StakeRegTxOut = Tx.txOut era adaValue w1Address
       w1StakeRegTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [w1StakeRegTxIn]
           , C.txCertificates = Tx.txCertificates era [stakeRegCert] [stakeCred]
           , C.txOuts = [w1StakeRegTxOut]
@@ -255,7 +258,7 @@ registerStakingTest
         w1Address
         (Just 2) -- witnesses
         [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
-    Tx.submitTx era localNodeConnectInfo signedW1StakeRegTx1
+    Tx.submitTx sbe localNodeConnectInfo signedW1StakeRegTx1
     let expTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
     w1StakeRegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -286,20 +289,21 @@ registerDRep
 registerDRep dRepRegCert networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
   let
     regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
     -- TODO: add DRep script witness
     regDRepTxBodyContent =
-      (Tx.emptyTxBodyContent era pparams)
+      (Tx.emptyTxBodyContent sbe pparams)
         { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
         , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
         , C.txOuts = [regDRepTxOut]
         }
   -- TODO: add DRep key witness (if KeyDRep)
   signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedRegDRepTx
+  Tx.submitTx sbe localNodeConnectInfo signedRegDRepTx
   let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
   regDRepResultTxOut <-
     Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -324,13 +328,14 @@ registerCommitteeTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     -- register committee
     committeeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       committeeRegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       committeeRegTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [committeeRegTxIn]
           , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] []
           , C.txOuts = [committeeRegTxOut]
@@ -343,7 +348,7 @@ registerCommitteeTest
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessCommitteeColdKey committeeColdSKey]
-    Tx.submitTx era localNodeConnectInfo signedCommitteeRegTx
+    Tx.submitTx sbe localNodeConnectInfo signedCommitteeRegTx
     let expTxIn = Tx.txIn (Tx.txId signedCommitteeRegTx) 0
     regDRepResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -372,15 +377,15 @@ delegateToDRep
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    let ceo = toConwayEraOnwards era
+    let sbe = toShelleyBasedEra era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      voteDelgCert = DRep.voteDelegateCert ceo dRepLedgerCred stakeCred
+      voteDelgCert = DRep.voteDelegateCert (toConwayEraOnwards era) dRepLedgerCred stakeCred
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
           , C.txCertificates = Tx.txCertificates era [voteDelgCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
@@ -393,7 +398,7 @@ delegateToDRep
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
-    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
+    Tx.submitTx sbe localNodeConnectInfo signedStakeDelegTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -419,6 +424,7 @@ delegateToStakePoolTest
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
     let ceo = toConwayEraOnwards era
+        sbe = toShelleyBasedEra era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
@@ -426,7 +432,7 @@ delegateToStakePoolTest
 
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
           , C.txCertificates = Tx.txCertificates era [w1StakeDelgCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
@@ -439,7 +445,7 @@ delegateToStakePoolTest
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
-    Tx.submitTx era localNodeConnectInfo signedStakeDelegTx
+    Tx.submitTx sbe localNodeConnectInfo signedStakeDelegTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -510,14 +516,14 @@ constitutionProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -531,7 +537,7 @@ constitutionProposalAndVoteTest
         votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on constitution
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -548,7 +554,7 @@ constitutionProposalAndVoteTest
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -629,14 +635,14 @@ committeeProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -651,7 +657,7 @@ committeeProposalAndVoteTest
         votes = [(dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -668,7 +674,7 @@ committeeProposalAndVoteTest
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -726,14 +732,14 @@ noConfidenceProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -748,7 +754,7 @@ noConfidenceProposalAndVoteTest
         votes = [(dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -765,7 +771,7 @@ noConfidenceProposalAndVoteTest
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -827,14 +833,14 @@ parameterChangeProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -848,7 +854,7 @@ parameterChangeProposalAndVoteTest
         votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -865,7 +871,7 @@ parameterChangeProposalAndVoteTest
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -927,14 +933,14 @@ treasuryWithdrawalProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -948,7 +954,7 @@ treasuryWithdrawalProposalAndVoteTest
         votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -965,7 +971,7 @@ treasuryWithdrawalProposalAndVoteTest
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -1035,14 +1041,14 @@ hardForkProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -1056,7 +1062,7 @@ hardForkProposalAndVoteTest
         votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -1074,7 +1080,7 @@ hardForkProposalAndVoteTest
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -1134,14 +1140,14 @@ infoProposalAndVoteTest
           anchor
 
       tx1BodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
           , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
     signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
-    Tx.submitTx era localNodeConnectInfo signedTx1
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
     let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
@@ -1155,7 +1161,7 @@ infoProposalAndVoteTest
         votes = [(committeeVoter, C.Yes), (dRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
         votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
-          (Tx.emptyTxBodyContent era pparams)
+          (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
             , C.txOuts = [tx2Out1]
@@ -1173,7 +1179,7 @@ infoProposalAndVoteTest
         , C.WitnessPaymentKey (DRep.castDRep dRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
         ]
-    Tx.submitTx era localNodeConnectInfo signedTx2
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
@@ -1201,13 +1207,14 @@ unregisterDRep
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     unRegDRepTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       unRegDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       -- TODO: add DRep script witness
       unRegDRepTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [unRegDRepTxIn]
           , C.txCertificates = Tx.txCertificates era [dRepUnregCert dRep] []
           , C.txOuts = [unRegDRepTxOut]
@@ -1224,7 +1231,7 @@ unregisterDRep
             KeyDRep{} -> [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey $ DRep.castDRep (dRepSKey dRep)]
             ScriptDRep{} -> [C.WitnessPaymentKey w1SKey]
         )
-    Tx.submitTx era localNodeConnectInfo signedDRepUnregTx
+    Tx.submitTx sbe localNodeConnectInfo signedDRepUnregTx
     let expTxIn = Tx.txIn (Tx.txId signedDRepUnregTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -1249,12 +1256,13 @@ unregisterStakingTest
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
           , C.txCertificates = Tx.txCertificates era [stakeUnregCert] [stakeCred]
           , C.txOuts = [stakeDelegTxOut]
@@ -1268,7 +1276,7 @@ unregisterStakingTest
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
-    Tx.submitTx era localNodeConnectInfo signedStakeUnregTx
+    Tx.submitTx sbe localNodeConnectInfo signedStakeUnregTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeUnregTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
@@ -1294,6 +1302,7 @@ retireStakePoolTest
     era <- TN.eraFromOptionsM networkOptions
     (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
     let ceo = toConwayEraOnwards era
+        sbe = toShelleyBasedEra era
 
     currentEpoch <- Q.getCurrentEpoch era localNodeConnectInfo
     H.annotate $ show currentEpoch
@@ -1303,7 +1312,7 @@ retireStakePoolTest
       retireSPCert = makeStakePoolRetireCertification ceo stakePool (currentEpoch + 1)
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [stakeDelgTxIn]
           , C.txCertificates = Tx.txCertificates era [retireSPCert] [sPStakeCred]
           , C.txOuts = [stakeDelegTxOut]
@@ -1317,7 +1326,7 @@ retireStakePoolTest
         w1Address
         (Just 2)
         [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey sPSKey]
-    Tx.submitTx era localNodeConnectInfo signedPoolRetireTx
+    Tx.submitTx sbe localNodeConnectInfo signedPoolRetireTx
     let expTxIn = Tx.txIn (Tx.txId signedPoolRetireTx) 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"

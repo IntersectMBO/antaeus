@@ -63,17 +63,17 @@ checkHashingAssetIdV2 :: C.AssetId
 checkHashingAssetIdV2 = C.AssetId (policyIdV2 checkHashingPolicy) hashingAssetName
 
 checkHashingMintWitnessV1
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-checkHashingMintWitnessV1 era =
+checkHashingMintWitnessV1 sbe =
   ( policyIdV1 checkHashingPolicy
-  , mintScriptWitness era plutusL1 (Left checkHashingPolicyScriptV1) (toScriptData ())
+  , mintScriptWitness sbe plutusL1 (Left checkHashingPolicyScriptV1) (toScriptData ())
   )
 
 checkHashingMintWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-checkHashingMintWitnessV2 era =
+checkHashingMintWitnessV2 sbe =
   ( policyIdV2 checkHashingPolicy
-  , mintScriptWitness era plutusL2 (Left checkHashingPolicyScriptV2) (toScriptData ())
+  , mintScriptWitness sbe plutusL2 (Left checkHashingPolicyScriptV2) (toScriptData ())
   )

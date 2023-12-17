@@ -50,7 +50,7 @@ common lang
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api                    ^>=8.33
+    , cardano-api                    ^>=8.36.0.1
     , cardano-binary
     , cardano-crypto-class
     , cardano-crypto-wrapper
@@ -169,7 +169,7 @@ test-suite antaeus-test
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api           ^>=8.33
+    , cardano-api           ^>=8.36.0.1
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core

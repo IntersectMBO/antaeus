@@ -59,6 +59,7 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction
 
@@ -112,10 +113,10 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
           expTxInfoValidRange
           expTxInfoSigs
           expTxInfoData
-      mintWitnesses = Map.fromList [PS.checkV1TxInfoMintWitnessV1 era redeemer executionUnits]
+      mintWitnesses = Map.fromList [PS.checkV1TxInfoMintWitnessV1 sbe redeemer executionUnits]
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -127,11 +128,11 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
-  txbody <- Tx.buildRawTx era txBodyContent
-  kw <- Tx.signTx (toShelleyBasedEra era) txbody (C.WitnessPaymentKey w1SKey)
+  txbody <- Tx.buildRawTx sbe txBodyContent
+  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
   let signedTx = C.makeSignedTransaction [kw] txbody
 
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
 
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
   resultTxOut <-
@@ -160,6 +161,7 @@ datumHashSpendTest
 datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction with two script outputs to be spent
   -- only one has its datum value embedded in the tx body
@@ -178,13 +180,13 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = [scriptTxOut1, scriptTxOut2, otherTxOut]
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let txInAtScript1 = Tx.txIn (Tx.txId signedTx) 0
       txInAtScript2 = Tx.txIn (Tx.txId signedTx) 1
       otherTxIn = Tx.txIn (Tx.txId signedTx) 2
@@ -193,10 +195,10 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
   -- build a transaction to spend from script with datum attached to the trasaction
 
   let witness d = case era of
-        C.AlonzoEra -> PS_1_0.alwaysSucceedSpendWitnessV1 era Nothing d
-        C.BabbageEra -> PS_1_0.alwaysSucceedSpendWitnessV2 era Nothing d
+        C.AlonzoEra -> PS_1_0.alwaysSucceedSpendWitnessV1 sbe Nothing d
+        C.BabbageEra -> PS_1_0.alwaysSucceedSpendWitnessV2 sbe Nothing d
         -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-        C.ConwayEra -> PS_1_0.alwaysSucceedSpendWitnessV2 era Nothing d
+        C.ConwayEra -> PS_1_0.alwaysSucceedSpendWitnessV2 sbe Nothing d
       scriptTxins =
         [ Tx.txInWitness txInAtScript1 $ witness (Just datum1)
         , Tx.txInWitness txInAtScript2 $ witness (Just datum2)
@@ -206,14 +208,14 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
       txOut = Tx.txOut era adaValue w1Address
 
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = scriptTxins
           , C.txInsCollateral = collateral
           , C.txOuts = [txOut]
           }
 
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx2
+  Tx.submitTx sbe localNodeConnectInfo signedTx2
   let expectedTxIn1 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains expected ada value
   resultTxOut1 <-
@@ -245,6 +247,7 @@ mintBurnTest
 mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to mint tokens
 
@@ -253,26 +256,26 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 10)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 10), (PS_1_0.alwaysSucceedAssetIdV2, 10)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
         C.ConwayEra ->
           -- TODO: add PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 10), (PS_1_0.alwaysSucceedAssetIdV2, 10)]
           , Map.fromList
               -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
       collateral = Tx.txInsCollateral era [txIn]
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
       otherTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -280,7 +283,7 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
   -- Query for txo and assert it contains newly minted token
@@ -314,14 +317,14 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
       collateral2 = Tx.txInsCollateral era [otherTxIn]
       txOut2 = Tx.txOut era (C.lovelaceToValue 5_000_000 <> tokenValues2) w1Address
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn2]
           , C.txInsCollateral = collateral2
           , C.txMintValue = Tx.txMintValue era burnValue mintWitnesses
           , C.txOuts = [txOut2]
           }
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx2
+  Tx.submitTx sbe localNodeConnectInfo signedTx2
   let expectedTxIn2 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains tokens remaining after burn
   resultTxOut2 <-
@@ -351,6 +354,7 @@ collateralContainsTokenErrorTest
 collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to mint tokens
 
@@ -359,26 +363,26 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
         C.ConwayEra ->
           -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
               -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
       collateral = Tx.txInsCollateral era [txIn]
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
       otherTxOut = Tx.txOut era (C.lovelaceToValue 8_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txInsCollateral = collateral
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -386,7 +390,7 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
       otherTxIn = Tx.txIn (Tx.txId signedTx) 1
   -- Query for txo and assert it contains newly minted token
@@ -406,7 +410,7 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
       collateral2 = Tx.txInsCollateral era [txInWithToken]
       txOut2 = Tx.txOut era (C.lovelaceToValue 5_000_000 <> tokenValues) w1Address
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [otherTxIn]
           , C.txInsCollateral = collateral2
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
@@ -415,7 +419,7 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
 
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
 
-  eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
+  eitherSubmit <- Tx.submitTx' sbe localNodeConnectInfo signedTx2
   -- Not sure why this ledger error is doesn't occur when balancing (it does with cardano-cli)
   -- asserting for it on submit instead
   let expError = "CollateralContainsNonADA"
@@ -438,6 +442,7 @@ missingCollateralInputErrorTest
 missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to mint tokens
 
@@ -446,24 +451,24 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
         C.ConwayEra ->
           -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
               -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
           , C.txOuts = [txOut]
@@ -497,6 +502,7 @@ noCollateralInputsErrorTest
 noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to mint tokens
 
@@ -506,24 +512,24 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
       (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing]
+          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
         C.ConwayEra ->
           -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
           ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
               -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-              [PS_1_0.alwaysSucceedMintWitnessV1 era Nothing, PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
           , C.txInsCollateral = collateral -- txInsCollateral exists but with empty list
@@ -531,7 +537,7 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx
+  eitherSubmit <- Tx.submitTx' sbe localNodeConnectInfo signedTx
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
   let expError = "NoCollateralInputs"
   assert expError $ Tx.isSubmitError expError eitherSubmit
@@ -553,6 +559,7 @@ tooManyCollateralInputsErrorTest
 tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
   -- build a transaction to mint tokens
 
@@ -562,17 +569,17 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo,
       maxCollateralInputs =
         fromIntegral $
           U.unsafeFromMaybe $
-            C.protocolParamMaxCollateralInputs (C.fromLedgerPParams (toShelleyBasedEra era) ledgerPParams)
+            C.protocolParamMaxCollateralInputs (C.fromLedgerPParams sbe ledgerPParams)
       txOut = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
 
       txBodyContent =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
           , C.txOuts = replicate (maxCollateralInputs + 1) txOut -- one more than max
           }
 
   signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx era localNodeConnectInfo signedTx
+  Tx.submitTx sbe localNodeConnectInfo signedTx
   let collateralTxIns = map (\i -> Tx.txIn (Tx.txId signedTx) i) [0 .. maxCollateralInputs]
   Q.waitForTxInAtAddress
     era
@@ -586,7 +593,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo,
   let collateral = Tx.txInsCollateral era collateralTxIns
       txOut2 = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
       txBodyContent2 =
-        (Tx.emptyTxBodyContent era pparams)
+        (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns (take 3 collateralTxIns)
           , C.txInsCollateral = collateral
           , C.txOuts = [txOut2]
@@ -594,7 +601,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo,
 
   signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
 
-  eitherSubmit <- Tx.submitTx' era localNodeConnectInfo signedTx2
+  eitherSubmit <- Tx.submitTx' sbe localNodeConnectInfo signedTx2
   -- this ledger error isn't caught by balancing so asserting for it on submit instead
   let expError = "TooManyCollateralInputs"
   assert expError $ Tx.isSubmitError expError eitherSubmit

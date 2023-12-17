@@ -44,9 +44,9 @@ checkHashingAssetIdV3 :: C.AssetId
 checkHashingAssetIdV3 = C.AssetId (policyIdV3 checkHashingPolicy) hashingAssetName
 
 checkHashingMintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-checkHashingMintWitnessV3 era =
+checkHashingMintWitnessV3 sbe =
   ( policyIdV3 checkHashingPolicy
-  , mintScriptWitness era plutusL3 (Left checkHashingPolicyScriptV3) (toScriptData ())
+  , mintScriptWitness sbe plutusL3 (Left checkHashingPolicyScriptV3) (toScriptData ())
   )

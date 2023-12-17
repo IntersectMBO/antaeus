@@ -61,7 +61,7 @@ alwaysSucceedPolicyTxInfoRedeemerV2 =
 Use Nothing to include script in witness, else provide TxIn to reference script
 -}
 alwaysSucceedMintWitnessV1
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn -- maybe reference input
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysSucceedMintWitnessV1 era Nothing =
@@ -74,7 +74,7 @@ alwaysSucceedMintWitnessV1 era (Just refTxIn) =
   )
 
 alwaysSucceedMintWitnessV1'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysSucceedMintWitnessV1' era exunits =
@@ -86,7 +86,7 @@ alwaysSucceedMintWitnessV1' era exunits =
 Use Nothing to include script in witness, else provide TxIn to reference script
 -}
 alwaysSucceedMintWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn -- maybe reference input
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysSucceedMintWitnessV2 era Nothing =
@@ -99,7 +99,7 @@ alwaysSucceedMintWitnessV2 era (Just refTxIn) =
   )
 
 alwaysSucceedMintWitnessV2'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysSucceedMintWitnessV2' era exunits =
@@ -125,7 +125,7 @@ alwaysSucceedSpendScriptHashV2 :: C.ScriptHash
 alwaysSucceedSpendScriptHashV2 = C.hashScript $ C.PlutusScript C.PlutusScriptV2 alwaysSucceedSpendScriptV2
 
 alwaysSucceedSpendWitnessV1
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn
   -> Maybe C.HashableScriptData
   -> C.Witness C.WitCtxTxIn era
@@ -139,7 +139,7 @@ alwaysSucceedSpendWitnessV1 era mRefScript mDatum =
       (toScriptData ()) -- redeemer
 
 alwaysSucceedSpendWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn
   -> Maybe C.HashableScriptData
   -> C.Witness C.WitCtxTxIn era
@@ -182,7 +182,7 @@ alwaysFailsPolicyTxInfoRedeemerV2 =
 Use Nothing to include script in witness, else provide TxIn to reference script
 -}
 alwaysFailsMintWitnessV1
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn -- maybe reference input
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysFailsMintWitnessV1 era Nothing =
@@ -195,7 +195,7 @@ alwaysFailsMintWitnessV1 era (Just refTxIn) =
   )
 
 alwaysFailsMintWitnessV1'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysFailsMintWitnessV1' era exunits =
@@ -207,7 +207,7 @@ alwaysFailsMintWitnessV1' era exunits =
 Use Nothing to include script in witness, else provide TxIn to reference script
 -}
 alwaysFailsMintWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> Maybe C.TxIn -- maybe reference input
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 alwaysFailsMintWitnessV2 era Nothing =
@@ -220,10 +220,10 @@ alwaysFailsMintWitnessV2 era (Just refTxIn) =
   )
 
 alwaysFailsMintWitnessV2'
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-alwaysFailsMintWitnessV2' era exunits =
+alwaysFailsMintWitnessV2' sbe exunits =
   ( policyIdV2 alwaysFailsPolicy
-  , mintScriptWitness' era plutusL2 (Left alwaysFailsPolicyScriptV2) (toScriptData ()) exunits
+  , mintScriptWitness' sbe plutusL2 (Left alwaysFailsPolicyScriptV2) (toScriptData ()) exunits
   )

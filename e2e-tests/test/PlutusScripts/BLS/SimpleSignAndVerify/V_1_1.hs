@@ -36,9 +36,9 @@ verifyBlsSimpleRedeemer :: C.HashableScriptData
 verifyBlsSimpleRedeemer = H.toScriptData redeemerParams
 
 verifyBlsSimpleMintWitnessV3
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-verifyBlsSimpleMintWitnessV3 era =
+verifyBlsSimpleMintWitnessV3 sbe =
   ( H.policyIdV3 verifyBlsSimplePolicyV3
-  , H.mintScriptWitness era H.plutusL3 (Left verifyBlsSimplePolicyScriptV3) verifyBlsSimpleRedeemer
+  , H.mintScriptWitness sbe H.plutusL3 (Left verifyBlsSimplePolicyScriptV3) verifyBlsSimpleRedeemer
   )

@@ -169,11 +169,11 @@ checkV2TxInfoAssetIdV2 :: C.AssetId
 checkV2TxInfoAssetIdV2 = C.AssetId (policyIdV2 checkV2TxInfoV2) "V2TxInfo"
 
 checkV2TxInfoMintWitnessV2
-  :: C.CardanoEra era
+  :: C.ShelleyBasedEra era
   -> C.HashableScriptData
   -> C.ExecutionUnits
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
-checkV2TxInfoMintWitnessV2 era redeemer exunits =
+checkV2TxInfoMintWitnessV2 sbe redeemer exunits =
   ( policyIdV2 checkV2TxInfoV2
-  , mintScriptWitness' era plutusL2 (Left checkV2TxInfoScriptV2) redeemer exunits
+  , mintScriptWitness' sbe plutusL2 (Left checkV2TxInfoScriptV2) redeemer exunits
   )
