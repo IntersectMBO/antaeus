@@ -80,7 +80,7 @@ checkTxInfoV3Test
 checkTxInfoV3Test networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
@@ -193,7 +193,7 @@ registerStakePoolTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     sPRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -237,7 +237,7 @@ registerStakingTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     w1StakeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -288,7 +288,7 @@ registerDRep
   -> m (Maybe String)
 registerDRep dRepRegCert networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -327,7 +327,7 @@ registerCommitteeTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     -- register committee
@@ -376,7 +376,7 @@ delegateToDRep
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -422,7 +422,7 @@ delegateToStakePoolTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let ceo = toConwayEraOnwards era
         sbe = toShelleyBasedEra era
 
@@ -475,7 +475,7 @@ constitutionProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -621,7 +621,7 @@ committeeProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -721,7 +721,7 @@ noConfidenceProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -821,7 +821,7 @@ parameterChangeProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -922,7 +922,7 @@ treasuryWithdrawalProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -1029,7 +1029,7 @@ hardForkProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -1130,7 +1130,7 @@ infoProposalAndVoteTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
         ceo = toConwayEraOnwards era
 
@@ -1227,7 +1227,7 @@ unregisterDRep
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     unRegDRepTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -1277,7 +1277,7 @@ unregisterStakingTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -1322,7 +1322,7 @@ retireStakePoolTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let ceo = toConwayEraOnwards era
         sbe = toShelleyBasedEra era
 

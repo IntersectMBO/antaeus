@@ -79,7 +79,7 @@ verifyBlsFunctionsTest
   -> m (Maybe String)
 verifyBlsFunctionsTest networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let numberOfBlsScripts = 9
       sbe = toShelleyBasedEra era
 

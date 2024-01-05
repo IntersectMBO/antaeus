@@ -60,7 +60,7 @@ checkTxInfoV2Test
 checkTxInfoV2Test networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
+  (w1SKey, w1VKey, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
@@ -169,7 +169,7 @@ referenceScriptMintTest
   -> m (Maybe String)
 referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold reference script
@@ -257,7 +257,7 @@ referenceScriptInlineDatumSpendTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     -- build a transaction to hold reference script
@@ -343,7 +343,7 @@ referenceScriptDatumHashSpendTest
   -> m (Maybe String)
 referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold reference script
@@ -436,7 +436,7 @@ inlineDatumSpendTest
   -> m (Maybe String)
 inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold inline datum at script address
@@ -507,7 +507,7 @@ referenceInputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -556,7 +556,7 @@ referenceScriptOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -610,7 +610,7 @@ inlineDatumOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -664,7 +664,7 @@ returnCollateralWithTokensValidScriptTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -758,7 +758,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address

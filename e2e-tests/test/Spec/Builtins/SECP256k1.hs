@@ -13,7 +13,8 @@
 module Spec.Builtins.SECP256k1 where
 
 import Cardano.Api qualified as C
-import Control.Monad.IO.Class (MonadIO)
+import Control.Concurrent (threadDelay)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Map qualified as Map
 import Hedgehog (MonadTest)
 import Hedgehog.Internal.Property (annotate)
@@ -45,12 +46,12 @@ verifySchnorrAndEcdsaTest
 verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   pv <- TN.pvFromOptions networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
-
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+  liftIO $ threadDelay 1000
 
   let (tokenValues, mintWitnesses, plutusVersion) = case era of
         C.AlonzoEra ->
@@ -116,6 +117,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
     False -> do
       -- Build and submit transaction
       signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
+      error "HERE"
       Tx.submitTx sbe localNodeConnectInfo signedTx
       let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
 

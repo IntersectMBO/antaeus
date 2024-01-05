@@ -14,7 +14,7 @@ repository cardano-haskell-packages
 -- See CONTRIBUTING.adoc for how to update index-state
 index-state:
   , hackage.haskell.org 2023-12-08T11:11:00Z
-  , cardano-haskell-packages 2023-12-08T11:11:00Z
+  , cardano-haskell-packages 2023-12-22T13:20:40Z
 packages: e2e-tests
 
 -- We never, ever, want this.
@@ -56,3 +56,16 @@ source-repository-package
     tag: bc17a94280d73b605e6ffd6c7895996d93e7293a
     subdir:
       cardano-testnet
+
+-- TODO: remove once this version is on CHaP
+source-repository-package
+    type: git
+    location: https://github.com/input-output-hk/cardano-node-emulator
+    tag: 8eb91bd5ae0398ecd044ca950431d999467ae0c2
+    subdir:
+      plutus-ledger
+      plutus-script-utils
+      cardano-node-emulator
+      cardano-node-socket-emulator
+      freer-extras
+
