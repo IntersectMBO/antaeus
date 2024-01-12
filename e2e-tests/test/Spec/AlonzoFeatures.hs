@@ -129,7 +129,7 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
-  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
+  kw <- Tx.signTx sbe txbody w1SKey
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx sbe localNodeConnectInfo signedTx
@@ -481,7 +481,7 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
       txBodyContent
       w1Address
       Nothing
-      [C.WitnessPaymentKey w1SKey]
+      [w1SKey]
   let expError = "TxBodyEmptyTxInsCollateral"
   assert expError $ Tx.isTxBodyError expError eitherTx
 

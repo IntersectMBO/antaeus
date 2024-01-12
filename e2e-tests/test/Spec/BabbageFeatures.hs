@@ -139,7 +139,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
-  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
+  kw <- Tx.signTx sbe txbody w1SKey
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx sbe localNodeConnectInfo signedTx
@@ -533,7 +533,7 @@ referenceInputWithV1ScriptErrorTest
         txBodyContent
         w1Address
         Nothing
-        [C.WitnessPaymentKey w1SKey]
+        [w1SKey]
     let expError = "ReferenceInputsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
     assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
@@ -586,7 +586,7 @@ referenceScriptOutputWithV1ScriptErrorTest
         txBodyContent
         w1Address
         Nothing
-        [C.WitnessPaymentKey w1SKey]
+        [w1SKey]
     H.annotate $ show eitherTx
     let expError = "ReferenceScriptsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -640,7 +640,7 @@ inlineDatumOutputWithV1ScriptErrorTest
         txBodyContent
         w1Address
         Nothing
-        [C.WitnessPaymentKey w1SKey]
+        [w1SKey]
     H.annotate $ show eitherTx
     let expError = "InlineDatumsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080

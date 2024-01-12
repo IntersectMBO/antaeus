@@ -160,7 +160,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
-  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
+  kw <- Tx.signTx sbe txbody w1SKey
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx sbe localNodeConnectInfo signedTx
@@ -212,7 +212,7 @@ registerStakePoolTest
         regSPTxBodyContent
         w1Address
         (Just 3)
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey sPSKey, C.WitnessStakeKey sPRewardKey]
+        [w1SKey, C.WitnessStakePoolKey sPSKey, C.WitnessStakeKey sPRewardKey]
     Tx.submitTx sbe localNodeConnectInfo signedRegSPTx
     let expTxIn = Tx.txIn (Tx.txId signedRegSPTx) 0
     regDRepResultTxOut <-
@@ -257,7 +257,7 @@ registerStakingTest
         w1StakeRegTxBodyContent
         w1Address
         (Just 2) -- witnesses
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+        [w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx sbe localNodeConnectInfo signedW1StakeRegTx1
     let expTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
     w1StakeRegResultTxOut <-
@@ -347,7 +347,7 @@ registerCommitteeTest
         committeeRegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessCommitteeColdKey committeeColdSKey]
+        [w1SKey, C.WitnessCommitteeColdKey committeeColdSKey]
     Tx.submitTx sbe localNodeConnectInfo signedCommitteeRegTx
     let expTxIn = Tx.txIn (Tx.txId signedCommitteeRegTx) 0
     regDRepResultTxOut <-
@@ -397,7 +397,7 @@ delegateToDRep
         stakeDelegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+        [w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx sbe localNodeConnectInfo signedStakeDelegTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
     stakeDelegResultTxOut <-
@@ -444,7 +444,7 @@ delegateToStakePoolTest
         stakeDelegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+        [w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx sbe localNodeConnectInfo signedStakeDelegTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeDelegTx) 0
     stakeDelegResultTxOut <-
@@ -690,7 +690,7 @@ committeeProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
+        [ w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         ]
@@ -787,7 +787,7 @@ noConfidenceProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
+        [ w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         ]
@@ -1096,7 +1096,7 @@ hardForkProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 4) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
+        [ w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
@@ -1195,7 +1195,7 @@ infoProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 4) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
+        [ w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
         , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
@@ -1297,7 +1297,7 @@ unregisterStakingTest
         stakeDelegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+        [w1SKey, C.WitnessStakeKey stakeSKey]
     Tx.submitTx sbe localNodeConnectInfo signedStakeUnregTx
     let expTxIn = Tx.txIn (Tx.txId signedStakeUnregTx) 0
     stakeDelegResultTxOut <-
@@ -1347,7 +1347,7 @@ retireStakePoolTest
         stakeDelegTxBodyContent
         w1Address
         (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakePoolKey sPSKey]
+        [w1SKey, C.WitnessStakePoolKey sPSKey]
     Tx.submitTx sbe localNodeConnectInfo signedPoolRetireTx
     let expTxIn = Tx.txIn (Tx.txId signedPoolRetireTx) 0
     stakeDelegResultTxOut <-

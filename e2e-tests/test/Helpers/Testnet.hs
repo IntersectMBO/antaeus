@@ -359,16 +359,20 @@ w1All
   => TestEnvironmentOptions era
   -> FilePath
   -> C.NetworkId
-  -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
+  -> m (C.ShelleyWitnessSigningKey, C.Hash C.PaymentKey, C.Address C.ShelleyAddr)
 -- cardano-node-emulator does not use envelope files to store keys
 w1All EmulatorOptions{} _ _ = do
   let sKey = case knownWitnessSigningKey of
         Nothing -> error "Nothing: No known witness signing key"
-        Just (C.WitnessPaymentKey key) -> key
+        Just key -> key
+      vKeyHash = case sKey of
+        C.WitnessPaymentKey pk -> C.verificationKeyHash $ C.getVerificationKey pk
+        C.WitnessPaymentExtendedKey pek -> case C.verificationKeyHash $ C.getVerificationKey pek of
+          -- the hash of the normal non-extended pub key is used, so this is safe
+          C.PaymentExtendedKeyHash vk -> C.PaymentKeyHash vk
         _ -> error "Witness signing key is not of type (SigningKey PaymentKey)"
-      vKey = C.getVerificationKey sKey
       address = fromJust knownShelleyAddress
-  return (sKey, vKey, address)
+  return (sKey, vKeyHash, address)
 -- cardano-testnet and local node uses envelope files to store keys
 w1All _ tempAbsPath networkId = do
   let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
@@ -385,24 +389,25 @@ w1All _ tempAbsPath networkId = do
     maybeReadAs (C.AsSigningKey C.AsPaymentKey) w1SKeyFile
 
   let
-    vKey :: C.VerificationKey C.PaymentKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
+    vKeyHash :: C.Hash C.PaymentKey =
+      C.verificationKeyHash $
+        maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
     sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
-    address = makeAddress (Left vKey) networkId
+    address = makeAddress (Left vKeyHash) networkId
 
-  return (sKey, vKey, address)
+  return (C.WitnessPaymentKey sKey, vKeyHash, address)
 
 w1
   :: (MonadIO m, MonadTest m)
   => TestEnvironmentOptions era
   -> FilePath
   -> C.NetworkId
-  -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
+  -> m (C.ShelleyWitnessSigningKey, C.Address C.ShelleyAddr)
 w1 testEnvOptions tempAbsPath networkId =
   (\(sKey, _, address) -> (sKey, address)) <$> w1All testEnvOptions tempAbsPath networkId
 
 data TestnetStakePool = TestnetStakePool
   { stakePoolSKey :: C.SigningKey C.StakePoolKey
-  , stakePoolVKey :: C.VerificationKey C.StakePoolKey
   , stakePoolVKeyHash :: C.Hash C.StakePoolKey
   , stakePoolKeyHash :: C.Hash C.StakeKey
   , stakePoolVrfHash :: C.Hash C.VrfKey
@@ -440,7 +445,6 @@ pool1All tempAbsPath = do
   return $
     TestnetStakePool
       pool1SKey
-      pool1VKey
       pool1VKeyHash
       pool1StakeKeyHash
       pool1VrfKeyHash

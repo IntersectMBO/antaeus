@@ -39,7 +39,7 @@ buildAndSubmit
   -> C.TxIn
   -> C.TxInsCollateral era
   -> C.Address C.ShelleyAddr
-  -> C.SigningKey C.PaymentKey
+  -> C.ShelleyWitnessSigningKey
   -> C.AssetId
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
   -> m (C.Value, C.TxIn)

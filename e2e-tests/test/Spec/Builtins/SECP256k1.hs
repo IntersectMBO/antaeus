@@ -99,7 +99,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
           txBodyContent
           w1Address
           Nothing
-          [C.WitnessPaymentKey w1SKey]
+          [w1SKey]
       annotate $ show eitherTx
       let expErrorSchnorr =
             "Builtin function VerifySchnorrSecp256k1Signature is not available in language "
@@ -117,7 +117,6 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
     False -> do
       -- Build and submit transaction
       signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-      error "HERE"
       Tx.submitTx sbe localNodeConnectInfo signedTx
       let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
 
