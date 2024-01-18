@@ -297,22 +297,39 @@ emulatorTests
   -> TN.TestEnvironmentOptions era
   -> H.Property
 emulatorTests resultsRef options = integrationRetryWorkspace 0 "cardano-node-emulator" $ \tempAbsPath -> do
-  -- preTestnetTime <- liftIO Time.getPOSIXTime
+  preTestnetTime <- liftIO Time.getPOSIXTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
-  let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing
-      run name = runTest name resultsRef options testParams
+  let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
+      run testInfo = runTest testInfo resultsRef options testParams
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
-  -- TODO: pass in or query for slot range to use in checkTxInfo tests
-  -- runTestWithPosixTime "checkTxInfoV1Test" Alonzo.checkTxInfoV1Test options testParams preTestnetTime
-  -- runTestWithPosixTime "checkTxInfoV2Test" Babbage.checkTxInfoV2Test options testParams preTestnetTime
-  run Builtins.verifySchnorrAndEcdsaTestInfo
-  run Babbage.referenceScriptMintTestInfo
-  run Babbage.referenceScriptInlineDatumSpendTestInfo
-  run Babbage.referenceScriptDatumHashSpendTestInfo
+  sequence_
+    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
+      -- run Alonzo.checkTxInfoV1TestInfo -- need to start emulator at slot 1
+      --  run Babbage.checkTxInfoV2TestInfo -- need to start emulator at slot 1
+      run Alonzo.datumHashSpendTestInfo
+    , run Alonzo.mintBurnTestInfo
+    , run Alonzo.collateralContainsTokenErrorTestInfo
+    , run Alonzo.noCollateralInputsErrorTestInfo
+    , run Alonzo.missingCollateralInputErrorTestInfo
+    , run Alonzo.tooManyCollateralInputsErrorTestInfo
+    , run Builtins.verifySchnorrAndEcdsaTestInfo
+    , run Builtins.verifyHashingFunctionsTestInfo
+    , -- , run Builtins.verifyBlsFunctionsTestInfo -- TODO: enable when PlutusV3 is supported again
+      run Babbage.referenceScriptMintTestInfo
+    , run Babbage.referenceScriptInlineDatumSpendTestInfo
+    , run Babbage.referenceScriptDatumHashSpendTestInfo
+    , run Babbage.inlineDatumSpendTestInfo
+    , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+    , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+    , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+    , run Babbage.returnCollateralWithTokensValidScriptTestInfo
+    , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+    ]
 
-  U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
+  U.anyLeftFail_ $
+    TN.cleanupTestnet mPoolNodes
 
 writeSerialisedScriptFiles :: H.Property
 writeSerialisedScriptFiles = integrationRetryWorkspace 0 "serialised-plutus-scripts" $ \_ -> do
