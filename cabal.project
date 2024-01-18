@@ -53,6 +53,7 @@ constraints:
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-node
+    --sha256: sha256-kej3cZaQDFoo7EbCqowGTV/T7sn3tC+C9pL+sfY5d+8=
     tag: bc17a94280d73b605e6ffd6c7895996d93e7293a
     subdir:
       cardano-testnet
@@ -62,6 +63,7 @@ source-repository-package
     type: git
     location: https://github.com/input-output-hk/cardano-node-emulator
     tag: ca2829a5220e2b08af8d390cc415cafe924ae684
+    --sha256: sha256-+Qz1UFM9rzqcD1u5G8jXf/B2iyhZSte2z7tl8FiUWAw=
     subdir:
       plutus-ledger
       plutus-script-utils
