@@ -3,17 +3,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.1.0 #-}
 
-module PlutusScripts.Always.V_1_1 where
+module PlutusScripts.Basic.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1 (Redeemer, ScriptPurpose (Minting))
 import PlutusLedgerApi.V2 qualified as PlutusV2 (Map)
-import PlutusScripts.Always.Common (
+import PlutusScripts.Basic.Common (
   mkAlwaysFailsPolicy,
   mkAlwaysSucceedPolicy,
   mkAlwaysSucceedSpend,
+  mkMintTokenNamePolicyV3,
+  mkTimeRangePolicyV3,
+  mkWitnessRedeemerPolicyV3,
  )
 import PlutusScripts.Helpers (
   asRedeemer,
@@ -24,6 +27,7 @@ import PlutusScripts.Helpers (
   policyIdV3,
   spendScriptWitness,
   toScriptData,
+  writeSerialisedScript,
  )
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AMap
@@ -35,6 +39,9 @@ alwaysSucceedPolicy = serialiseCompiledCode $$(PlutusTx.compile [||mkAlwaysSucce
 
 alwaysSucceedPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 alwaysSucceedPolicyScriptV3 = C.PlutusScriptSerialised alwaysSucceedPolicy
+
+writeAlwaysSucceedPolicyScriptV3 :: IO ()
+writeAlwaysSucceedPolicyScriptV3 = writeSerialisedScript "alwaysSucceedPolicyScriptV3" alwaysSucceedPolicyScriptV3
 
 alwaysSucceedPolicyIdV3 :: C.PolicyId
 alwaysSucceedPolicyIdV3 = policyIdV3 alwaysSucceedPolicy
@@ -81,6 +88,9 @@ alwaysSucceedSpend = serialiseCompiledCode $$(PlutusTx.compile [||mkAlwaysSuccee
 alwaysSucceedSpendScriptV3 :: C.PlutusScript C.PlutusScriptV3
 alwaysSucceedSpendScriptV3 = C.PlutusScriptSerialised alwaysSucceedSpend
 
+writeAlwaysSucceedSpendScriptV3 :: IO ()
+writeAlwaysSucceedSpendScriptV3 = writeSerialisedScript "alwaysSucceedSpendScriptV3" alwaysSucceedSpendScriptV3
+
 alwaysSucceedSpendScriptHashV3 :: C.ScriptHash
 alwaysSucceedSpendScriptHashV3 = C.hashScript $ C.PlutusScript C.PlutusScriptV3 alwaysSucceedSpendScriptV3
 
@@ -105,6 +115,9 @@ alwaysFailsPolicy = serialiseCompiledCode $$(PlutusTx.compile [||mkAlwaysFailsPo
 
 alwaysFailsPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 alwaysFailsPolicyScriptV3 = C.PlutusScriptSerialised alwaysFailsPolicy
+
+writeAlwaysFailsPolicyScriptV3 :: IO ()
+writeAlwaysFailsPolicyScriptV3 = writeSerialisedScript "alwaysFailsPolicyScriptV3" alwaysFailsPolicyScriptV3
 
 alwaysFailsPolicyIdV3 :: C.PolicyId
 alwaysFailsPolicyIdV3 = policyIdV3 alwaysFailsPolicy
@@ -142,3 +155,36 @@ alwaysFailsMintWitnessV3' sbe exunits =
   ( policyIdV3 alwaysFailsPolicy
   , mintScriptWitness' sbe plutusL3 (Left alwaysFailsPolicyScriptV3) (toScriptData ()) exunits
   )
+
+-- Mint token name policy --
+
+mintTokenNamePolicyV3 :: SerialisedScript
+mintTokenNamePolicyV3 = serialiseCompiledCode $$(PlutusTx.compile [||mkMintTokenNamePolicyV3||])
+
+mintTokenNamePolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
+mintTokenNamePolicyScriptV3 = C.PlutusScriptSerialised mintTokenNamePolicyV3
+
+writeTokenNamePolicyScriptV3 :: IO ()
+writeTokenNamePolicyScriptV3 = writeSerialisedScript "mintTokenNamePolicyScriptV3" mintTokenNamePolicyScriptV3
+
+-- Time range policy --
+
+timeRangePolicyV3 :: SerialisedScript
+timeRangePolicyV3 = serialiseCompiledCode $$(PlutusTx.compile [||mkTimeRangePolicyV3||])
+
+timeRangePolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
+timeRangePolicyScriptV3 = C.PlutusScriptSerialised timeRangePolicyV3
+
+writeTimeRangePolicyScriptV3 :: IO ()
+writeTimeRangePolicyScriptV3 = writeSerialisedScript "timeRangePolicyScriptV3" timeRangePolicyScriptV3
+
+-- Witness redeemer policy --
+
+witnessRedeemerPolicyV3 :: SerialisedScript
+witnessRedeemerPolicyV3 = serialiseCompiledCode $$(PlutusTx.compile [||mkWitnessRedeemerPolicyV3||])
+
+witnessRedeemerPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
+witnessRedeemerPolicyScriptV3 = C.PlutusScriptSerialised witnessRedeemerPolicyV3
+
+writeWitnessRedeemerPolicyScriptV3 :: IO ()
+writeWitnessRedeemerPolicyScriptV3 = writeSerialisedScript "witnessRedeemerPolicyScriptV3" witnessRedeemerPolicyScriptV3

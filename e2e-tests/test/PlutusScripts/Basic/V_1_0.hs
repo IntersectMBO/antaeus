@@ -4,14 +4,14 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
-module PlutusScripts.Always.V_1_0 where
+module PlutusScripts.Basic.V_1_0 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1 (Redeemer, ScriptPurpose (Minting))
 import PlutusLedgerApi.V2 qualified as PlutusV2
-import PlutusScripts.Always.Common (
+import PlutusScripts.Basic.Common (
   mkAlwaysFailsPolicy,
   mkAlwaysSucceedPolicy,
   mkAlwaysSucceedSpend,

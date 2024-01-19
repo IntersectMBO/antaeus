@@ -33,11 +33,12 @@ import Helpers.TestResults (
  )
 import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
-import PlutusScripts.Always.V_1_0 qualified as PS_1_0
+import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins as Builtins
 import Spec.ConwayFeatures qualified as Conway
+import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -66,6 +67,7 @@ tests ResultsRefs{..} =
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
     , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
     , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
+    -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
     --  testProperty "debug" (debugTests pv8ResultsRef)
     --  testProperty
     --    "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
@@ -287,6 +289,10 @@ localNodeTests resultsRef options = integrationRetryWorkspace 0 "local" $ \tempA
   run Babbage.referenceScriptDatumHashSpendTestInfo
 
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
+
+writeSerialisedScriptFiles :: H.Property
+writeSerialisedScriptFiles = integrationRetryWorkspace 0 "serialised-plutus-scripts" $ \_ -> do
+  writeV3ScriptFiles
 
 runTestsWithResults :: IO ()
 runTestsWithResults = do

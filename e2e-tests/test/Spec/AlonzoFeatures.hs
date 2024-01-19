@@ -28,7 +28,7 @@ import Helpers.Utils qualified as U
 import PlutusLedgerApi.V1 as PlutusV1 hiding (lowerBound, upperBound)
 import PlutusLedgerApi.V1.Interval as P hiding (lowerBound, upperBound)
 import PlutusLedgerApi.V1.Time as P
-import PlutusScripts.Always.V_1_0 qualified as PS_1_0
+import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V1TxInfo qualified as PS (
   checkV1TxInfoAssetIdV1,

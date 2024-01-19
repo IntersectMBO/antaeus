@@ -17,6 +17,7 @@ import PlutusScripts.Helpers (
   mintScriptWitness,
   plutusL3,
   policyIdV3,
+  writeSerialisedScript,
  )
 import PlutusScripts.SECP256k1.Common (
   ecdsaAssetName,
@@ -46,6 +47,9 @@ verifySchnorrPolicy =
 verifySchnorrPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifySchnorrPolicyScriptV3 = C.PlutusScriptSerialised verifySchnorrPolicy
 
+writeVerifySchnorrPolicyScriptV3 :: IO ()
+writeVerifySchnorrPolicyScriptV3 = writeSerialisedScript "verifySchnorrPolicyScriptV3" verifySchnorrPolicyScriptV3
+
 verifySchnorrAssetIdV3 :: C.AssetId
 verifySchnorrAssetIdV3 = C.AssetId (policyIdV3 verifySchnorrPolicy) schnorrAssetName
 
@@ -72,6 +76,9 @@ verifyEcdsaPolicy =
 
 verifyEcdsaPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyEcdsaPolicyScriptV3 = C.PlutusScriptSerialised verifyEcdsaPolicy
+
+writeVerifyEcdsaPolicyScriptV3 :: IO ()
+writeVerifyEcdsaPolicyScriptV3 = writeSerialisedScript "verifyEcdsaPolicyScriptV3" verifyEcdsaPolicyScriptV3
 
 verifyEcdsaAssetIdV3 :: C.AssetId
 verifyEcdsaAssetIdV3 = C.AssetId (policyIdV3 verifyEcdsaPolicy) ecdsaAssetName

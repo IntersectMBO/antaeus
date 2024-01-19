@@ -125,9 +125,9 @@ test-suite antaeus-test
     Helpers.Tx
     Helpers.TypeConverters
     Helpers.Utils
-    PlutusScripts.Always.Common
-    PlutusScripts.Always.V_1_0
-    PlutusScripts.Always.V_1_1
+    PlutusScripts.Basic.Common
+    PlutusScripts.Basic.V_1_0
+    PlutusScripts.Basic.V_1_1
     PlutusScripts.BLS
     PlutusScripts.BLS.AggregateSigWithMultipleKeys.Common
     PlutusScripts.BLS.AggregateSigWithMultipleKeys.V_1_1
@@ -167,6 +167,7 @@ test-suite antaeus-test
     Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1
     Spec.ConwayFeatures
+    Spec.WriteScriptFiles
 
   --------------------------
   -- Other IOG dependencies
