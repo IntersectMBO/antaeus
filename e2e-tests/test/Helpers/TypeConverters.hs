@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Helpers.TypeConverters where
@@ -5,6 +7,9 @@ module Helpers.TypeConverters where
 import Cardano.Api.Byron qualified as C
 import Cardano.Api.Shelley qualified as C
 import Cardano.Chain.Common (addrToBase58)
+import Cardano.Ledger.Conway.Governance qualified as L
+import Cardano.Ledger.Crypto qualified as L
+import Cardano.Ledger.Shelley.API qualified as L
 import PlutusLedgerApi.V1 qualified as PV1
 import PlutusLedgerApi.V1.Address (Address (Address))
 import PlutusLedgerApi.V1.Credential (
@@ -13,10 +18,14 @@ import PlutusLedgerApi.V1.Credential (
  )
 import PlutusLedgerApi.V1.Value qualified as Value
 import PlutusLedgerApi.V2 qualified as PV2
+import PlutusLedgerApi.V3 qualified as PV3
 import PlutusTx.Prelude qualified as PlutusTx
 
 fromCardanoPaymentKeyHash :: C.Hash C.PaymentKey -> PV1.PubKeyHash
-fromCardanoPaymentKeyHash paymentKeyHash = PV1.PubKeyHash $ PlutusTx.toBuiltin $ C.serialiseToRawBytes paymentKeyHash
+fromCardanoPaymentKeyHash = PV1.PubKeyHash . PlutusTx.toBuiltin . C.serialiseToRawBytes
+
+fromCardanoStakeKeyHash :: C.Hash C.StakeKey -> PV1.PubKeyHash
+fromCardanoStakeKeyHash = PV1.PubKeyHash . PlutusTx.toBuiltin . C.serialiseToRawBytes
 
 fromCardanoScriptData :: C.HashableScriptData -> PV1.BuiltinData
 fromCardanoScriptData = PV1.dataToBuiltinData . C.toPlutusData . C.getScriptData
@@ -149,6 +158,12 @@ fromCardanoTxOutToPV2TxInfoTxOut' sbe (C.TxOut addr value datum refScript) =
     (fromCardanoTxOutDatum' datum)
     (refScriptToScriptHash refScript)
 
+fromCardanoTxOutToPV3TxInfoTxOut :: C.ShelleyBasedEra era -> C.TxOut C.CtxTx era -> PV3.TxOut
+fromCardanoTxOutToPV3TxInfoTxOut = fromCardanoTxOutToPV2TxInfoTxOut
+
+fromCardanoTxOutToPV3TxInfoTxOut' :: C.ShelleyBasedEra era -> C.TxOut C.CtxUTxO era -> PV3.TxOut
+fromCardanoTxOutToPV3TxInfoTxOut' = fromCardanoTxOutToPV2TxInfoTxOut'
+
 refScriptToScriptHash :: C.ReferenceScript era -> Maybe PV2.ScriptHash
 refScriptToScriptHash C.ReferenceScriptNone = Nothing
 refScriptToScriptHash (C.ReferenceScript _ (C.ScriptInAnyLang _ s)) =
@@ -175,3 +190,40 @@ fromCardanoValue (C.valueToList -> list) =
   where
     fromSingleton (fromCardanoAssetId -> assetClass, C.Quantity quantity) =
       Value.assetClassValue assetClass quantity
+
+fromCardanoProposal
+  -- :: forall era
+  --  . (L.EraCrypto era ~ L.StandardCrypto)
+  :: C.ShelleyBasedEra era
+  -> C.Proposal era
+  -> PV3.ProposalProcedure
+fromCardanoProposal sbe (C.Proposal ledgerPP) =
+  C.shelleyBasedEraConstraints sbe $
+    PV3.ProposalProcedure
+      { PV3.ppDeposit =
+          fromCardanoValue $ C.lovelaceToValue $ C.fromShelleyLovelace (L.pProcDeposit ledgerPP)
+      , PV3.ppReturnAddr = fromLedgerStakingCredential $ L.getRwdCred $ L.pProcReturnAddr ledgerPP
+      , PV3.ppGovernanceAction = fromLedgerGovernanceAction $ L.pProcGovAction ledgerPP
+      -- The optional anchor is omitted.
+      }
+  where
+    fromLedgerStakingCredential :: L.Credential 'L.Staking L.StandardCrypto -> PV3.Credential
+    fromLedgerStakingCredential (L.KeyHashObj kh) = PV3.PubKeyCredential (fromCardanoStakeKeyHash $ C.StakeKeyHash kh)
+    fromLedgerStakingCredential (L.ScriptHashObj sh) = PV3.ScriptCredential (fromCardanoScriptHash $ C.ScriptHash sh)
+
+    fromLedgerGovernanceAction :: L.GovAction era -> PV3.GovernanceAction
+    fromLedgerGovernanceAction = undefined -- TODO once ledger implements PlutusV3 TxInfo
+
+-- fromLedgerStakingCredential :: C.StakeCredential -> PV3.Credential
+-- fromLedgerStakingCredential (C.StakeCredentialByKey kh) = PV3.PubKeyCredential (fromCardanoStakeKeyHash kh)
+-- fromLedgerStakingCredential (L.StakeCredentialByScript sh) = PV3.ScriptCredential (fromCardanoScriptHash sh)
+
+-- unused?
+-- fromCardanoProposal'
+--   :: (C.Lovelace, C.Hash C.StakeKey, C.GovernanceAction era) -> PV3.ProposalProcedure
+-- fromCardanoProposal' (deposit, returnAddr, govAction) =
+--   PV3.ProposalProcedure
+--     { PV3.ppDeposit = fromCardanoValue $ C.lovelaceToValue deposit
+--     , PV3.ppReturnAddr = PV3.PubKeyCredential $ fromCardanoStakeKeyHash returnAddr
+--     , PV3.ppGovernanceAction = undefined -- TODO once ledger implements PlutusV3 TxInfo
+--     }

@@ -114,15 +114,15 @@ txInfoData =
 mkCheckV1TxInfo :: V1TxInfo -> PlutusV1.ScriptContext -> Bool
 mkCheckV1TxInfo V1TxInfo{..} ctx =
   P.traceIfFalse "unexpected txInfoInputs" checkTxInfoInputs
-    && P.traceIfFalse "unexpected txInfoOutputs" checkTxInfoOutputs
-    && P.traceIfFalse "unexpected txInfoFee" checkTxInfoFee
-    && P.traceIfFalse "unexpected txInfoMint" checkTxInfoMint
-    && P.traceIfFalse "unexpected txInfoDCert" checkTxInfoDCert
-    && P.traceIfFalse "unexpected txInfoWdrl" checkTxInfoWdrl
-    && P.traceIfFalse "provided range doesn't contain txInfoValidRange" checkTxInfoValidRange
-    && P.traceIfFalse "unexpected txInfoSignatories" checkTxInfoSignatories
-    && P.traceIfFalse "unexpected txInfoData" checkTxInfoData
-    && P.traceIfFalse "txInfoId isn't the expected TxId length" checkTxInfoId
+    P.&& P.traceIfFalse "unexpected txInfoOutputs" checkTxInfoOutputs
+    P.&& P.traceIfFalse "unexpected txInfoFee" checkTxInfoFee
+    P.&& P.traceIfFalse "unexpected txInfoMint" checkTxInfoMint
+    P.&& P.traceIfFalse "unexpected txInfoDCert" checkTxInfoDCert
+    P.&& P.traceIfFalse "unexpected txInfoWdrl" checkTxInfoWdrl
+    P.&& P.traceIfFalse "provided range doesn't contain txInfoValidRange" checkTxInfoValidRange
+    P.&& P.traceIfFalse "unexpected txInfoSignatories" checkTxInfoSignatories
+    P.&& P.traceIfFalse "unexpected txInfoData" checkTxInfoData
+    P.&& P.traceIfFalse "txInfoId isn't the expected TxId length" checkTxInfoId
   where
     info :: PlutusV1.TxInfo
     info = PlutusV1.scriptContextTxInfo ctx

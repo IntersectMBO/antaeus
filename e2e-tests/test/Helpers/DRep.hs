@@ -10,19 +10,19 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 
 data DRep era
   = KeyDRep
-      { dRepSKey :: C.SigningKey C.DRepKey
-      , dRepCred :: C.Credential 'C.DRepRole (C.EraCrypto (C.ShelleyLedgerEra era))
-      , dRepLedgerCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
-      , dRepRegCert :: C.Certificate era
-      , dRepUnregCert :: C.Certificate era
-      , dRepVoter :: C.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+      { kDRepSKey :: C.SigningKey C.DRepKey
+      , kDRepCred :: C.Credential 'C.DRepRole (C.EraCrypto (C.ShelleyLedgerEra era))
+      , kDRepLedgerCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
+      , kDRepRegCert :: C.Certificate era
+      , kDRepUnregCert :: C.Certificate era
+      , kDRepVoter :: C.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
       }
   | ScriptDRep
-      { dRepCred :: C.Credential 'C.DRepRole (C.EraCrypto (C.ShelleyLedgerEra era))
-      , dRepLedgerCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
-      , dRepRegCert :: C.Certificate era
-      , dRepUnregCert :: C.Certificate era
-      , dRepVoter :: C.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+      { sDRepCred :: C.Credential 'C.DRepRole (C.EraCrypto (C.ShelleyLedgerEra era))
+      , sDRepLedgerCred :: C.DRep (C.EraCrypto (C.ShelleyLedgerEra era))
+      , sDRepRegCert :: C.Certificate era
+      , sDRepUnregCert :: C.Certificate era
+      , sDRepVoter :: C.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
       }
   deriving (Show)
 

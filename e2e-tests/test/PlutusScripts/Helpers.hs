@@ -8,6 +8,7 @@ module PlutusScripts.Helpers where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
+import Control.Monad (void)
 import Data.ByteString qualified as BS (ByteString)
 import PlutusLedgerApi.Common (SerialisedScript)
 import PlutusLedgerApi.V1 qualified as PlutusV1
@@ -16,6 +17,7 @@ import PlutusLedgerApi.V1.Scripts (Datum (Datum), Redeemer (Redeemer))
 import PlutusLedgerApi.V1.Value (CurrencySymbol)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
+import System.Directory (createDirectoryIfMissing)
 
 -- | Treat string of hexidecimal bytes literally, without encoding. Useful for hashes.
 bytesFromHex :: BS.ByteString -> BS.ByteString
@@ -241,3 +243,10 @@ policyIdV3 = C.scriptPolicyId . unPlutusScriptV3 . C.PlutusScriptSerialised
 
 fromPolicyId :: C.PolicyId -> CurrencySymbol
 fromPolicyId (C.PolicyId hash) = PlutusV1.CurrencySymbol . BI.toBuiltin $ C.serialiseToRawBytes hash
+
+writeSerialisedScript :: (C.HasTextEnvelope ps) => FilePath -> ps -> IO ()
+writeSerialisedScript filename plutusScript = do
+  let dir = "serialised-plutus-scripts"
+      file = C.File $ dir ++ "/" ++ filename ++ ".plutus"
+  createDirectoryIfMissing True dir
+  void $ C.writeFileTextEnvelope file Nothing plutusScript

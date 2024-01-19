@@ -30,7 +30,7 @@ import Helpers.Utils qualified as U
 import PlutusLedgerApi.V1.Interval qualified as P
 import PlutusLedgerApi.V1.Time qualified as P
 import PlutusLedgerApi.V2 qualified as PlutusV2
-import PlutusScripts.Always.V_1_0 qualified as PS_1_0
+import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V2TxInfo qualified as PS (
   checkV2TxInfoAssetIdV2,

@@ -4,14 +4,14 @@
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
 
-module PlutusScripts.Always.V_1_0 where
+module PlutusScripts.Basic.V_1_0 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1 (Redeemer, ScriptPurpose (Minting))
 import PlutusLedgerApi.V2 qualified as PlutusV2
-import PlutusScripts.Always.Common (
+import PlutusScripts.Basic.Common (
   mkAlwaysFailsPolicy,
   mkAlwaysSucceedPolicy,
   mkAlwaysSucceedSpend,
@@ -27,6 +27,8 @@ import PlutusScripts.Helpers (
   policyIdV2,
   spendScriptWitness,
   toScriptData,
+  unPlutusScriptV1,
+  unPlutusScriptV2,
  )
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AMap
@@ -44,6 +46,12 @@ alwaysSucceedPolicyScriptV2 = C.PlutusScriptSerialised alwaysSucceedPolicy
 
 alwaysSucceedPolicyIdV2 :: C.PolicyId
 alwaysSucceedPolicyIdV2 = policyIdV2 alwaysSucceedPolicy
+
+alwaysSucceedPolicyScriptHashV1 :: C.ScriptHash
+alwaysSucceedPolicyScriptHashV1 = C.hashScript $ unPlutusScriptV1 alwaysSucceedPolicyScriptV1
+
+alwaysSucceedPolicyScriptHashV2 :: C.ScriptHash
+alwaysSucceedPolicyScriptHashV2 = C.hashScript $ unPlutusScriptV2 alwaysSucceedPolicyScriptV2
 
 alwaysSucceedAssetIdV1 :: C.AssetId
 alwaysSucceedAssetIdV1 = C.AssetId (policyIdV1 alwaysSucceedPolicy) ""
@@ -119,10 +127,10 @@ alwaysSucceedSpendScriptV2 :: C.PlutusScript C.PlutusScriptV2
 alwaysSucceedSpendScriptV2 = C.PlutusScriptSerialised alwaysSucceedSpend
 
 alwaysSucceedSpendScriptHashV1 :: C.ScriptHash
-alwaysSucceedSpendScriptHashV1 = C.hashScript $ C.PlutusScript C.PlutusScriptV1 alwaysSucceedSpendScriptV1
+alwaysSucceedSpendScriptHashV1 = C.hashScript $ unPlutusScriptV1 alwaysSucceedSpendScriptV1
 
 alwaysSucceedSpendScriptHashV2 :: C.ScriptHash
-alwaysSucceedSpendScriptHashV2 = C.hashScript $ C.PlutusScript C.PlutusScriptV2 alwaysSucceedSpendScriptV2
+alwaysSucceedSpendScriptHashV2 = C.hashScript $ unPlutusScriptV2 alwaysSucceedSpendScriptV2
 
 alwaysSucceedSpendWitnessV1
   :: C.ShelleyBasedEra era
