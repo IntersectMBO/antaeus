@@ -305,10 +305,9 @@ emulatorTests resultsRef options = integrationRetryWorkspace 0 "cardano-node-emu
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
-      -- run Alonzo.checkTxInfoV1TestInfo -- need to start emulator at slot 1
-      --  run Babbage.checkTxInfoV2TestInfo -- need to start emulator at slot 1
-      run Alonzo.datumHashSpendTestInfo
+    [ run Alonzo.checkTxInfoV1TestInfo
+    , run Babbage.checkTxInfoV2TestInfo
+    , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
     , run Alonzo.noCollateralInputsErrorTestInfo

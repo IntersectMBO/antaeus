@@ -17,6 +17,7 @@ import Cardano.Node.Emulator.Generators qualified as E
 import Cardano.Node.Socket.Emulator qualified as E
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Default (def)
 import Data.Maybe (fromJust, listToMaybe)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
@@ -44,12 +45,21 @@ import Cardano.Api.Ledger (
   StandardCrypto,
   Voter (StakePoolVoter),
  )
+import Cardano.BM.Trace qualified as BM
+import Cardano.Node.Emulator.Internal.Node qualified as E
+import Cardano.Node.Socket.Emulator.Types qualified as E
 import Cardano.Testnet (Conf (tempAbsPath))
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
+import Data.Ratio (numerator, (%))
+import Data.Time qualified as Time
+import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
 import Helpers.Error (TimedOut (ProcessExitTimedOut))
 import Helpers.Query qualified as Q
+import Helpers.Utils qualified as U
+import PlutusLedgerApi.V1.Time qualified as P
+import PlutusLedgerApi.V1.Time qualified as PTime
 import Prettyprinter (Doc)
 import System.Process (cleanupProcess)
 import System.Process.Internals (
@@ -275,6 +285,32 @@ connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
   pparams <- Q.getProtocolParams localNodeEra localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
+-- | uses cardano-node-emulator `startTestnet` with default settings
+startEmulatorDefault
+  :: TestEnvironmentOptions era
+  -> FilePath
+  -> H.Integration
+      ( C.LocalNodeConnectInfo
+      , C.LedgerProtocolParameters era
+      , C.NetworkId
+      , Maybe [CTN.PoolNode]
+      )
+startEmulatorDefault TestnetOptions{} _ = error "TestnetOptions not supported"
+startEmulatorDefault LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
+startEmulatorDefault EmulatorOptions{..} tempAbsPath = do
+  let socketPathAbs = tempAbsPath </> "node-server.sock"
+      networkId = C.Testnet $ C.NetworkMagic 1097911063
+      localNodeConnectInfo =
+        C.LocalNodeConnectInfo
+          { C.localConsensusModeParams = C.CardanoModeParams (C.EpochSlots 21600)
+          , C.localNodeNetworkId = networkId
+          , C.localNodeSocketPath = C.File socketPathAbs
+          }
+  liftIO $ E.startTestnet socketPathAbs emulatorSlotLength networkId
+  pparams <- Q.getProtocolParams emulatorEra localNodeConnectInfo
+  pure (localNodeConnectInfo, pparams, networkId, Nothing)
+
+-- | uses a custom config for cardano-node-emulator to ensure start at slot 1 with no debug trace
 startEmulator
   :: TestEnvironmentOptions era
   -> FilePath
@@ -287,15 +323,29 @@ startEmulator
 startEmulator TestnetOptions{} _ = error "TestnetOptions not supported"
 startEmulator LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
 startEmulator EmulatorOptions{..} tempAbsPath = do
-  let socketPathAbs = tempAbsPath </> "node-server.sock"
-      networkId = C.Testnet $ C.NetworkMagic 1097911063
-      localNodeConnectInfo =
-        C.LocalNodeConnectInfo
-          { C.localConsensusModeParams = C.CardanoModeParams (C.EpochSlots 21600)
-          , C.localNodeNetworkId = networkId
-          , C.localNodeSocketPath = C.File socketPathAbs
-          }
-  liftIO $ E.startTestnet socketPathAbs emulatorSlotLength networkId
+  -- not precisely the same time as 'preTestNetTime' in Spec.hs
+  timeNow <-
+    P.fromMilliSeconds . P.DiffMilliSeconds . U.posixToMilliseconds <$> liftIO Time.getPOSIXTime
+  let
+    socketPathAbs = tempAbsPath </> "node-server.sock"
+    networkId = C.Testnet $ C.NetworkMagic 1097911063
+    config =
+      def
+        { E.nscSlotConfig =
+            def
+              { E.scSlotLength = emulatorSlotLength
+              , E.scSlotZeroTime = timeNow
+              }
+        , E.nscSocketPath = socketPathAbs
+        , E.nscNetworkId = networkId
+        }
+    localNodeConnectInfo =
+      C.LocalNodeConnectInfo
+        { C.localConsensusModeParams = C.CardanoModeParams (C.EpochSlots 21600)
+        , C.localNodeNetworkId = networkId
+        , C.localNodeSocketPath = C.File socketPathAbs
+        }
+  liftIO $ E.main E.prettyTrace config -- use E.prettyTrace for debug and BM.nullTracer for none
   pparams <- Q.getProtocolParams emulatorEra localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
