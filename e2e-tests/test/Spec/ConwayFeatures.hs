@@ -80,7 +80,7 @@ checkTxInfoV3Test
 checkTxInfoV3Test networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
+  (w1SKey, _w1VKey, w1VKeyHash, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
@@ -121,7 +121,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
       expWdrl = PlutusV2.fromList [] -- not testing any staking reward withdrawal
-      expTxInfoSigs = PS.txInfoSigs [w1VKey]
+      expTxInfoSigs = PS.txInfoSigs [w1VKeyHash]
       expTxInfoRedeemers = PS_1_0.alwaysSucceedPolicyTxInfoRedeemerV2
       expTxInfoData = PS.txInfoData [datum]
       expTxInfoValidRange = timeRange
@@ -157,7 +157,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
           , C.txValidityUpperBound = Tx.txValidityUpperBound era 2700
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
-            C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
+            C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKeyHash]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
   kw <- Tx.signTx sbe txbody w1SKey
@@ -569,10 +569,7 @@ constitutionProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
-        ]
+        [w1SKey, DRep.castDRep kDRepSKey, CC.castCommittee committeeHotSKey]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
@@ -690,10 +687,7 @@ committeeProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ w1SKey
-        , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        ]
+        [w1SKey, C.WitnessStakePoolKey (sPSKey stakeDelegationPool), DRep.castDRep kDRepSKey]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
@@ -787,10 +781,7 @@ noConfidenceProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ w1SKey
-        , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        ]
+        [w1SKey, C.WitnessStakePoolKey (sPSKey stakeDelegationPool), DRep.castDRep kDRepSKey]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
@@ -888,10 +879,7 @@ parameterChangeProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
-        ]
+        [w1SKey, (DRep.castDRep kDRepSKey), (CC.castCommittee committeeHotSKey)]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
@@ -988,10 +976,7 @@ treasuryWithdrawalProposalAndVoteTest
         tx2BodyContent
         w1Address
         (Just 3) -- witnesses
-        [ C.WitnessPaymentKey w1SKey
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
-        ]
+        [w1SKey, (DRep.castDRep kDRepSKey), (CC.castCommittee committeeHotSKey)]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
@@ -1098,8 +1083,8 @@ hardForkProposalAndVoteTest
         (Just 4) -- witnesses
         [ w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , DRep.castDRep kDRepSKey
+        , CC.castCommittee committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -1197,8 +1182,8 @@ infoProposalAndVoteTest
         (Just 4) -- witnesses
         [ w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
-        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , DRep.castDRep kDRepSKey
+        , CC.castCommittee committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -1242,8 +1227,8 @@ unregisterDRep
           }
       unRegDRepTxWitnesses =
         case dRep of
-          KeyDRep{} -> [C.WitnessPaymentKey w1SKey, C.WitnessPaymentKey $ DRep.castDRep (kDRepSKey dRep)]
-          ScriptDRep{} -> [C.WitnessPaymentKey w1SKey]
+          KeyDRep{} -> [w1SKey, DRep.castDRep (kDRepSKey dRep)]
+          ScriptDRep{} -> [w1SKey]
 
     signedDRepUnregTx <-
       Tx.buildTxWithWitnessOverride

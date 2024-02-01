@@ -58,7 +58,7 @@ checkTxInfoV1Test
 checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath, mTime} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
+  (w1SKey, _w1VKey, w1VKeyHash, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
@@ -98,7 +98,7 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
       expWdrl = [] -- not testing any staking reward withdrawal
-      expTxInfoSigs = PS.txInfoSigs [w1VKey]
+      expTxInfoSigs = PS.txInfoSigs [w1VKeyHash]
       expTxInfoData = PS.txInfoData [datum]
       expTxInfoValidRange = timeRange
 
@@ -126,7 +126,7 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
           , C.txValidityUpperBound = Tx.txValidityUpperBound era 2700
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
-            C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
+            C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKeyHash]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
   kw <- Tx.signTx sbe txbody w1SKey

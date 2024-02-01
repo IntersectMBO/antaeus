@@ -345,7 +345,7 @@ startEmulator EmulatorOptions{..} tempAbsPath = do
         , C.localNodeNetworkId = networkId
         , C.localNodeSocketPath = C.File socketPathAbs
         }
-  liftIO $ E.main E.prettyTrace config -- use E.prettyTrace for debug and BM.nullTracer for none
+  liftIO $ E.main BM.nullTracer config -- use E.prettyTrace for debug and BM.nullTracer for none
   pparams <- Q.getProtocolParams emulatorEra localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
@@ -409,20 +409,24 @@ w1All
   => TestEnvironmentOptions era
   -> FilePath
   -> C.NetworkId
-  -> m (C.ShelleyWitnessSigningKey, C.Hash C.PaymentKey, C.Address C.ShelleyAddr)
+  -> m
+      ( C.ShelleyWitnessSigningKey
+      , C.VerificationKey C.PaymentKey
+      , C.Hash C.PaymentKey
+      , C.Address C.ShelleyAddr
+      )
 -- cardano-node-emulator does not use envelope files to store keys
 w1All EmulatorOptions{} _ _ = do
   let sKey = case knownWitnessSigningKey of
         Nothing -> error "Nothing: No known witness signing key"
         Just key -> key
-      vKeyHash = case sKey of
-        C.WitnessPaymentKey pk -> C.verificationKeyHash $ C.getVerificationKey pk
-        C.WitnessPaymentExtendedKey pek -> case C.verificationKeyHash $ C.getVerificationKey pek of
-          -- the hash of the normal non-extended pub key is used, so this is safe
-          C.PaymentExtendedKeyHash vk -> C.PaymentKeyHash vk
+      vKey = case sKey of
+        C.WitnessPaymentKey pk -> C.getVerificationKey pk
+        C.WitnessPaymentExtendedKey pek -> C.castVerificationKey $ C.getVerificationKey pek
         _ -> error "Witness signing key is not of type (SigningKey PaymentKey)"
+      vKeyHash = C.verificationKeyHash vKey
       address = fromJust knownShelleyAddress
-  return (sKey, vKeyHash, address)
+  return (sKey, vKey, vKeyHash, address)
 -- cardano-testnet and local node uses envelope files to store keys
 w1All _ tempAbsPath networkId = do
   let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
@@ -439,13 +443,12 @@ w1All _ tempAbsPath networkId = do
     maybeReadAs (C.AsSigningKey C.AsPaymentKey) w1SKeyFile
 
   let
-    vKeyHash :: C.Hash C.PaymentKey =
-      C.verificationKeyHash $
-        maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
+    vKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
+    vKeyHash :: C.Hash C.PaymentKey = C.verificationKeyHash vKey
     sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
     address = makeAddress (Left vKeyHash) networkId
 
-  return (C.WitnessPaymentKey sKey, vKeyHash, address)
+  return (C.WitnessPaymentKey sKey, vKey, vKeyHash, address)
 
 w1
   :: (MonadIO m, MonadTest m)
@@ -454,7 +457,7 @@ w1
   -> C.NetworkId
   -> m (C.ShelleyWitnessSigningKey, C.Address C.ShelleyAddr)
 w1 testEnvOptions tempAbsPath networkId =
-  (\(sKey, _, address) -> (sKey, address)) <$> w1All testEnvOptions tempAbsPath networkId
+  (\(sKey, _, _, address) -> (sKey, address)) <$> w1All testEnvOptions tempAbsPath networkId
 
 data TestnetStakePool = TestnetStakePool
   { stakePoolSKey :: C.SigningKey C.StakePoolKey
