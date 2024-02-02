@@ -60,7 +60,7 @@ checkTxInfoV2Test
 checkTxInfoV2Test networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
-  (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
+  (w1SKey, _w1VKey, w1VKeyHash, w1Address) <- TN.w1All networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
@@ -100,7 +100,7 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
       expWdrl = PlutusV2.fromList [] -- not testing any staking reward withdrawal
-      expTxInfoSigs = PS.txInfoSigs [w1VKey]
+      expTxInfoSigs = PS.txInfoSigs [w1VKeyHash]
       expTxInfoRedeemers = PS_1_0.alwaysSucceedPolicyTxInfoRedeemerV2
       expTxInfoData = PS.txInfoData [datum]
       expTxInfoValidRange = timeRange
@@ -136,10 +136,10 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
           , C.txValidityUpperBound = Tx.txValidityUpperBound era 2700
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
-            C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
+            C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKeyHash]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
-  kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)
+  kw <- Tx.signTx sbe txbody w1SKey
   let signedTx = C.makeSignedTransaction [kw] txbody
 
   Tx.submitTx sbe localNodeConnectInfo signedTx
@@ -169,7 +169,7 @@ referenceScriptMintTest
   -> m (Maybe String)
 referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold reference script
@@ -257,7 +257,7 @@ referenceScriptInlineDatumSpendTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     -- build a transaction to hold reference script
@@ -343,7 +343,7 @@ referenceScriptDatumHashSpendTest
   -> m (Maybe String)
 referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold reference script
@@ -436,7 +436,7 @@ inlineDatumSpendTest
   -> m (Maybe String)
 inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction to hold inline datum at script address
@@ -507,7 +507,7 @@ referenceInputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -533,7 +533,7 @@ referenceInputWithV1ScriptErrorTest
         txBodyContent
         w1Address
         Nothing
-        [C.WitnessPaymentKey w1SKey]
+        [w1SKey]
     let expError = "ReferenceInputsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
     assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
@@ -556,7 +556,7 @@ referenceScriptOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -586,7 +586,7 @@ referenceScriptOutputWithV1ScriptErrorTest
         txBodyContent
         w1Address
         Nothing
-        [C.WitnessPaymentKey w1SKey]
+        [w1SKey]
     H.annotate $ show eitherTx
     let expError = "ReferenceScriptsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -610,7 +610,7 @@ inlineDatumOutputWithV1ScriptErrorTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -640,7 +640,7 @@ inlineDatumOutputWithV1ScriptErrorTest
         txBodyContent
         w1Address
         Nothing
-        [C.WitnessPaymentKey w1SKey]
+        [w1SKey]
     H.annotate $ show eitherTx
     let expError = "InlineDatumsNotSupported"
     -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
@@ -664,7 +664,7 @@ returnCollateralWithTokensValidScriptTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
@@ -758,7 +758,7 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
     let sbe = toShelleyBasedEra era
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address

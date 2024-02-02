@@ -63,6 +63,8 @@ common lang
     , cardano-ledger-core
     , cardano-ledger-mary
     , cardano-ledger-shelley
+    , cardano-node-emulator
+    , cardano-node-socket-emulator
     , cardano-protocol-tpraos
     , cardano-slotting
     , cardano-strict-containers
@@ -195,6 +197,7 @@ test-suite antaeus-test
     , bytestring
     , cborg
     , containers
+    , data-default
     , deepseq
     , directory
     , exceptions

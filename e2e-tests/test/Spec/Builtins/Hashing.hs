@@ -40,7 +40,7 @@ checkHashingFunctionsTest
   -> m (Maybe String)
 checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction

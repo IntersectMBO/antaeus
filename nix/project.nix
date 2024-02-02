@@ -15,10 +15,6 @@ let
 
       shell.withHoogle = false;
 
-      sha256map = {
-        "https://github.com/james-iohk/cardano-node"."${cardano-node-gitrev}" = "sha256-kej3cZaQDFoo7EbCqowGTV/T7sn3tC+C9pL+sfY5d+8=";
-      };
-
       inputMap = {
         "https://input-output-hk.github.io/cardano-haskell-packages" = inputs.CHaP;
       };

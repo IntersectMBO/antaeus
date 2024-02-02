@@ -155,11 +155,11 @@ fromTxFeesExplicit :: Either imp exp -> exp
 fromTxFeesExplicit (Left _) = error "Era must support explicit fees"
 fromTxFeesExplicit (Right tfe) = tfe
 
-txExtraKeyWits :: C.CardanoEra era -> [C.VerificationKey C.PaymentKey] -> C.TxExtraKeyWitnesses era
-txExtraKeyWits era pk =
+txExtraKeyWits :: C.CardanoEra era -> [C.Hash C.PaymentKey] -> C.TxExtraKeyWitnesses era
+txExtraKeyWits era pkh =
   C.inEonForEra
     (error $ notSupportedError era)
-    (\e -> C.TxExtraKeyWitnesses e (C.verificationKeyHash <$> pk))
+    (\e -> C.TxExtraKeyWitnesses e pkh)
     era
 
 -- | Produce collateral inputs if era supports it. Used for building txbody.
@@ -260,10 +260,10 @@ buildTx
   -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
-  -> C.SigningKey C.PaymentKey
+  -> C.ShelleyWitnessSigningKey
   -> m (C.Tx era)
 buildTx era localNodeConnectInfo txBody changeAddress sKey =
-  buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress [C.WitnessPaymentKey sKey]
+  buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress [sKey]
 
 buildTxWithAnyWitness
   :: (MonadIO m)
@@ -369,11 +369,8 @@ signTx
   -> C.TxBody era
   -> C.ShelleyWitnessSigningKey
   -> m (C.KeyWitness era)
-signTx era txbody skey =
-  let witness = case skey of
-        C.WitnessPaymentKey skey' -> C.WitnessPaymentKey skey'
-        C.WitnessStakeKey skey' -> C.WitnessStakeKey skey'
-   in return $ C.makeShelleyKeyWitness era txbody witness
+signTx era txbody witness =
+  return $ C.makeShelleyKeyWitness era txbody witness
 
 submitTx
   :: (MonadIO m, MonadTest m)

@@ -96,8 +96,8 @@ txInfoFee = fromCardanoValue . C.lovelaceToValue
 txInfoMint :: C.Value -> PlutusV1.Value
 txInfoMint = fromCardanoValue
 
-txInfoSigs :: [C.VerificationKey C.PaymentKey] -> [PlutusV1.PubKeyHash]
-txInfoSigs = map (fromCardanoPaymentKeyHash . C.verificationKeyHash)
+txInfoSigs :: [C.Hash C.PaymentKey] -> [PlutusV1.PubKeyHash]
+txInfoSigs = map fromCardanoPaymentKeyHash
 
 txInfoData :: [C.HashableScriptData] -> [(PlutusV1.DatumHash, PlutusV1.Datum)]
 txInfoData =
