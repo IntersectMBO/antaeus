@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 {-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:target-version=1.0.0 #-}
@@ -40,13 +41,13 @@ data V3TxInfo = V3TxInfo
   -- ^ Added in V3: Transaction reference inputs
   , expTxInfoOutputs :: [PlutusV3.TxOut]
   -- ^ Transaction outputs
-  , expTxInfoFee :: PlutusV3.Value
+  , expTxInfoFee :: PlutusV3.Lovelace
   -- ^ The fee paid by this transaction.
   , expTxInfoMint :: PlutusV3.Value
   -- ^ The 'Value' minted by this transaction (no zero ada from V3).
   , expTxInfoTxCert :: [PlutusV3.TxCert]
   -- ^ Digests of certificates included in this transaction
-  , expTxInfoWdrl :: PlutusV3.Map PlutusV3.Credential Integer
+  , expTxInfoWdrl :: PlutusV3.Map PlutusV3.Credential PlutusV3.Lovelace
   -- ^ Withdrawals
   , expTxInfoValidRange :: PlutusV3.POSIXTimeRange
   -- ^ The valid range for the transaction.
@@ -77,10 +78,10 @@ checkV3TxInfoRedeemer
   :: [PlutusV3.TxInInfo]
   -> [PlutusV3.TxInInfo]
   -> [PlutusV3.TxOut]
-  -> PlutusV3.Value
+  -> PlutusV3.Lovelace
   -> PlutusV3.Value
   -> [PlutusV3.TxCert]
-  -> PlutusV3.Map PlutusV3.Credential Integer
+  -> PlutusV3.Map PlutusV3.Credential PlutusV3.Lovelace
   -> PlutusV3.POSIXTimeRange
   -> [PlutusV3.PubKeyHash]
   -> PlutusV3.Map PlutusV3.ScriptPurpose PlutusV3.Redeemer

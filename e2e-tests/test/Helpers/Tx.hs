@@ -10,11 +10,14 @@ module Helpers.Tx where
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
+import Cardano.Ledger.Conway.Governance qualified as Conway
+import Cardano.Ledger.Core qualified as L
 import Cardano.Ledger.Era qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor ((<&>))
 import Data.List (isInfixOf)
 import Data.Map qualified as Map
+import Data.OSet.Strict qualified as OSet
 import Data.Word (Word32)
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
@@ -22,6 +25,7 @@ import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (toMaryEraOnwards, toShelleyBasedEra)
 import Helpers.Utils qualified as U
+import Ouroboros.Network.Protocol.LocalStateQuery.Type qualified as O
 
 newtype SubmitError = SubmitError C.TxValidationErrorInCardanoMode
   deriving (Show)
@@ -35,7 +39,7 @@ isTxBodyScriptExecutionError
   , isTxBodyErrorValidityInterval
   , isTxBodyErrorNonAdaAssetsUnbalanced
     :: String
-    -> Either C.TxBodyErrorAutoBalance r
+    -> Either (C.TxBodyErrorAutoBalance era) r
     -> Bool
 isTxBodyScriptExecutionError expectedError (Left (C.TxBodyScriptExecutionError m)) = expectedError `isInfixOf` show m
 isTxBodyScriptExecutionError _ _ = False
@@ -237,22 +241,61 @@ txCertificates era certs stakeCreds =
 
 -- Takens the action ID and a map of voters and their votes, builds multiple VotingProcedures
 -- and combines them into a single VotingProcedures
-buildVotingProcedures
+buildTxVotingProcedures
   :: C.ShelleyBasedEra era
   -> C.ConwayEraOnwards era
   -> C.TxId -- action id
   -> Word32
-  -> [(L.Voter (C.EraCrypto (C.ShelleyLedgerEra era)), C.Vote)]
-  -> C.VotingProcedures era
-buildVotingProcedures sbe ceo txId txIx voters = C.shelleyBasedEraConstraints sbe $ do
+  -> [ ( L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+       , C.Vote
+       , (Maybe (C.ScriptWitness C.WitCtxStake era))
+       )
+     ]
+  -> C.TxVotingProcedures C.BuildTx era
+buildTxVotingProcedures sbe ceo txId txIx votesWithSWitness = C.shelleyBasedEraConstraints sbe $ do
   let gAID = C.createGovernanceActionId txId txIx
-      votingProceduresList =
-        voters
-          <&> ( \(voter, vote) -> do
-                  let voteProcedure = C.createVotingProcedure ceo vote Nothing
-                  C.singletonVotingProcedures ceo voter gAID (C.unVotingProcedure voteProcedure)
+      ledgerVotingProceduresWithVoterAndSWitness =
+        votesWithSWitness
+          <&> ( \(voter, vote, mSWit) -> do
+                  let votingProcedure = C.createVotingProcedure ceo vote Nothing -- Nothing for anchor
+                  (voter, (C.unVotingProcedure votingProcedure), mSWit)
               )
-  foldr1 C.unsafeMergeVotingProcedures votingProceduresList
+      cardanoVotingProceduresWithSWitness =
+        ledgerVotingProceduresWithVoterAndSWitness
+          <&> (\(v, lvp, msw) -> ((C.singletonVotingProcedures ceo v gAID lvp), msw))
+      cardanoVotingProceduresWithOutSWitness =
+        cardanoVotingProceduresWithSWitness <&> (\(cvp, _msw) -> cvp)
+      voterAndSWitnessMap = Map.unions $ votesWithSWitness <&> (\(voter, _, msw) -> voterSWitnessSingleton voter msw)
+
+      votingProcedures = foldr1 C.unsafeMergeVotingProcedures cardanoVotingProceduresWithOutSWitness
+  C.TxVotingProcedures (C.unVotingProcedures votingProcedures) (C.BuildTxWith voterAndSWitnessMap)
+  where
+    voterSWitnessSingleton
+      :: L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
+      -> Maybe (C.ScriptWitness C.WitCtxStake era)
+      -> Map.Map (L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))) (C.ScriptWitness C.WitCtxStake era)
+    voterSWitnessSingleton _voter Nothing = Map.empty
+    voterSWitnessSingleton voter (Just scriptWitness) = Map.singleton voter scriptWitness
+
+buildTxProposalProcedures
+  :: (L.EraPParams (C.ShelleyLedgerEra era))
+  => [(C.Proposal era, Maybe (C.ScriptWitness C.WitCtxStake era))]
+  -> C.TxProposalProcedures C.BuildTx era
+buildTxProposalProcedures proposalProcedures =
+  -- TODO: Ledger does not export snoc so we can't fold here.
+  let proposals = OSet.fromFoldable $ map (C.unProposal . fst) proposalProcedures
+      sWitMap = C.BuildTxWith $ foldl sWitMapFolder Map.empty proposalProcedures
+   in C.TxProposalProcedures proposals sWitMap
+  where
+    sWitMapFolder sWitMapAccum nextSWit = sWitMapAccum `Map.union` uncurry proposingScriptWitnessSingleton nextSWit
+
+    proposingScriptWitnessSingleton
+      :: C.Proposal era
+      -> Maybe (C.ScriptWitness C.WitCtxStake era)
+      -> Map.Map (Conway.ProposalProcedure (C.ShelleyLedgerEra era)) (C.ScriptWitness C.WitCtxStake era)
+    proposingScriptWitnessSingleton _ Nothing = Map.empty
+    proposingScriptWitnessSingleton (C.Proposal proposalProcedure) (Just scriptWitness) =
+      Map.singleton proposalProcedure scriptWitness
 
 buildTx
   :: (MonadIO m)
@@ -302,7 +345,7 @@ buildTxWithError
   -> C.Address C.ShelleyAddr
   -> Maybe Word
   -> [C.ShelleyWitnessSigningKey]
-  -> m (Either C.TxBodyErrorAutoBalance (C.Tx era))
+  -> m (Either (C.TxBodyErrorAutoBalance era) (C.Tx era))
 buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride sKeys = do
   let certs = do
         case C.txCertificates txBody of
@@ -311,7 +354,7 @@ buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride 
 
   localStateQueryResult <-
     liftIO
-      ( C.executeLocalStateQueryExpr localNodeConnectInfo Nothing $
+      ( C.executeLocalStateQueryExpr localNodeConnectInfo O.VolatileTip $
           C.queryStateForBalancedTx era allInputs certs
       )
 

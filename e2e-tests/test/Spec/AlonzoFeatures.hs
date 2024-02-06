@@ -568,7 +568,7 @@ tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo,
   let C.LedgerProtocolParameters ledgerPParams = pparams
       maxCollateralInputs =
         fromIntegral $
-          U.unsafeFromMaybe $
+          fromJust $
             C.protocolParamMaxCollateralInputs (C.fromLedgerPParams sbe ledgerPParams)
       txOut = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
 

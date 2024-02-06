@@ -25,11 +25,6 @@ unsafeFromRight :: (Show l) => Either l r -> r
 unsafeFromRight (Left err) = error (show err)
 unsafeFromRight (Right value) = value
 
--- | Maybe throw error
-unsafeFromMaybe :: Maybe a -> a
-unsafeFromMaybe Nothing = error "not just, nothing."
-unsafeFromMaybe (Just a) = a
-
 {- | This is a copy of the workspace from
 hedgehog-extras:Hedgehog.Extras.Test.Base, which for darwin sets
 the systemTemp folder to /tmp.

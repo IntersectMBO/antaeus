@@ -45,9 +45,11 @@ import Cardano.Api.Ledger (
 import Cardano.Testnet (Conf (tempAbsPath))
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
+import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
 import Helpers.Error (TimedOut (ProcessExitTimedOut))
 import Helpers.Query qualified as Q
+import Helpers.Utils qualified as U
 import Prettyprinter (Doc)
 import System.Process (cleanupProcess)
 import System.Process.Internals (
@@ -55,6 +57,7 @@ import System.Process.Internals (
   ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle),
   withProcessHandle,
  )
+import Testnet.Defaults qualified as CTN
 import Testnet.Runtime qualified as CTN
 
 data TestEnvironmentOptions era
@@ -178,7 +181,11 @@ startTestnet TestnetOptions{..} tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
       CTN.mkConf tempAbsBasePath
-  tn <- CTN.cardanoTestnet testnetCardanoOptions conf
+  currentTime <- liftIO $ Time.getCurrentTime
+  let sg = CTN.defaultShelleyGenesis currentTime testnetCardanoOptions
+      ag = U.unsafeFromRight CTN.defaultAlonzoGenesis
+      cg = CTN.defaultConwayGenesis
+  tn <- CTN.cardanoTestnet testnetCardanoOptions conf currentTime sg ag cg
   -- needed to avoid duplication of directory in filepath
   let tmpAbsBasePath' = CTN.makeTmpBaseAbsPath $ CTN.tempAbsPath conf
 

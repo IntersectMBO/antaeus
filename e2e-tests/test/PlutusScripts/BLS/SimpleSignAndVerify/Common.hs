@@ -40,8 +40,9 @@ verifyBlsSimpleScript
   -> Bool
 verifyBlsSimpleScript BlsParams{..} _sc = do
   let
+    uncompressedG1 = P.bls12_381_G1_uncompress P.bls12_381_G1_compressed_generator
     -- calculate public key
-    pubKey = P.bls12_381_G1_scalarMul privKey P.bls12_381_G1_generator
+    pubKey = P.bls12_381_G1_scalarMul privKey uncompressedG1
 
     -- Hash this msg to the G2
     msgToG2 = P.bls12_381_G2_hashToGroup message P.emptyByteString
@@ -51,5 +52,5 @@ verifyBlsSimpleScript BlsParams{..} _sc = do
 
   -- verify the msg with signature sigma with the check e(g1,sigma)=e(pub,msgToG2)
   P.bls12_381_finalVerify
-    (P.bls12_381_millerLoop P.bls12_381_G1_generator sigma)
+    (P.bls12_381_millerLoop uncompressedG1 sigma)
     (P.bls12_381_millerLoop pubKey msgToG2)

@@ -80,7 +80,8 @@ aggregateSigSingleKeyG1 dst BlsParams{..} _sc = do
 
   P.bls12_381_finalVerify
     (P.bls12_381_millerLoop pkDeser aggrMsg)
-    (P.bls12_381_millerLoop P.bls12_381_G1_generator aggrSigDeser)
+    ( P.bls12_381_millerLoop (P.bls12_381_G1_uncompress P.bls12_381_G1_compressed_generator) aggrSigDeser
+    )
   where
     -- PlutusTx.Foldable has no foldl1
     foldl1' :: (a -> a -> a) -> [a] -> a

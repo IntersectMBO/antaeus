@@ -130,7 +130,8 @@ aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
 
   P.bls12_381_finalVerify
     (P.bls12_381_millerLoop hashedMsg aggrPk)
-    (P.bls12_381_millerLoop aggrSigDeser P.bls12_381_G2_generator)
+    ( P.bls12_381_millerLoop aggrSigDeser (P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator)
+    )
   where
     -- PlutusTx.Foldable has no foldl1
     foldl1' :: (a -> a -> a) -> [a] -> a

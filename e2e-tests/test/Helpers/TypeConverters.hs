@@ -191,6 +191,9 @@ fromCardanoValue (C.valueToList -> list) =
     fromSingleton (fromCardanoAssetId -> assetClass, C.Quantity quantity) =
       Value.assetClassValue assetClass quantity
 
+fromCardanoLovelace :: C.Lovelace -> PV3.Lovelace
+fromCardanoLovelace (C.Lovelace l) = PV3.Lovelace l
+
 fromCardanoProposal
   -- :: forall era
   --  . (L.EraCrypto era ~ L.StandardCrypto)
@@ -201,7 +204,8 @@ fromCardanoProposal sbe (C.Proposal ledgerPP) =
   C.shelleyBasedEraConstraints sbe $
     PV3.ProposalProcedure
       { PV3.ppDeposit =
-          fromCardanoValue $ C.lovelaceToValue $ C.fromShelleyLovelace (L.pProcDeposit ledgerPP)
+          -- fromCardanoValue $ C.lovelaceToValue $ C.fromShelleyLovelace (L.pProcDeposit ledgerPP)
+          fromCardanoLovelace $ C.fromShelleyLovelace (L.pProcDeposit ledgerPP)
       , PV3.ppReturnAddr = fromLedgerStakingCredential $ L.getRwdCred $ L.pProcReturnAddr ledgerPP
       , PV3.ppGovernanceAction = fromLedgerGovernanceAction $ L.pProcGovAction ledgerPP
       -- The optional anchor is omitted.

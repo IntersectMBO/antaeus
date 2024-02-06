@@ -114,7 +114,7 @@ verifyProposalProceduresRedeemer = toScriptData
 -- txInfoCurrentTreasuryAmount --
 
 {-# INLINEABLE mkVerifyCurrentTreasuryAmount #-}
-mkVerifyCurrentTreasuryAmount :: P.Maybe V3.Value -> V3.ScriptContext -> Bool
+mkVerifyCurrentTreasuryAmount :: P.Maybe V3.Lovelace -> V3.ScriptContext -> Bool
 mkVerifyCurrentTreasuryAmount r sc = r P.== (V3.txInfoCurrentTreasuryAmount P.$ V3.scriptContextTxInfo sc)
 
 currentTreasuryAmountAssetName :: C.AssetName
@@ -126,7 +126,7 @@ currentTreasuryAmountRedeemer = toScriptData
 -- txInfoTreasuryDonation --
 
 {-# INLINEABLE mkVerifyTreasuryDonation #-}
-mkVerifyTreasuryDonation :: P.Maybe V3.Value -> V3.ScriptContext -> Bool
+mkVerifyTreasuryDonation :: P.Maybe V3.Lovelace -> V3.ScriptContext -> Bool
 mkVerifyTreasuryDonation r sc = r P.== (V3.txInfoTreasuryDonation P.$ V3.scriptContextTxInfo sc)
 
 treasuryDonationAssetName :: C.AssetName
