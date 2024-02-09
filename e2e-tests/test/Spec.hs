@@ -41,12 +41,14 @@ import Spec.ConwayFeatures qualified as Conway
 import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
+import System.IO (hSetEncoding, stdout, utf8)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Text.XML.Light (showTopElement)
 
 main :: IO ()
 main = do
+  hSetEncoding stdout utf8
   runTestsWithResults
 
 data ResultsRefs = ResultsRefs
@@ -69,8 +71,7 @@ tests ResultsRefs{..} =
     , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
     -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
     --  testProperty "debug" (debugTests pv8ResultsRef)
-    --  testProperty
-    --    "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+    -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property

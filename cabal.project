@@ -13,8 +13,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.adoc for how to update index-state
 index-state:
-  , hackage.haskell.org 2024-01-30T07:06:36Z
-  , cardano-haskell-packages 2024-01-31T18:47:21Z
+  , hackage.haskell.org 2024-02-06T15:14:50Z
+  , cardano-haskell-packages 2024-02-07T07:51:35Z
 packages: e2e-tests
 
 -- We never, ever, want this.
@@ -53,24 +53,17 @@ constraints:
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-node
-    tag: 4d7290b174e22aa59472830aa879f90969596134
+    tag: 466ee0554af967550a30030712e14503dda1b84a
     subdir:
       cardano-testnet
+    --sha256: sha256-/ca64iZ7ROQrhLvBoh6WSCsrhw7GhbkjVLGlvwU8ZZk=
+
+source-repository-package
+    type: git
+    location: https://github.com/IntersectMBO/cardano-node
+    tag: 4bb2048db77d623ee6e3678618c2d8b6c4676333
+    subdir:
       cardano-node
       trace-dispatcher
       trace-forward
-    --sha256: sha256-Wth5ks+WDG+/MVmPBKzA8OuH9LJ3lU8ONScKKb/oYh8=
-
-source-repository-package
-    type: git
-    location: https://github.com/IntersectMBO/cardano-api.git
-    tag: 9143a17b0afd693642c5c4a6e836256169e3eb38
-    subdir: cardano-api
-    --sha256: sha256-NGw/lznyST7nFaC3kMAQo81xiEiN7aulGEj3DlLbbIw=
-
-source-repository-package
-    type: git
-    location: https://github.com/IntersectMBO/cardano-cli.git
-    tag: d88efb144cd39e9a5bb453ce5dd77a3c91f61b13
-    subdir: cardano-cli
-    --sha256: sha256-f8T+4tvKkqoPjo0FFEPZroSu/4+4SYw7lJ4aFpsyV/Y=
+    --sha256: sha256-pWXI8dyqKQ3HncbBtd54wdHi3Pj7J5y+nybqpzMXOj4=

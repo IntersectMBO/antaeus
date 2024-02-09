@@ -1,7 +1,7 @@
 { repoRoot, inputs, pkgs, lib, system }:
 
 let
-  cardano-node-gitrev = "bf5f688d11fcd6aea3a22df0c2f78538419539e7";
+  cardano-node-gitrev = "4bb2048db77d623ee6e3678618c2d8b6c4676333";
 
 
   cabalProject' = pkgs.haskell-nix.cabalProject' ({ config, pkgs, ... }:
