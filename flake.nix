@@ -60,18 +60,45 @@
           inherit (inputs.haskell-nix) config;
         };
 
-        project = pkgs.haskell-nix.cabalProject' {
-          src = ./.;
-          compiler-nix-name = "ghc963";
+        project = pkgs.haskell-nix.cabalProject' ({ config, pkgs, ... }:
+          let
+            isCross = pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform;
+          in
+          {
+            src = ./.;
+            compiler-nix-name = "ghc963";
 
-          sha256map = {
-            "https://github.com/IntersectMBO/cardano-node"."bf5f688d11fcd6aea3a22df0c2f78538419539e7" = "sha256-5wo2eb6U53wmogIoaCFGPwnHAetpJg5iV1AdaIUSMrI=";
-          };
-          inputMap = {
-            "https://chap.intersectmbo.org/" = inputs.CHaP;
-          };
+            sha256map = {
+              "https://github.com/IntersectMBO/cardano-node"."bf5f688d11fcd6aea3a22df0c2f78538419539e7" = "sha256-5wo2eb6U53wmogIoaCFGPwnHAetpJg5iV1AdaIUSMrI=";
+            };
+            inputMap = {
+              "https://chap.intersectmbo.org/" = inputs.CHaP;
+            };
+            modules = [{
+              packages.e2e-tests.package.buildable = !isCross;
+              packages.e2e-tests.ghcOptions = [ "-Werror" ];
 
-        };
+              # The lines `export CARDANO_NODE=...` and `export CARDANO_CLI=...`
+              # is necessary to prevent the error
+              # `../dist-newstyle/cache/plan.json: openBinaryFile: does not exist (No such file or directory)`.
+              # See https://github.com/input-output-hk/cardano-node/issues/4194.
+              #
+              # The line 'export CARDANO_NODE_SRC=...' is used to specify the
+              # root folder used to fetch the `configuration.yaml` file (in
+              # antaeus, it's currently in the
+              # `configuration/defaults/byron-mainnet` directory.
+              # Else, we'll get the error
+              # `/nix/store/ls0ky8x6zi3fkxrv7n4vs4x9czcqh1pb-antaeus/antaeus/test/configuration.yaml: openFile: does not exist (No such file or directory)`
+              packages.e2e-tests.components.tests.antaeus-test.preCheck = "
+                #export CARDANO_CLI=${config.hsPkgs.cardano-cli.components.exes.cardano-cli}/bin/cardano-cli${pkgs.stdenv.hostPlatform.extensions.executable}
+                export CARDANO_CLI=/home/james/.local/bin/cardano-cli
+                #export CARDANO_NODE=${config.hsPkgs.cardano-node.components.exes.cardano-node}/bin/cardano-node${pkgs.stdenv.hostPlatform.extensions.executable}
+                export CARDANO_NODE=/home/james/.local/bin/cardano-node
+                export CARDANO_NODE_SRC=${../.}
+              ";
+            }];
+          }
+        );
       in
       project.flake { });
 
