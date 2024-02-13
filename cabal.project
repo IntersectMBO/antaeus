@@ -66,4 +66,12 @@ source-repository-package
       cardano-node
       trace-dispatcher
       trace-forward
+      trace-resources
     --sha256: sha256-pWXI8dyqKQ3HncbBtd54wdHi3Pj7J5y+nybqpzMXOj4=
+
+source-repository-package
+    type: git
+    location: https://github.com/IntersectMBO/cardano-api.git
+    tag: 0fa74a6b488ed1fed5f3865780051dd6324a3ff1
+    subdir: cardano-api
+    --sha256: sha256-WgQ5W5kdfvEUvBWS4YrvZT1C3rzDOQqQIvjDx2sAOB4=
