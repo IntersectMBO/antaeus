@@ -53,10 +53,10 @@ constraints:
 source-repository-package
     type: git
     location: https://github.com/james-iohk/cardano-node
-    tag: 466ee0554af967550a30030712e14503dda1b84a
+    tag: a3bb8e234bf9f645e3ac1a680326c8be4cf85698
     subdir:
       cardano-testnet
-    --sha256: sha256-/ca64iZ7ROQrhLvBoh6WSCsrhw7GhbkjVLGlvwU8ZZk=
+    --sha256: sha256-84vpqEwDuU7gBfDKbeHPJxw8nje2hJQVheIgoZzDuMY=
 
 source-repository-package
     type: git

@@ -309,8 +309,8 @@ w1All
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
 w1All tempAbsPath networkId = do
-  let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
-      w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.skey"
+  let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1/utxo.vkey"
+      w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1/utxo.skey"
   -- GenesisUTxOKey comes from cardano-testnet
   mGenesisVKey :: Maybe (C.VerificationKey C.GenesisUTxOKey) <-
     maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) w1VKeyFile
@@ -396,5 +396,8 @@ pool1Voter
   -> FilePath
   -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
 pool1Voter ceo tempAbsPath =
-  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo . stakePoolPoolKeyHash
+  return
+    . StakePoolVoter
+    . C.conwayEraOnwardsConstraints ceo
+    . stakePoolPoolKeyHash
     =<< pool1All tempAbsPath
