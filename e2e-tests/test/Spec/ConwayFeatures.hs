@@ -13,7 +13,6 @@ import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
-import Cardano.Ledger.BaseTypes qualified as L
 import Cardano.Ledger.Conway.PParams qualified as L
 import Cardano.Ledger.Core qualified as L
 import Control.Concurrent (threadDelay)
@@ -25,6 +24,7 @@ import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.Text qualified as Text
+import Data.Time.Clock qualified as Time
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.Num (Natural)
 import Hedgehog qualified as H
@@ -107,11 +107,15 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
         P.fromMilliSeconds $
           P.DiffMilliSeconds $
             U.posixToMilliseconds $
-              fromJust mTime -- before slot 1
+              Time.utcTimeToPOSIXSeconds $
+                Time.addUTCTime (-1) $
+                  fromJust mTime -- subtract 1 second from the lower bound to guarentee before testnet start time
+                  -- before slot 1
       upperBound =
         P.fromMilliSeconds $
           P.DiffMilliSeconds $
-            U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
+            U.posixToMilliseconds startTime
+              + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
       timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
       expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
@@ -278,37 +282,49 @@ registerDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRepTest KeyDRep{kDRepRegCert = c} = registerDRep c
-registerDRepTest ScriptDRep{sDRepRegCert = c} = registerDRep c
+registerDRepTest KeyDRep{kDRepSKey = sKey, kDRepRegCert = cert} = registerDRep (Just sKey) cert
+registerDRepTest ScriptDRep{sDRepRegCert = cert} = registerDRep Nothing cert
 registerDRep
   :: (MonadTest m, MonadIO m)
-  => C.Certificate era
+  => Maybe (C.SigningKey C.DRepKey)
+  -> C.Certificate era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRep dRepRegCert networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-  let sbe = toShelleyBasedEra era
+registerDRep
+  mkDrepSkey
+  dRepRegCert
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
-  dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-  let
-    regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-    -- TODO: add DRep script witness (once ledger supports it)
-    regDRepTxBodyContent =
-      (Tx.emptyTxBodyContent sbe pparams)
-        { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
-        , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
-        , C.txOuts = [regDRepTxOut]
-        }
-  -- TODO: add DRep key witness (if KeyDRep)
-  signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
-  Tx.submitTx sbe localNodeConnectInfo signedRegDRepTx
-  let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
-  regDRepResultTxOut <-
-    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
-  H.annotate $ show regDRepResultTxOut
-  success
+    dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      -- TODO: add DRep script witness (once ledger supports it)
+      regDRepTxBodyContent =
+        (Tx.emptyTxBodyContent sbe pparams)
+          { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
+          , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
+          , C.txOuts = [regDRepTxOut]
+          }
+    signedRegDRepTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        regDRepTxBodyContent
+        w1Address
+        (maybe (Just 1) (\_ -> Just 2) mkDrepSkey) -- witness count
+        -- witness signing keys
+        (C.WitnessPaymentKey w1SKey : maybe [] (\dRepSKey -> [C.WitnessDRepKey dRepSKey]) mkDrepSkey)
+    Tx.submitTx sbe localNodeConnectInfo signedRegDRepTx
+    let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
+    regDRepResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show regDRepResultTxOut
+    success
 
 registerCommitteeTestInfo committee =
   TestInfo

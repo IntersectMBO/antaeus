@@ -6,7 +6,7 @@ module Helpers.TestData where
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import Control.Monad.IO.Class (MonadIO)
-import Data.Time.Clock.POSIX (POSIXTime)
+import Data.Time.Clock (UTCTime)
 import Hedgehog (MonadTest)
 import Helpers.Testnet qualified as TN
 
@@ -36,5 +36,5 @@ data TestParams era = TestParams
   , pparams :: C.LedgerProtocolParameters era
   , networkId :: C.NetworkId
   , tempAbsPath :: FilePath
-  , mTime :: Maybe POSIXTime
+  , mTime :: Maybe UTCTime
   }

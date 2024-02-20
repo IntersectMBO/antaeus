@@ -17,6 +17,7 @@ import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
+import Data.Time.Clock qualified as Time
 import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
 import Hedgehog.Internal.Property (MonadTest)
@@ -31,6 +32,7 @@ import PlutusLedgerApi.V1.Interval qualified as P
 import PlutusLedgerApi.V1.Time qualified as P
 import PlutusLedgerApi.V2 qualified as PlutusV2
 import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
+import PlutusScripts.Basic.V_1_1 qualified as PS_1_1
 import PlutusScripts.Helpers qualified as PS
 import PlutusScripts.V2TxInfo qualified as PS (
   checkV2TxInfoAssetIdV2,
@@ -86,11 +88,15 @@ checkTxInfoV2Test networkOptions TestParams{..} = do
         P.fromMilliSeconds $
           P.DiffMilliSeconds $
             U.posixToMilliseconds $
-              fromJust mTime -- before slot 1
+              Time.utcTimeToPOSIXSeconds $
+                -- subtract 10 seconds from the lower bound so it is well before the testnet start time
+                Time.addUTCTime (-10) $
+                  fromJust mTime -- before slot 1
       upperBound =
         P.fromMilliSeconds $
           P.DiffMilliSeconds $
-            U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
+            U.posixToMilliseconds startTime
+              + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
       timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
       expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
@@ -190,8 +196,7 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
             era
             refScriptLovelaceValue
             w1Address
-            -- TODO: use (PS.unPlutusScriptV3 PS_1_1.alwaysSucceedPolicyScriptV3) when PlutusV3 is supported again
-            (PS.unPlutusScriptV2 PS_1_0.alwaysSucceedPolicyScriptV2)
+            (PS.unPlutusScriptV3 PS_1_1.alwaysSucceedPolicyScriptV3)
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
@@ -214,9 +219,8 @@ referenceScriptMintTest networkOptions TestParams{localNodeConnectInfo, pparams,
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe (Just refScriptTxIn)]
           )
         C.ConwayEra ->
-          -- TODO: use PS_1_1.alwaysSucceedPolicyScriptV3 when PlutusV3 is supported again
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 6)]
-          , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe (Just refScriptTxIn)]
+          ( C.valueFromList [(PS_1_1.alwaysSucceedAssetIdV3, 6)]
+          , Map.fromList [PS_1_1.alwaysSucceedMintWitnessV3 sbe (Just refScriptTxIn)]
           )
       collateral = Tx.txInsCollateral era [otherTxIn]
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
@@ -278,13 +282,11 @@ referenceScriptInlineDatumSpendTest
               era
               refScriptLovelaceValue
               w1Address
-              -- TODO: use (PS.unPlutusScriptV3 PS_1_1.alwaysSucceedSpendScriptV3) when PlutusV3 is supported again
-              (PS.unPlutusScriptV2 PS_1_0.alwaysSucceedSpendScriptV2)
+              (PS.unPlutusScriptV3 PS_1_1.alwaysSucceedSpendScriptV3)
         otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
         scriptAddress = case era of
           C.BabbageEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
-          -- TODO: use PS_1_1.alwaysSucceedSpendScriptHashV3 when PlutusV3 is supported again
-          C.ConwayEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
+          C.ConwayEra -> makeAddress (Right PS_1_1.alwaysSucceedSpendScriptHashV3) networkId
         scriptTxOut = Tx.txOutWithInlineDatum era (C.lovelaceToValue 10_000_000) scriptAddress (PS.toScriptData ())
         txBodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
@@ -303,8 +305,7 @@ referenceScriptInlineDatumSpendTest
 
     let witness = case era of
           C.BabbageEra -> PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) Nothing
-          -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-          C.ConwayEra -> PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) Nothing
+          C.ConwayEra -> PS_1_1.alwaysSucceedSpendWitnessV3 sbe (Just refScriptTxIn) Nothing
         scriptTxIn = Tx.txInWitness txInAtScript witness
         collateral = Tx.txInsCollateral era [otherTxIn]
         adaValue = C.lovelaceToValue 4_200_000
@@ -364,13 +365,11 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
             era
             refScriptLovelaceValue
             w1Address
-            -- TODO: use PS_1_1.alwaysSucceedSpendScriptV3 when PlutusV3 is supported again
-            (PS.unPlutusScriptV2 PS_1_0.alwaysSucceedSpendScriptV2)
+            (PS.unPlutusScriptV3 PS_1_1.alwaysSucceedSpendScriptV3)
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
       scriptAddress = case era of
         C.BabbageEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
-        -- TODO: use PS_1_1.alwaysSucceedSpendScriptV3 when PlutusV3 is supported again
-        C.ConwayEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
+        C.ConwayEra -> makeAddress (Right PS_1_1.alwaysSucceedSpendScriptHashV3) networkId
       datum = PS.toScriptData ()
       scriptTxOut = Tx.txOutWithDatumHash era (C.lovelaceToValue 10_000_000) scriptAddress datum
 
@@ -397,8 +396,7 @@ referenceScriptDatumHashSpendTest networkOptions TestParams{localNodeConnectInfo
         C.ConwayEra ->
           Tx.txInWitness
             txInAtScript
-            -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-            (PS_1_0.alwaysSucceedSpendWitnessV2 sbe (Just refScriptTxIn) (Just datum))
+            (PS_1_1.alwaysSucceedSpendWitnessV3 sbe (Just refScriptTxIn) (Just datum))
       collateral = Tx.txInsCollateral era [otherTxIn]
       adaValue = C.lovelaceToValue 4_200_000
       txOut = Tx.txOut era adaValue w1Address
@@ -445,8 +443,7 @@ inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, ne
 
   let scriptAddress = case era of
         C.BabbageEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
-        -- TODO: use PS_1_1.alwaysSucceedSpendScriptHashV3 when PlutusV3 is supported again
-        C.ConwayEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
+        C.ConwayEra -> makeAddress (Right PS_1_1.alwaysSucceedSpendScriptHashV3) networkId
       scriptTxOut = Tx.txOutWithInlineDatum era (C.lovelaceToValue 10_000_000) scriptAddress (PS.toScriptData ())
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
@@ -468,8 +465,7 @@ inlineDatumSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, ne
     -- without reference script
     scriptTxIn = case era of
       C.BabbageEra -> Tx.txInWitness txInAtScript (PS_1_0.alwaysSucceedSpendWitnessV2 sbe Nothing Nothing)
-      -- TODO: use PS_1_1.alwaysSucceedSpendWitnessV3 when PlutusV3 is supported again
-      C.ConwayEra -> Tx.txInWitness txInAtScript (PS_1_0.alwaysSucceedSpendWitnessV2 sbe Nothing Nothing)
+      C.ConwayEra -> Tx.txInWitness txInAtScript (PS_1_1.alwaysSucceedSpendWitnessV3 sbe Nothing Nothing)
     collateral = Tx.txInsCollateral era [otherTxIn]
     adaValue = C.lovelaceToValue 4_200_000
     txOut = Tx.txOut era adaValue w1Address
@@ -678,11 +674,11 @@ returnCollateralWithTokensValidScriptTest
             , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
-            -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
-            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
             , Map.fromList
-                -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-                [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
+                [ PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing
+                , PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing
+                ]
             )
         collateral = Tx.txInsCollateral era [txIn]
         txOut =
@@ -710,8 +706,7 @@ returnCollateralWithTokensValidScriptTest
 
     let tokenValues2 = case era of
           C.BabbageEra -> C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 20)]
-          -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
-          C.ConwayEra -> C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 20)]
+          C.ConwayEra -> C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 20), (PS_1_1.alwaysSucceedAssetIdV3, 20)]
         collateral2 = Tx.txInsCollateral era [txIn2]
         txOut2 =
           Tx.txOutWithInlineDatum
@@ -772,11 +767,9 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
             , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
-            -- TODO: add PS_1_1.alwaysSucceedAssetIdV3 when PlutusV3 is supported again
-            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
             , Map.fromList
-                -- TODO: add PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-                [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
+                [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing, PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing]
             )
         collateral = Tx.txInsCollateral era [txIn]
         txOutAmount = 10_000_000
@@ -805,10 +798,8 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
             , Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
-            -- TODO: use PS_1_1.alwaysFailsAssetIdV3 when PlutusV3 is supported again
-            ( C.valueFromList [(PS_1_0.alwaysFailsAssetIdV2, 1)]
-            , -- TODO: use PS_1_1.alwaysSucceedMintWitnessV3 when PlutusV3 is supported again
-              Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 sbe Nothing]
+            ( C.valueFromList [(PS_1_1.alwaysFailsAssetIdV3, 1)]
+            , Map.fromList [PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing]
             )
         collateral2 = Tx.txInsCollateral era [collateralTxIn]
         txOut1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address

@@ -181,7 +181,7 @@ mkCheckV3TxInfo V3TxInfo{..} ctx =
     checkTxInfoFee = expTxInfoFee P.== PlutusV3.txInfoFee info
     checkTxInfoMint = expTxInfoMint P.== PlutusV3.txInfoMint info
     checkTxInfoTxCert = expTxInfoTxCert P.== PlutusV3.txInfoTxCerts info
-    checkTxInfoWdrl = expTxInfoWdrl P.== PlutusV3.txInfoWdrl info -- TODO: uncomment when txInfoWdrl is implemented
+    checkTxInfoWdrl = expTxInfoWdrl P.== PlutusV3.txInfoWdrl info
     checkTxInfoValidRange = expTxInfoValidRange `P.contains` PlutusV3.txInfoValidRange info
     checkTxInfoSignatories = expTxInfoSignatories P.== PlutusV3.txInfoSignatories info
     checkTxInfoRedeemers = False -- do -- TODO: uncomment section when ownCurrencySymbol etc is implemented for V3

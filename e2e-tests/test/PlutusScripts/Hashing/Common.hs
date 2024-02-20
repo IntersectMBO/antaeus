@@ -12,6 +12,7 @@
 
 module PlutusScripts.Hashing.Common where
 
+import Cardano.Api (Hash)
 import Cardano.Api qualified as C
 import PlutusScripts.Helpers (
   bytesFromHex,
@@ -28,18 +29,28 @@ data InputOutput = InputOutput
 PlutusTx.unstableMakeIsData ''InputOutput
 PlutusTx.makeLift ''InputOutput
 
-data HashingParams = HashingParams
+data LegacyHashingParams = LegacyHashingParams
   { sha2_256Long :: InputOutput
   , sha2_256Short :: InputOutput
   , sha3_256Long :: InputOutput
   , sha3_256Short :: InputOutput
   , blake2b_256Long :: InputOutput
   , blake2b_256Short :: InputOutput
-  -- , blake2b_224Long :: InputOutput
-  -- , blake2b_224Short :: InputOutput
-  -- , keccak256Long :: InputOutput
-  -- , keccak256Short :: InputOutput
   }
+PlutusTx.unstableMakeIsData ''LegacyHashingParams
+PlutusTx.makeLift ''LegacyHashingParams
+
+data ConwayHashingParams = ConwayHashingParams
+  { v2HashingParams :: LegacyHashingParams
+  , blake2b_224Long :: InputOutput
+  , blake2b_224Short :: InputOutput
+  , keccak_256Long :: InputOutput
+  , keccak_256Short :: InputOutput
+  }
+PlutusTx.unstableMakeIsData ''ConwayHashingParams
+PlutusTx.makeLift ''ConwayHashingParams
+
+data HashingParams = V1_V2 LegacyHashingParams | V3 ConwayHashingParams
 PlutusTx.unstableMakeIsData ''HashingParams
 PlutusTx.makeLift ''HashingParams
 
@@ -64,16 +75,31 @@ PlutusTx.makeLift ''HashingParams
 
 {-# INLINEABLE mkHashingPolicy #-}
 mkHashingPolicy :: HashingParams -> P.BuiltinData -> P.BuiltinData -> Bool
-mkHashingPolicy HashingParams{..} _r _sc =
-  P.all
-    (P.== True)
-    [ hashAndCheckResult BI.sha2_256 "sha2_256Long" sha2_256Long
-    , hashAndCheckResult BI.sha2_256 "sha2_256Short" sha2_256Short
-    , hashAndCheckResult BI.sha3_256 "sha3_256Long" sha3_256Long
-    , hashAndCheckResult BI.sha3_256 "sha3_256Short" sha3_256Short
-    , hashAndCheckResult BI.blake2b_256 "blake2b_256Long" blake2b_256Long
-    , hashAndCheckResult BI.blake2b_256 "blake2b_256Short" blake2b_256Short
-    ]
+mkHashingPolicy hashingParams _r _sc
+  | V1_V2 LegacyHashingParams{..} <- hashingParams =
+      P.all
+        (P.== True)
+        [ hashAndCheckResult BI.sha2_256 "sha2_256Long" sha2_256Long
+        , hashAndCheckResult BI.sha2_256 "sha2_256Short" sha2_256Short
+        , hashAndCheckResult BI.sha3_256 "sha3_256Long" sha3_256Long
+        , hashAndCheckResult BI.sha3_256 "sha3_256Short" sha3_256Short
+        , hashAndCheckResult BI.blake2b_256 "blake2b_256Long" blake2b_256Long
+        , hashAndCheckResult BI.blake2b_256 "blake2b_256Short" blake2b_256Short
+        ]
+  | V3 ConwayHashingParams{..} <- hashingParams =
+      P.all
+        (P.== True)
+        [ hashAndCheckResult BI.sha2_256 "sha2_256Long" (sha2_256Long v2HashingParams)
+        , hashAndCheckResult BI.sha2_256 "sha2_256Short" (sha2_256Short v2HashingParams)
+        , hashAndCheckResult BI.sha3_256 "sha3_256Long" (sha3_256Long v2HashingParams)
+        , hashAndCheckResult BI.sha3_256 "sha3_256Short" (sha3_256Short v2HashingParams)
+        , hashAndCheckResult BI.blake2b_256 "blake2b_256Long" (blake2b_256Long v2HashingParams)
+        , hashAndCheckResult BI.blake2b_256 "blake2b_256Short" (blake2b_256Long v2HashingParams)
+        , hashAndCheckResult BI.blake2b_224 "blake2b_224Long" blake2b_224Long
+        , hashAndCheckResult BI.blake2b_224 "blake2b_224Short" blake2b_224Short
+        , hashAndCheckResult BI.keccak_256 "keccak_256Long" keccak_256Long
+        , hashAndCheckResult BI.keccak_256 "keccak_256Short" keccak_256Short
+        ]
   where
     hashAndCheckResult
       :: (P.BuiltinByteString -> P.BuiltinByteString) -> BI.BuiltinString -> InputOutput -> Bool
@@ -157,9 +183,57 @@ blake2b_256ShortIO =
           bytesFromHex "62250e24b1842531714afbf8bb8d4f5ecc78874f0c6a63c529c3f601c5c77c0e"
     }
 
-hashingParamsV1AndV2 :: HashingParams
-hashingParamsV1AndV2 =
-  HashingParams
+blake2b_224LongIO :: InputOutput
+blake2b_224LongIO =
+  InputOutput
+    { input =
+        BI.toBuiltin $
+          bytesFromHex
+            ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e20"
+                <> "4974207761732064657369676e65642e20546f207377616c6c6f77207573207768"
+                <> "6f6c652e20497427732061206c6f73696e672067616d652e"
+            )
+    , output =
+        BI.toBuiltin $
+          bytesFromHex "8ad5493e31e61bace07bf6bfdf7931c5f381b1cd80dc093605ce5c2a"
+    }
+
+blake2b_224ShortIO :: InputOutput
+blake2b_224ShortIO =
+  InputOutput
+    { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
+    , output =
+        BI.toBuiltin $
+          bytesFromHex "dbf1eb305849b048232dd0a92d4885c36a1d076dbf652a6cd5459244"
+    }
+
+keccak256LongIO :: InputOutput
+keccak256LongIO =
+  InputOutput
+    { input =
+        BI.toBuiltin $
+          bytesFromHex
+            ( "54686520626c61636b2076616375756d206f662074686520756e6976657273652e204974"
+                <> "207761732064657369676e65642e20546f207377616c6c6f772075732077686f6c652e20"
+                <> "497427732061206c6f73696e672067616d652e"
+            )
+    , output =
+        BI.toBuiltin $
+          bytesFromHex "4a02afccd1aa14dcab8c6afcd9654ef3cde6e634575aac26bf4e4dd5030a50d0"
+    }
+
+keccak256ShortIO :: InputOutput
+keccak256ShortIO =
+  InputOutput
+    { input = BI.toBuiltin $ bytesFromHex "53686f72742074657374206d657373616765"
+    , output =
+        BI.toBuiltin $
+          bytesFromHex "352c3f362f64da546ec7482811f67d1a201f71cad2dad21dc701277f09ff605f"
+    }
+
+legacyHashingParams :: LegacyHashingParams
+legacyHashingParams =
+  LegacyHashingParams
     { sha2_256Long = sha2_256LongIO
     , sha2_256Short = sha2_256ShortIO
     , sha3_256Long = sha3_256LongIO
@@ -168,20 +242,19 @@ hashingParamsV1AndV2 =
     , blake2b_256Short = blake2b_256ShortIO
     }
 
+hashingParamsV1AndV2 :: HashingParams
+hashingParamsV1AndV2 = V1_V2 legacyHashingParams
+
 hashingParamsV3 :: HashingParams
 hashingParamsV3 =
-  HashingParams
-    { sha2_256Long = sha2_256LongIO
-    , sha2_256Short = sha2_256ShortIO
-    , sha3_256Long = sha3_256LongIO
-    , sha3_256Short = sha3_256ShortIO
-    , blake2b_256Long = blake2b_256LongIO
-    , blake2b_256Short = blake2b_256ShortIO
-    -- , blake2b_224Long =  blake2b_224LongIO
-    -- , blake2b_224Short = blake2b_224ShortIO
-    -- , keccak256Long = keccak256LongIO
-    -- , keccak256Short :: keccak256ShortIO
-    }
+  V3
+    ConwayHashingParams
+      { v2HashingParams = legacyHashingParams
+      , blake2b_224Long = blake2b_224LongIO
+      , blake2b_224Short = blake2b_224ShortIO
+      , keccak_256Long = keccak256LongIO
+      , keccak_256Short = keccak256ShortIO
+      }
 
 -- Test inputs and outputs for PlutusV1 and PlutusV2 hashing functions
 hashingParamsV1AndV2Redeemer :: C.HashableScriptData

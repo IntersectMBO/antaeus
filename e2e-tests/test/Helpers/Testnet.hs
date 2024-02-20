@@ -47,6 +47,7 @@ import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
 import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
+import Hedgehog.Extras.Test qualified as H
 import Helpers.Error (TimedOut (ProcessExitTimedOut))
 import Helpers.Query qualified as Q
 import Helpers.Utils qualified as U
@@ -121,8 +122,9 @@ shortEpochConwayTestnetOptions =
   defConwayTestnetOptions
     { testnetCardanoOptions =
         (testnetCardanoOptions defConwayTestnetOptions)
-          { CTN.cardanoActiveSlotsCoeff = 0.5 -- adjusted from default due to short epoch length
-          , CTN.cardanoEpochLength = 200 -- 20 second epoch for testing outcome of governance actions
+          { -- CTN.cardanoActiveSlotsCoeff = 0.5 -- adjusted from default due to short epoch length
+            CTN.cardanoEpochLength = 100 -- 10 second epoch for testing outcome of governance actions
+          , CTN.cardanoSlotLength = 0.1
           }
     }
 
@@ -181,7 +183,7 @@ startTestnet TestnetOptions{..} tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
       CTN.mkConf tempAbsBasePath
-  currentTime <- liftIO $ Time.getCurrentTime
+  currentTime <- liftIO Time.getCurrentTime
   let sg = CTN.defaultShelleyGenesis currentTime testnetCardanoOptions
       ag = U.unsafeFromRight CTN.defaultAlonzoGenesis
       cg = CTN.defaultConwayGenesis
