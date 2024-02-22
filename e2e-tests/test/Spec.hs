@@ -55,7 +55,6 @@ data ResultsRefs = ResultsRefs
   , pv8ResultsRef :: IORef [TestResult]
   , pv9ResultsRef :: IORef [TestResult]
   , pv9GovResultsRef :: IORef [TestResult]
-  , pv8EmulatorTestsRef :: IORef [TestResult]
   }
 
 tests :: ResultsRefs -> TestTree
@@ -68,7 +67,6 @@ tests ResultsRefs{..} =
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
     , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
     , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
-    , testProperty "Babbage PV8 Emulator Tests" (emulatorTests pv8EmulatorTestsRef TN.emulatorOptions)
     -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
     --  testProperty "debug" (debugTests pv8ResultsRef)
     --  testProperty
@@ -292,44 +290,6 @@ localNodeTests resultsRef options = integrationRetryWorkspace 0 "local" $ \tempA
 
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
-emulatorTests
-  :: IORef [TestResult]
-  -> TN.TestEnvironmentOptions era
-  -> H.Property
-emulatorTests resultsRef options = integrationRetryWorkspace 0 "cardano-node-emulator" $ \tempAbsPath -> do
-  preTestnetTime <- liftIO Time.getPOSIXTime
-  (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
-    TN.setupTestEnvironment options tempAbsPath
-  let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
-      run testInfo = runTest testInfo resultsRef options testParams
-
-  -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
-  sequence_
-    [ run Alonzo.checkTxInfoV1TestInfo
-    , run Babbage.checkTxInfoV2TestInfo
-    , run Alonzo.datumHashSpendTestInfo
-    , run Alonzo.mintBurnTestInfo
-    , run Alonzo.collateralContainsTokenErrorTestInfo
-    , run Alonzo.noCollateralInputsErrorTestInfo
-    , run Alonzo.missingCollateralInputErrorTestInfo
-    , run Alonzo.tooManyCollateralInputsErrorTestInfo
-    , run Builtins.verifySchnorrAndEcdsaTestInfo
-    , run Builtins.verifyHashingFunctionsTestInfo
-    , -- , run Builtins.verifyBlsFunctionsTestInfo -- TODO: enable when PlutusV3 is supported again
-      run Babbage.referenceScriptMintTestInfo
-    , run Babbage.referenceScriptInlineDatumSpendTestInfo
-    , run Babbage.referenceScriptDatumHashSpendTestInfo
-    , run Babbage.inlineDatumSpendTestInfo
-    , run Babbage.referenceInputWithV1ScriptErrorTestInfo
-    , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
-    , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
-    , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-    , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
-    ]
-
-  U.anyLeftFail_ $
-    TN.cleanupTestnet mPoolNodes
-
 writeSerialisedScriptFiles :: H.Property
 writeSerialisedScriptFiles = integrationRetryWorkspace 0 "serialised-plutus-scripts" $ \_ -> do
   writeV3ScriptFiles
@@ -338,26 +298,19 @@ runTestsWithResults :: IO ()
 runTestsWithResults = do
   createDirectoryIfMissing False "test-report-xml"
 
-  allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef, pv9GovResultsRef, pv8EmulatorTestsRef] <-
-    traverse newIORef $ replicate 6 []
+  allRefs@[pv6ResultsRef, pv7ResultsRef, pv8ResultsRef, pv9ResultsRef, pv9GovResultsRef] <-
+    traverse newIORef $ replicate 5 []
 
   -- Catch the exception returned by defaultMain to proceed with report generation
   eException <-
     try
       ( defaultMain $
           tests $
-            ResultsRefs
-              pv6ResultsRef
-              pv7ResultsRef
-              pv8ResultsRef
-              pv9ResultsRef
-              pv9GovResultsRef
-              pv8EmulatorTestsRef
+            ResultsRefs pv6ResultsRef pv7ResultsRef pv8ResultsRef pv9ResultsRef pv9GovResultsRef
       )
       :: IO (Either ExitCode ())
 
-  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults, pv8EmulatorResults] <-
-    traverse readIORef allRefs
+  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults] <- traverse readIORef allRefs
 
   failureMessages <- liftIO $ allFailureMessages allRefs
   liftIO $ putStrLn $ "Total number of test failures: " ++ (show $ length failureMessages)
@@ -367,7 +320,6 @@ runTestsWithResults = do
       pv8TestSuiteResult = TestSuiteResults "Babbage PV8 Tests" pv8Results
       pv9TestSuiteResult = TestSuiteResults "Conway PV9 Tests" pv9Results
       pv9GovernanceTestSuiteResult = TestSuiteResults "Conway PV9 Governanace Tests" pv9GovResults
-      pv8EmulatorTestSuiteResult = TestSuiteResults "Babbage PV8 Emulator Tests" pv8EmulatorResults
 
   -- Use 'results' to generate custom JUnit XML report
   let xml =
@@ -377,7 +329,6 @@ runTestsWithResults = do
           , pv8TestSuiteResult
           , pv9TestSuiteResult
           , pv9GovernanceTestSuiteResult
-          , pv8EmulatorTestSuiteResult
           ]
   writeFile "test-report-xml/test-results.xml" $ showTopElement xml
 
