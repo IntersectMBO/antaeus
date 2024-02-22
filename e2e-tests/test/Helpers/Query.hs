@@ -96,9 +96,11 @@ findUTxOByAddress era localNodeConnectInfo address =
           C.QueryUTxO $
             C.QueryUTxOByAddress $
               Set.singleton (C.toAddressAny address)
-   in H.leftFailM . H.leftFailM . liftIO $
-        C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
-          C.QueryInEra query
+   in H.leftFailM
+        . H.leftFailM
+        . liftIO
+        $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+        $ C.QueryInEra query
 
 -- | Get [TxIn] and total lovelace value for an address.
 getAddressTxInsLovelaceValue
@@ -227,10 +229,12 @@ getProtocolParams
   -> m (C.LedgerProtocolParameters era)
 getProtocolParams era localNodeConnectInfo = do
   lpp <-
-    H.leftFailM . H.leftFailM . liftIO $
-      C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
-        C.QueryInEra $
-          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
+    H.leftFailM
+      . H.leftFailM
+      . liftIO
+      $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+      $ C.QueryInEra
+      $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
   return $ C.LedgerProtocolParameters lpp
 
 -- | Query current epoch
@@ -240,10 +244,12 @@ getCurrentEpoch
   -> C.LocalNodeConnectInfo
   -> m C.EpochNo
 getCurrentEpoch era localNodeConnectInfo =
-  H.leftFailM . H.leftFailM . liftIO $
-    C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
-      C.QueryInEra $
-        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
+  H.leftFailM
+    . H.leftFailM
+    . liftIO
+    $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+    $ C.QueryInEra
+    $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
 
 waitForNextEpoch
   :: (MonadIO m, MonadTest m)
@@ -252,7 +258,7 @@ waitForNextEpoch
   -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m C.EpochNo
-waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (120 :: Int) -- 120 second timeout
+waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (210 :: Int) -- 210 second timeout
   where
     go 0 = error $ "waitForNextEpoch timeout. \n-- Debug --\nTest function: " ++ debugStr
     go i = do
@@ -282,10 +288,12 @@ getConstitution
   -> C.LocalNodeConnectInfo
   -> m (Maybe (C.Constitution (C.ShelleyLedgerEra era)))
 getConstitution era localNodeConnectInfo =
-  H.leftFailM . H.leftFailM . liftIO $
-    C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
-      C.QueryInEra $
-        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
+  H.leftFailM
+    . H.leftFailM
+    . liftIO
+    $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+    $ C.QueryInEra
+    $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
 
 getConstitutionAnchor
   :: (MonadIO m, MonadTest m)
@@ -309,7 +317,9 @@ getConstitutionAnchorHash
   -> C.LocalNodeConnectInfo
   -> m (C.SafeHash (L.EraCrypto (C.ShelleyLedgerEra era)) C.AnchorData)
 getConstitutionAnchorHash era localNodeConnectInfo =
-  C.anchorDataHash . C.constitutionAnchor . fromJust
+  C.anchorDataHash
+    . C.constitutionAnchor
+    . fromJust
     <$> getConstitution era localNodeConnectInfo
 
 getConstitutionAnchorHashAsString
