@@ -12,7 +12,6 @@
 
 module PlutusScripts.Hashing.Common where
 
-import Cardano.Api (Hash)
 import Cardano.Api qualified as C
 import PlutusScripts.Helpers (
   bytesFromHex,
