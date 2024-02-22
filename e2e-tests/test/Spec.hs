@@ -163,8 +163,8 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
     , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
     , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-    , -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
-      run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+    -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
+    -- run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -202,8 +202,8 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
     , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
     , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-    , -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
-      run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+    -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
+    --  run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -233,13 +233,13 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     [ run $ Conway.registerStakePoolTestInfo stakePool
     , run $ Conway.registerStakingTestInfo staking
     , run $ Conway.registerDRepTestInfo keyDRep
-    , -- TODO: known failure due to cardano-api limitation not supporting DRep script witnesses
-      run $ Conway.registerDRepTestInfo scriptDRep
-    , run $ Conway.delegateToDRepTestInfo keyDRep staking
+    , -- known failure due to cardano-api limitation not supporting DRep script witnesses
+      -- run $ Conway.registerDRepTestInfo scriptDRep
+      run $ Conway.delegateToDRepTestInfo keyDRep staking
     , run $ Conway.delegateToDRepTestInfo scriptDRep staking
     , run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo committee
-    , -- TODO: add tests for voting as script DRep
+    , -- TODO: add tests for voting as script DRep once cardano-api supports DRep script witnesses
       run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep scriptDRep staking
     , run $ Conway.committeeProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.noConfidenceProposalAndVoteTestInfo keyDRep staking
@@ -248,9 +248,9 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.unregisterDRepTestInfo keyDRep
-    , -- TODO: known failure due to cardano-api limitation not supporting DRep script witnesses
-      run $ Conway.unregisterDRepTestInfo scriptDRep
-    , run $ Conway.unregisterStakingTestInfo staking
+    , -- known failure due to cardano-api limitation not supporting DRep script witnesses
+      -- run $ Conway.unregisterDRepTestInfo scriptDRep
+      run $ Conway.unregisterStakingTestInfo staking
     , run $ Conway.retireStakePoolTestInfo stakePool
     -- TODO: test vote rejection with script evaluation failure
     ]

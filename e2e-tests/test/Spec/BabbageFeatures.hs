@@ -23,7 +23,7 @@ import Hedgehog qualified as H
 import Hedgehog.Internal.Property (MonadTest)
 import Helpers.Common (makeAddress, toShelleyBasedEra)
 import Helpers.Query qualified as Q
-import Helpers.Test (assert, failure)
+import Helpers.Test (assert)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
@@ -744,16 +744,11 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo =
     , test = submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
     }
 submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
-  :: (MonadTest m) -- (MonadIO m, MonadTest m)
+  :: (MonadIO m, MonadTest m)
   => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest _ _ =
-  failure
-    "Known failure due to consensus bug https://github.com/IntersectMBO/ouroboros-consensus/issues/947"
-
--- TODO: reanble when consensus bug is fixed
-_submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
+submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
   networkOptions
   TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
     era <- TN.eraFromOptionsM networkOptions

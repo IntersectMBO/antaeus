@@ -1257,9 +1257,7 @@ unregisterDRepTest
   -> TestParams era
   -> m (Maybe String)
 unregisterDRepTest dRep@KeyDRep{} = unregisterDRep dRep
-unregisterDRepTest _dRep@ScriptDRep{} =
-  -- unregisterDRep dRep -- TODO: add DRep script witness (once cardano-api supports it)
-  \_ _ -> failure "known failure due to cardano-api limitation not supporting DRep script witnesses"
+unregisterDRepTest dRep@ScriptDRep{} = unregisterDRep dRep
 unregisterDRep
   dRep
   networkOptions
