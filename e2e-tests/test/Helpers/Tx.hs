@@ -11,7 +11,6 @@ import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Ledger.Conway.Governance qualified as Conway
-import Cardano.Ledger.Core qualified as L
 import Cardano.Ledger.Era qualified as C
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor ((<&>))
@@ -237,7 +236,7 @@ txCertificates era certs stakeCreds =
     (error $ notSupportedError era)
     (\e -> C.TxCertificates e certs)
     era
-    (C.BuildTxWith $ Map.fromList (stakeCreds `zip` repeat (C.KeyWitness C.KeyWitnessForStakeAddr)))
+    (C.BuildTxWith $ Map.fromList $ stakeCreds `zip` repeat (C.KeyWitness C.KeyWitnessForStakeAddr))
 
 -- Takens the action ID and a map of voters and their votes, builds multiple VotingProcedures
 -- and combines them into a single VotingProcedures
@@ -248,7 +247,7 @@ buildTxVotingProcedures
   -> Word32
   -> [ ( L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
        , C.Vote
-       , (Maybe (C.ScriptWitness C.WitCtxStake era))
+       , Maybe (C.ScriptWitness C.WitCtxStake era)
        )
      ]
   -> C.TxVotingProcedures C.BuildTx era
@@ -258,11 +257,11 @@ buildTxVotingProcedures sbe ceo txId txIx votesWithSWitness = C.shelleyBasedEraC
         votesWithSWitness
           <&> ( \(voter, vote, mSWit) -> do
                   let votingProcedure = C.createVotingProcedure ceo vote Nothing -- Nothing for anchor
-                  (voter, (C.unVotingProcedure votingProcedure), mSWit)
+                  (voter, C.unVotingProcedure votingProcedure, mSWit)
               )
       cardanoVotingProceduresWithSWitness =
         ledgerVotingProceduresWithVoterAndSWitness
-          <&> (\(v, lvp, msw) -> ((C.singletonVotingProcedures ceo v gAID lvp), msw))
+          <&> (\(v, lvp, msw) -> (C.singletonVotingProcedures ceo v gAID lvp, msw))
       cardanoVotingProceduresWithOutSWitness =
         cardanoVotingProceduresWithSWitness <&> (\(cvp, _msw) -> cvp)
       voterAndSWitnessMap = Map.unions $ votesWithSWitness <&> (\(voter, _, msw) -> voterSWitnessSingleton voter msw)

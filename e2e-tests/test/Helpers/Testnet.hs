@@ -122,9 +122,11 @@ shortEpochConwayTestnetOptions =
   defConwayTestnetOptions
     { testnetCardanoOptions =
         (testnetCardanoOptions defConwayTestnetOptions)
-          { -- CTN.cardanoActiveSlotsCoeff = 0.5 -- adjusted from default due to short epoch length
-            CTN.cardanoEpochLength = 100 -- 10 second epoch for testing outcome of governance actions
+          { CTN.cardanoActiveSlotsCoeff = 0.1 -- adjusted from default due to short epoch length
+          -- 100 second epoch for testing outcome of governance actions (shorter is unstable)
+          , CTN.cardanoEpochLength = 1_000
           , CTN.cardanoSlotLength = 0.1
+          , CTN.cardanoSecurityParam = 10 -- adjusted from default due to short epoch length
           }
     }
 

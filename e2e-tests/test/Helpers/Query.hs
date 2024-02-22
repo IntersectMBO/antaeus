@@ -15,7 +15,6 @@ import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Ledger.Conway.Governance qualified as C
 import Cardano.Ledger.SafeHash qualified as C
-import Cardano.Ledger.SafeHash qualified as L
 import Control.Concurrent (threadDelay)
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -253,7 +252,7 @@ waitForNextEpoch
   -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m C.EpochNo
-waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (90 :: Int) -- 90 second timeout
+waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (120 :: Int) -- 120 second timeout
   where
     go 0 = error $ "waitForNextEpoch timeout. \n-- Debug --\nTest function: " ++ debugStr
     go i = do

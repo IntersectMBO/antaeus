@@ -17,8 +17,8 @@ import PlutusCore.Version (plcVersion100)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusScripts.Hashing.Common (
   hashingAssetName,
-  hashingParamsV1AndV2,
-  mkHashingPolicy,
+  hashingParamsV1V2,
+  mkHashingPolicyV1V2,
  )
 import PlutusScripts.Helpers (
   mintScriptWitness,
@@ -47,8 +47,8 @@ import PlutusTx qualified
 checkHashingPolicy :: SerialisedScript
 checkHashingPolicy =
   serialiseCompiledCode $
-    $$(PlutusTx.compile [||mkHashingPolicy||])
-      `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion100 hashingParamsV1AndV2)
+    $$(PlutusTx.compile [||mkHashingPolicyV1V2||])
+      `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion100 hashingParamsV1V2)
 
 checkHashingPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
 checkHashingPolicyScriptV1 = C.PlutusScriptSerialised checkHashingPolicy

@@ -531,6 +531,7 @@ constitutionProposalAndVoteTest
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
           (sPStakeKeyHash stakeDelegationPool)
+          -- fst SNothing is prev GovActId, snd SNothing is constitution script (snd got removed)
           (C.ProposeNewConstitution C.SNothing anchor)
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -556,7 +557,7 @@ constitutionProposalAndVoteTest
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
     result1TxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress1"
     H.annotate $ show result1TxOut
 
     -- vote on the constituion
@@ -593,7 +594,7 @@ constitutionProposalAndVoteTest
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress2"
     H.annotate $ show result2TxOut
 
     -- wait for next epoch before asserting for new constitution
@@ -1074,7 +1075,7 @@ hardForkProposalAndVoteTest
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
-      nextPv = mkProtocolVersionOrErr (pvNat + 1, 2)
+      nextPv = mkProtocolVersionOrErr (pvNat, 1)
       proposal =
         C.createProposalProcedure
           sbe

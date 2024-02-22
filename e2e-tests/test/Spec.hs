@@ -233,8 +233,9 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     [ run $ Conway.registerStakePoolTestInfo stakePool
     , run $ Conway.registerStakingTestInfo staking
     , run $ Conway.registerDRepTestInfo keyDRep
-    , run $ Conway.registerDRepTestInfo scriptDRep
-    , run $ Conway.delegateToDRepTestInfo keyDRep staking
+    , -- TODO: reenable when cardano-api supports DRep script witnesses
+      -- , run $ Conway.registerDRepTestInfo scriptDRep
+      run $ Conway.delegateToDRepTestInfo keyDRep staking
     , run $ Conway.delegateToDRepTestInfo scriptDRep staking
     , run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo committee
@@ -247,7 +248,7 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.unregisterDRepTestInfo keyDRep
-    , -- TODO: use script witness once ledger supports it to enable test
+    , -- TODO: reenable when cardano-api supports DRep script witnesses
       -- , run $ Conway.unregisterDRepTestInfo scriptDRep
       run $ Conway.unregisterStakingTestInfo staking
     , run $ Conway.retireStakePoolTestInfo stakePool
