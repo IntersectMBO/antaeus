@@ -88,8 +88,8 @@ alwaysNoConfidenceDRep
   -> m (C.DRep (C.EraCrypto (C.ShelleyLedgerEra era)))
 alwaysNoConfidenceDRep ceo = pure $ C.conwayEraOnwardsConstraints ceo C.DRepAlwaysNoConfidence
 
-castDRep :: C.SigningKey C.DRepKey -> C.ShelleyWitnessSigningKey
-castDRep (C.DRepSigningKey sk) = C.WitnessPaymentKey $ C.PaymentSigningKey sk
+castDRep :: C.SigningKey C.DRepKey -> C.SigningKey C.PaymentKey
+castDRep (C.DRepSigningKey sk) = C.PaymentSigningKey sk
 
 voteDelegateCert
   :: C.ConwayEraOnwards era

@@ -39,7 +39,7 @@ buildAndSubmit
   -> C.TxIn
   -> C.TxInsCollateral era
   -> C.Address C.ShelleyAddr
-  -> C.ShelleyWitnessSigningKey
+  -> C.SigningKey C.PaymentKey
   -> C.AssetId
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
   -> m (C.Value, C.TxIn)
@@ -79,7 +79,7 @@ verifyBlsFunctionsTest
   -> m (Maybe String)
 verifyBlsFunctionsTest networkOptions TestParams{..} = do
   era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let numberOfBlsScripts = 9
       sbe = toShelleyBasedEra era
 

@@ -13,8 +13,7 @@
 module Spec.Builtins.SECP256k1 where
 
 import Cardano.Api qualified as C
-import Control.Concurrent (threadDelay)
-import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
 import Hedgehog (MonadTest)
 import Hedgehog.Internal.Property (annotate)
@@ -46,12 +45,12 @@ verifySchnorrAndEcdsaTest
 verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   pv <- TN.pvFromOptions networkOptions
-  (w1SKey, w1Address) <- TN.w1 networkOptions tempAbsPath networkId
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
   -- build a transaction
+
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-  liftIO $ threadDelay 1000
 
   let (tokenValues, mintWitnesses, plutusVersion) = case era of
         C.AlonzoEra ->
@@ -99,7 +98,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
           txBodyContent
           w1Address
           Nothing
-          [w1SKey]
+          [C.WitnessPaymentKey w1SKey]
       annotate $ show eitherTx
       let expErrorSchnorr =
             "Builtin function VerifySchnorrSecp256k1Signature is not available in language "

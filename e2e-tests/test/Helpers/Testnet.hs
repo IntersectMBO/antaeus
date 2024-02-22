@@ -13,12 +13,9 @@ module Helpers.Testnet where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Cardano.Node.Emulator.Generators qualified as E
-import Cardano.Node.Socket.Emulator qualified as E
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Default (def)
-import Data.Maybe (fromJust, listToMaybe)
+import Data.Maybe (fromJust)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
@@ -45,21 +42,12 @@ import Cardano.Api.Ledger (
   StandardCrypto,
   Voter (StakePoolVoter),
  )
-import Cardano.BM.Trace qualified as BM
-import Cardano.Node.Emulator.Internal.Node qualified as E
-import Cardano.Node.Socket.Emulator.Types qualified as E
 import Cardano.Testnet (Conf (tempAbsPath))
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
-import Data.Ratio (numerator, (%))
-import Data.Time qualified as Time
-import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
 import Helpers.Error (TimedOut (ProcessExitTimedOut))
 import Helpers.Query qualified as Q
-import Helpers.Utils qualified as U
-import PlutusLedgerApi.V1.Time qualified as P
-import PlutusLedgerApi.V1.Time qualified as PTime
 import Prettyprinter (Doc)
 import System.Process (cleanupProcess)
 import System.Process.Internals (
@@ -80,11 +68,6 @@ data TestEnvironmentOptions era
       , localNodeProtocolVersion :: Int
       , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
       , localNodeTestnetMagic :: Int
-      }
-  | EmulatorOptions
-      { emulatorEra :: C.CardanoEra era
-      , emulatorProtocolVersion :: Int
-      , emulatorSlotLength :: Integer
       }
   deriving (Show)
 
@@ -149,14 +132,6 @@ localNodeOptionsPreview =
     , localNodeTestnetMagic = 2
     }
 
-emulatorOptions :: TestEnvironmentOptions C.BabbageEra
-emulatorOptions =
-  EmulatorOptions
-    { emulatorEra = C.BabbageEra
-    , emulatorProtocolVersion = 8
-    , emulatorSlotLength = 100
-    }
-
 testnetOptionsAlonzo6 :: TestEnvironmentOptions C.AlonzoEra
 testnetOptionsAlonzo6 = defAlonzoTestnetOptions
 
@@ -176,7 +151,6 @@ eraFromOptions :: TestEnvironmentOptions era -> C.CardanoEra era
 eraFromOptions options = case options of
   TestnetOptions era _ _ -> era
   LocalNodeOptions era _ _ _ -> era
-  EmulatorOptions era _ _ -> era
 
 eraFromOptionsM :: (MonadTest m) => TestEnvironmentOptions era -> m (C.CardanoEra era)
 eraFromOptionsM = return . eraFromOptions
@@ -184,7 +158,6 @@ eraFromOptionsM = return . eraFromOptions
 pvFromOptions :: (MonadTest m) => TestEnvironmentOptions era -> m Int
 pvFromOptions (TestnetOptions _ pv _) = pure pv
 pvFromOptions (LocalNodeOptions _ pv _ _) = pure pv
-pvFromOptions (EmulatorOptions _ pv _) = pure pv
 
 -- | Get path to where cardano-testnet files are
 getProjectBase :: (MonadIO m, MonadTest m) => m String
@@ -201,7 +174,6 @@ startTestnet
       , Maybe [CTN.PoolNode]
       )
 startTestnet LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
-startTestnet EmulatorOptions{} _ = error "EmulatorOptions not supported"
 startTestnet TestnetOptions{..} tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
@@ -260,7 +232,6 @@ connectToLocalNode
       , Maybe [CTN.PoolNode]
       )
 connectToLocalNode TestnetOptions{} _ = error "TestnetOptions not supported"
-connectToLocalNode EmulatorOptions{} _ = error "EmulatorOptions not supported"
 connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
   HE.createDirectoryIfMissing (tempAbsPath </> "utxo-keys")
   HE.createDirectoryIfMissing (tempAbsPath </> "sockets")
@@ -283,70 +254,6 @@ connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
           , C.localNodeSocketPath = socketPathAbs
           }
   pparams <- Q.getProtocolParams localNodeEra localNodeConnectInfo
-  pure (localNodeConnectInfo, pparams, networkId, Nothing)
-
--- | uses cardano-node-emulator `startTestnet` with default settings
-startEmulatorDefault
-  :: TestEnvironmentOptions era
-  -> FilePath
-  -> H.Integration
-      ( C.LocalNodeConnectInfo
-      , C.LedgerProtocolParameters era
-      , C.NetworkId
-      , Maybe [CTN.PoolNode]
-      )
-startEmulatorDefault TestnetOptions{} _ = error "TestnetOptions not supported"
-startEmulatorDefault LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
-startEmulatorDefault EmulatorOptions{..} tempAbsPath = do
-  let socketPathAbs = tempAbsPath </> "node-server.sock"
-      networkId = C.Testnet $ C.NetworkMagic 1097911063
-      localNodeConnectInfo =
-        C.LocalNodeConnectInfo
-          { C.localConsensusModeParams = C.CardanoModeParams (C.EpochSlots 21600)
-          , C.localNodeNetworkId = networkId
-          , C.localNodeSocketPath = C.File socketPathAbs
-          }
-  liftIO $ E.startTestnet socketPathAbs emulatorSlotLength networkId
-  pparams <- Q.getProtocolParams emulatorEra localNodeConnectInfo
-  pure (localNodeConnectInfo, pparams, networkId, Nothing)
-
--- | uses a custom config for cardano-node-emulator to ensure start at slot 1 with no debug trace
-startEmulator
-  :: TestEnvironmentOptions era
-  -> FilePath
-  -> H.Integration
-      ( C.LocalNodeConnectInfo
-      , C.LedgerProtocolParameters era
-      , C.NetworkId
-      , Maybe [CTN.PoolNode]
-      )
-startEmulator TestnetOptions{} _ = error "TestnetOptions not supported"
-startEmulator LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
-startEmulator EmulatorOptions{..} tempAbsPath = do
-  -- not precisely the same time as 'preTestNetTime' in Spec.hs
-  timeNow <-
-    P.fromMilliSeconds . P.DiffMilliSeconds . U.posixToMilliseconds <$> liftIO Time.getPOSIXTime
-  let
-    socketPathAbs = tempAbsPath </> "node-server.sock"
-    networkId = C.Testnet $ C.NetworkMagic 1097911063
-    config =
-      def
-        { E.nscSlotConfig =
-            def
-              { E.scSlotLength = emulatorSlotLength
-              , E.scSlotZeroTime = timeNow
-              }
-        , E.nscSocketPath = socketPathAbs
-        , E.nscNetworkId = networkId
-        }
-    localNodeConnectInfo =
-      C.LocalNodeConnectInfo
-        { C.localConsensusModeParams = C.CardanoModeParams (C.EpochSlots 21600)
-        , C.localNodeNetworkId = networkId
-        , C.localNodeSocketPath = C.File socketPathAbs
-        }
-  liftIO $ E.main BM.nullTracer config -- use E.prettyTrace for debug and BM.nullTracer for none
-  pparams <- Q.getProtocolParams emulatorEra localNodeConnectInfo
   pure (localNodeConnectInfo, pparams, networkId, Nothing)
 
 {- | Start testnet with cardano-testnet or use local node that's already
@@ -373,9 +280,6 @@ setupTestEnvironment testnetOptions@TestnetOptions{..} tempAbsPath = do
 setupTestEnvironment localNodeOptions@LocalNodeOptions{} tempAbsPath = do
   liftIO $ putStrLn "\nConnecting to local node..."
   connectToLocalNode localNodeOptions tempAbsPath
-setupTestEnvironment emulatorOptions@EmulatorOptions{} tempAbsPath = do
-  liftIO $ putStrLn "\nStarting cardano node emulator..."
-  startEmulator emulatorOptions tempAbsPath
 
 -- | Network ID of the testnet
 getNetworkId :: CTN.TestnetRuntime -> C.NetworkId
@@ -389,46 +293,15 @@ getPoolSocketPathAbs tempAbsPath tn = do
   H.annotate fp
   return $ C.File fp
 
--- | Take the first ShelleyAddr frin @Cardano.Node.Emulator.Generators `knownAddresses`
-knownShelleyAddress :: Maybe (C.Address C.ShelleyAddr)
-knownShelleyAddress = listToMaybe E.knownAddresses >>= getShelleyAddr
-  where
-    getShelleyAddr :: C.AddressInEra C.BabbageEra -> Maybe (C.Address C.ShelleyAddr)
-    getShelleyAddr (C.AddressInEra (C.ShelleyAddressInEra C.ShelleyBasedEraBabbage) addr) = Just addr
-    getShelleyAddr _ = Nothing
-
--- | Take the first WitnessPaymentExtendedKey from Cardano.Node.Emulator.Generators `knownXPrvs`
-knownWitnessSigningKey :: Maybe C.ShelleyWitnessSigningKey
-knownWitnessSigningKey = C.WitnessPaymentExtendedKey . C.PaymentExtendedSigningKey <$> listToMaybe E.knownXPrvs
-
 {- | Signing key and address for wallet 1
   Handles two key types: GenesisUTxOKey and PaymentKey
 -}
 w1All
   :: (MonadIO m, MonadTest m)
-  => TestEnvironmentOptions era
-  -> FilePath
+  => FilePath
   -> C.NetworkId
-  -> m
-      ( C.ShelleyWitnessSigningKey
-      , C.VerificationKey C.PaymentKey
-      , C.Hash C.PaymentKey
-      , C.Address C.ShelleyAddr
-      )
--- cardano-node-emulator does not use envelope files to store keys
-w1All EmulatorOptions{} _ _ = do
-  let sKey = case knownWitnessSigningKey of
-        Nothing -> error "Nothing: No known witness signing key"
-        Just key -> key
-      vKey = case sKey of
-        C.WitnessPaymentKey pk -> C.getVerificationKey pk
-        C.WitnessPaymentExtendedKey pek -> C.castVerificationKey $ C.getVerificationKey pek
-        _ -> error "Witness signing key is not of type (SigningKey PaymentKey)"
-      vKeyHash = C.verificationKeyHash vKey
-      address = fromJust knownShelleyAddress
-  return (sKey, vKey, vKeyHash, address)
--- cardano-testnet and local node uses envelope files to store keys
-w1All _ tempAbsPath networkId = do
+  -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
+w1All tempAbsPath networkId = do
   let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
       w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.skey"
   -- GenesisUTxOKey comes from cardano-testnet
@@ -443,24 +316,23 @@ w1All _ tempAbsPath networkId = do
     maybeReadAs (C.AsSigningKey C.AsPaymentKey) w1SKeyFile
 
   let
-    vKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
-    vKeyHash :: C.Hash C.PaymentKey = C.verificationKeyHash vKey
+    vKey :: C.VerificationKey C.PaymentKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
     sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
-    address = makeAddress (Left vKeyHash) networkId
+    address = makeAddress (Left vKey) networkId
 
-  return (C.WitnessPaymentKey sKey, vKey, vKeyHash, address)
+  return (sKey, vKey, address)
 
 w1
   :: (MonadIO m, MonadTest m)
-  => TestEnvironmentOptions era
-  -> FilePath
+  => -- => Either (LocalNodeOptions era) (TestnetOptions era)
+  FilePath
   -> C.NetworkId
-  -> m (C.ShelleyWitnessSigningKey, C.Address C.ShelleyAddr)
-w1 testEnvOptions tempAbsPath networkId =
-  (\(sKey, _, _, address) -> (sKey, address)) <$> w1All testEnvOptions tempAbsPath networkId
+  -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
+w1 tempAbsPath networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
 
 data TestnetStakePool = TestnetStakePool
   { stakePoolSKey :: C.SigningKey C.StakePoolKey
+  , stakePoolVKey :: C.VerificationKey C.StakePoolKey
   , stakePoolVKeyHash :: C.Hash C.StakePoolKey
   , stakePoolKeyHash :: C.Hash C.StakeKey
   , stakePoolVrfHash :: C.Hash C.VrfKey
@@ -498,6 +370,7 @@ pool1All tempAbsPath = do
   return $
     TestnetStakePool
       pool1SKey
+      pool1VKey
       pool1VKeyHash
       pool1StakeKeyHash
       pool1VrfKeyHash

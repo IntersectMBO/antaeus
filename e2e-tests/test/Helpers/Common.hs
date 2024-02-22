@@ -49,24 +49,24 @@ withIsShelleyBasedEra era r =
     _ -> error "Must use Alonzo, Babbage or Conway era"
 
 makeAddress
-  :: Either (C.Hash C.PaymentKey) C.ScriptHash
+  :: Either (C.VerificationKey C.PaymentKey) C.ScriptHash
   -> C.NetworkId
   -> C.Address C.ShelleyAddr
 makeAddress ePkSh = makeAddressWithStake ePkSh Nothing
 
 -- | Make a payment or script address
 makeAddressWithStake
-  :: Either (C.Hash C.PaymentKey) C.ScriptHash
-  -> Maybe (C.Hash C.StakeKey)
+  :: Either (C.VerificationKey C.PaymentKey) C.ScriptHash
+  -> Maybe (C.VerificationKey C.StakeKey)
   -> C.NetworkId
   -> C.Address C.ShelleyAddr
-makeAddressWithStake (Left paymentKeyHash) mStakeVKeyHash nId =
+makeAddressWithStake (Left paymentKey) mStakeVKey nId =
   C.makeShelleyAddress
     nId
-    (C.PaymentCredentialByKey paymentKeyHash)
-    ( case mStakeVKeyHash of
+    (C.PaymentCredentialByKey $ C.verificationKeyHash paymentKey)
+    ( case mStakeVKey of
         Nothing -> C.NoStakeAddress
-        Just stakeVKeyHash -> C.StakeAddressByValue $ C.StakeCredentialByKey stakeVKeyHash
+        Just stakeVKey -> C.StakeAddressByValue $ C.StakeCredentialByKey $ C.verificationKeyHash stakeVKey
     )
-makeAddressWithStake (Right scriptHash) _mStakeVKeyHash nId =
+makeAddressWithStake (Right scriptHash) _mStakeVKey nId =
   C.makeShelleyAddress nId (C.PaymentCredentialByScript scriptHash) C.NoStakeAddress
