@@ -41,7 +41,7 @@ import Helpers.Staking (
   Staking (Staking, stakeCred, stakeDelegationPool, stakeRegCert, stakeSKey, stakeUnregCert),
   stakeDelegCert,
  )
-import Helpers.Test (assert, success)
+import Helpers.Test (assert, failure, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
@@ -283,7 +283,9 @@ registerDRepTest
   -> TestParams era
   -> m (Maybe String)
 registerDRepTest KeyDRep{kDRepSKey = sKey, kDRepRegCert = cert} = registerDRep (Just sKey) cert
-registerDRepTest ScriptDRep{sDRepRegCert = cert} = registerDRep Nothing cert
+registerDRepTest ScriptDRep{sDRepRegCert = _cert} =
+  -- registerDRep Nothing cert -- TODO: add DRep script witness (once cardano-api supports it)
+  \_ _ -> failure "known failure due to cardano-api limitation not supporting DRep script witnesses"
 registerDRep
   :: (MonadTest m, MonadIO m)
   => Maybe (C.SigningKey C.DRepKey)
@@ -1255,7 +1257,9 @@ unregisterDRepTest
   -> TestParams era
   -> m (Maybe String)
 unregisterDRepTest dRep@KeyDRep{} = unregisterDRep dRep
-unregisterDRepTest dRep@ScriptDRep{} = unregisterDRep dRep
+unregisterDRepTest _dRep@ScriptDRep{} =
+  -- unregisterDRep dRep -- TODO: add DRep script witness (once cardano-api supports it)
+  \_ _ -> failure "known failure due to cardano-api limitation not supporting DRep script witnesses"
 unregisterDRep
   dRep
   networkOptions

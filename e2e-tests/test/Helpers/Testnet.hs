@@ -83,6 +83,8 @@ defAlonzoTestnetOptions =
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
+          , CTN.cardanoActiveSlotsCoeff = 0.1
+          , CTN.cardanoSecurityParam = 100
           , CTN.cardanoProtocolVersion = 6
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
@@ -97,6 +99,8 @@ defBabbageTestnetOptions protocolVersion =
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
+          , CTN.cardanoActiveSlotsCoeff = 0.1
+          , CTN.cardanoSecurityParam = 100
           , CTN.cardanoProtocolVersion = protocolVersion
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
@@ -111,6 +115,8 @@ defConwayTestnetOptions =
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
+          , CTN.cardanoActiveSlotsCoeff = 0.1
+          , CTN.cardanoSecurityParam = 100
           , CTN.cardanoProtocolVersion = 9
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
