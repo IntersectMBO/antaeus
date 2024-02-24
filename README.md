@@ -40,7 +40,7 @@ Antaeus has a growing suite of tests covering:
 - Spending locked funds using reference scripts, reference inputs, and providing datum as witness in the transaction body.
 - Minting tokens using reference scripts and providing script witness in the transaction body.
 - Examining fields in Plutus V1, V2 and V3 `TxInfo`.
-- Governance functionality
+- Governance functionality.
 
 ---
 
