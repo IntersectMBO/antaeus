@@ -63,7 +63,7 @@ tests :: ResultsRefs -> TestTree
 tests ResultsRefs{..} =
   testGroup
     "Plutus E2E Tests"
-    [ -- Alonzo PV6 environment has "Chain not extended" error on start.
+    [ -- Alonzo PV6 environment has "Chain not extended" error on start
       -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
       testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
