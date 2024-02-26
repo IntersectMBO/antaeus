@@ -91,7 +91,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
 
   -- TODO: use V3 scripts here and check for V3 TxInfo fields
   let tokenValues = C.valueFromList [(PS.checkV2TxInfoAssetIdV2, 1), (PS_1_0.alwaysSucceedAssetIdV2, 2)]
-      executionUnits1 = C.ExecutionUnits{C.executionSteps = 1_000_000_100, C.executionMemory = 10_000_000}
+      executionUnits1 = C.ExecutionUnits{C.executionSteps = 1_000_000_000, C.executionMemory = 10_000_000}
       executionUnits2 = C.ExecutionUnits{C.executionSteps = 1_000_000_000, C.executionMemory = 4_000_000}
       collateral = Tx.txInsCollateral era [txIn]
       totalLovelace = C.txOutValueToLovelace txInValue
