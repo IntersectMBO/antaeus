@@ -66,4 +66,4 @@ verifySigG1Script dst BlsParams{..} _sc = do
 
   BI.bls12_381_finalVerify
     (BI.bls12_381_millerLoop pkDeser hashedMsg)
-    (BI.bls12_381_millerLoop P.bls12_381_G1_generator sigDeser)
+    (BI.bls12_381_millerLoop (P.bls12_381_G1_uncompress P.bls12_381_G1_compressed_generator) sigDeser)

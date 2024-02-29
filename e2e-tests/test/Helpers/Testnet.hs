@@ -45,9 +45,12 @@ import Cardano.Api.Ledger (
 import Cardano.Testnet (Conf (tempAbsPath))
 import Cardano.Testnet qualified as CTN
 import Control.Lens ((&), (.~))
+import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog qualified as H
+import Hedgehog.Extras.Test qualified as H
 import Helpers.Error (TimedOut (ProcessExitTimedOut))
 import Helpers.Query qualified as Q
+import Helpers.Utils qualified as U
 import Prettyprinter (Doc)
 import System.Process (cleanupProcess)
 import System.Process.Internals (
@@ -55,6 +58,7 @@ import System.Process.Internals (
   ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle),
   withProcessHandle,
  )
+import Testnet.Defaults qualified as CTN
 import Testnet.Runtime qualified as CTN
 
 data TestEnvironmentOptions era
@@ -79,6 +83,8 @@ defAlonzoTestnetOptions =
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
+          , CTN.cardanoActiveSlotsCoeff = 0.1
+          , CTN.cardanoSecurityParam = 100
           , CTN.cardanoProtocolVersion = 6
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
@@ -93,6 +99,8 @@ defBabbageTestnetOptions protocolVersion =
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
+          , CTN.cardanoActiveSlotsCoeff = 0.1
+          , CTN.cardanoSecurityParam = 100
           , CTN.cardanoProtocolVersion = protocolVersion
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
@@ -107,6 +115,8 @@ defConwayTestnetOptions =
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
+          , CTN.cardanoActiveSlotsCoeff = 0.1
+          , CTN.cardanoSecurityParam = 100
           , CTN.cardanoProtocolVersion = 9
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
@@ -118,8 +128,11 @@ shortEpochConwayTestnetOptions =
   defConwayTestnetOptions
     { testnetCardanoOptions =
         (testnetCardanoOptions defConwayTestnetOptions)
-          { CTN.cardanoActiveSlotsCoeff = 0.5 -- adjusted from default due to short epoch length
-          , CTN.cardanoEpochLength = 200 -- 20 second epoch for testing outcome of governance actions
+          { CTN.cardanoActiveSlotsCoeff = 0.1 -- adjusted from default due to short epoch length
+          -- 200 second epoch for testing outcome of governance actions (shorter is unstable)
+          , CTN.cardanoEpochLength = 2_000
+          , CTN.cardanoSlotLength = 0.1
+          , CTN.cardanoSecurityParam = 20 -- adjusted from default due to short epoch length
           }
     }
 
@@ -178,7 +191,11 @@ startTestnet TestnetOptions{..} tempAbsBasePath = do
   conf :: CTN.Conf <-
     HE.noteShowM $
       CTN.mkConf tempAbsBasePath
-  tn <- CTN.cardanoTestnet testnetCardanoOptions conf
+  currentTime <- liftIO Time.getCurrentTime
+  let sg = CTN.defaultShelleyGenesis currentTime testnetCardanoOptions
+      ag = U.unsafeFromRight CTN.defaultAlonzoGenesis
+      cg = CTN.defaultConwayGenesis
+  tn <- CTN.cardanoTestnet testnetCardanoOptions conf currentTime sg ag cg
   -- needed to avoid duplication of directory in filepath
   let tmpAbsBasePath' = CTN.makeTmpBaseAbsPath $ CTN.tempAbsPath conf
 
@@ -302,8 +319,8 @@ w1All
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
 w1All tempAbsPath networkId = do
-  let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.vkey"
-      w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1.skey"
+  let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1/utxo.vkey"
+      w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1/utxo.skey"
   -- GenesisUTxOKey comes from cardano-testnet
   mGenesisVKey :: Maybe (C.VerificationKey C.GenesisUTxOKey) <-
     maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) w1VKeyFile
@@ -389,5 +406,8 @@ pool1Voter
   -> FilePath
   -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
 pool1Voter ceo tempAbsPath =
-  return . StakePoolVoter . C.conwayEraOnwardsConstraints ceo . stakePoolPoolKeyHash
+  return
+    . StakePoolVoter
+    . C.conwayEraOnwardsConstraints ceo
+    . stakePoolPoolKeyHash
     =<< pool1All tempAbsPath

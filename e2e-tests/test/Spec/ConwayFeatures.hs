@@ -13,7 +13,6 @@ import Cardano.Api.Ledger qualified as C
 import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Crypto.Hash qualified as Crypto
-import Cardano.Ledger.BaseTypes qualified as L
 import Cardano.Ledger.Conway.PParams qualified as L
 import Cardano.Ledger.Core qualified as L
 import Control.Concurrent (threadDelay)
@@ -23,8 +22,9 @@ import Data.ByteString qualified as BS
 import Data.Function ((&))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
-import Data.Maybe.Strict qualified as StrictMaybe
 import Data.Ratio ((%))
+import Data.Text qualified as Text
+import Data.Time.Clock qualified as Time
 import Data.Time.Clock.POSIX qualified as Time
 import GHC.Num (Natural)
 import Hedgehog qualified as H
@@ -41,7 +41,7 @@ import Helpers.Staking (
   Staking (Staking, stakeCred, stakeDelegationPool, stakeRegCert, stakeSKey, stakeUnregCert),
   stakeDelegCert,
  )
-import Helpers.Test (assert, success)
+import Helpers.Test (assert, failure, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
@@ -107,11 +107,15 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
         P.fromMilliSeconds $
           P.DiffMilliSeconds $
             U.posixToMilliseconds $
-              fromJust mTime -- before slot 1
+              Time.utcTimeToPOSIXSeconds $
+                Time.addUTCTime (-1) $
+                  fromJust mTime -- subtract 1 second from the lower bound to guarentee before testnet start time
+                  -- before slot 1
       upperBound =
         P.fromMilliSeconds $
           P.DiffMilliSeconds $
-            U.posixToMilliseconds startTime + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
+            U.posixToMilliseconds startTime
+              + 600_000 -- ~10mins after slot 1 (to account for testnet init time)
       timeRange = P.interval lowerBound upperBound :: P.POSIXTimeRange
 
       expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
@@ -278,37 +282,51 @@ registerDRepTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRepTest KeyDRep{kDRepRegCert = c} = registerDRep c
-registerDRepTest ScriptDRep{sDRepRegCert = c} = registerDRep c
+registerDRepTest KeyDRep{kDRepSKey = sKey, kDRepRegCert = cert} = registerDRep (Just sKey) cert
+registerDRepTest ScriptDRep{sDRepRegCert = _cert} =
+  -- registerDRep Nothing cert -- TODO: add DRep script witness (once cardano-api supports it)
+  \_ _ -> failure "known failure due to cardano-api limitation not supporting DRep script witnesses"
 registerDRep
   :: (MonadTest m, MonadIO m)
-  => C.Certificate era
+  => Maybe (C.SigningKey C.DRepKey)
+  -> C.Certificate era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRep dRepRegCert networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-  let sbe = toShelleyBasedEra era
+registerDRep
+  mkDrepSkey
+  dRepRegCert
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
-  dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-  let
-    regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-    -- TODO: add DRep script witness (once ledger supports it)
-    regDRepTxBodyContent =
-      (Tx.emptyTxBodyContent sbe pparams)
-        { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
-        , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
-        , C.txOuts = [regDRepTxOut]
-        }
-  -- TODO: add DRep key witness (if KeyDRep)
-  signedRegDRepTx <- Tx.buildTx era localNodeConnectInfo regDRepTxBodyContent w1Address w1SKey
-  Tx.submitTx sbe localNodeConnectInfo signedRegDRepTx
-  let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
-  regDRepResultTxOut <-
-    Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
-  H.annotate $ show regDRepResultTxOut
-  success
+    dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      -- TODO: add DRep script witness (once ledger supports it)
+      regDRepTxBodyContent =
+        (Tx.emptyTxBodyContent sbe pparams)
+          { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
+          , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
+          , C.txOuts = [regDRepTxOut]
+          }
+    signedRegDRepTx <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        regDRepTxBodyContent
+        w1Address
+        (maybe (Just 1) (\_ -> Just 2) mkDrepSkey) -- witness count
+        -- witness signing keys
+        (C.WitnessPaymentKey w1SKey : maybe [] (\dRepSKey -> [C.WitnessDRepKey dRepSKey]) mkDrepSkey)
+    Tx.submitTx sbe localNodeConnectInfo signedRegDRepTx
+    let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
+    regDRepResultTxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
+    H.annotate $ show regDRepResultTxOut
+    success
 
 registerCommitteeTestInfo committee =
   TestInfo
@@ -499,7 +517,7 @@ constitutionProposalAndVoteTest
     -- TODO: add constitution script (proposal policy) once implemented in cardano-api
     let
       constituionHash = show (Crypto.hashWith id constituionBS :: Crypto.Hash Crypto.Blake2b_256 BS.ByteString)
-      constitutionUrl = U.unsafeFromMaybe $ C.textToUrl "https://example.com/constituion.txt"
+      constitutionUrl = fromJust $ (\t -> C.textToUrl (Text.length t) t) "https://example.com/constituion.txt"
       anchor = C.createAnchor constitutionUrl constituionBS
     H.annotate constituionHash
 
@@ -515,8 +533,10 @@ constitutionProposalAndVoteTest
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
           (sPStakeKeyHash stakeDelegationPool)
+          -- fst SNothing is prev GovActId, snd SNothing is constitution script (snd got removed)
           (C.ProposeNewConstitution C.SNothing anchor)
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       {-- TODO: check proposal onchain with minting policy (once ledger supports it)
         plutusProposalProcedure = fromCardanoProposal sbe proposal
@@ -529,7 +549,7 @@ constitutionProposalAndVoteTest
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -539,7 +559,7 @@ constitutionProposalAndVoteTest
         _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
         tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
     result1TxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress1"
     H.annotate $ show result1TxOut
 
     -- vote on the constituion
@@ -550,15 +570,15 @@ constitutionProposalAndVoteTest
         -- mintWitness = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
         -- collateral = Tx.txInsCollateral era [tx2In3]
         -- SPO not allowed to vote on constitution
-        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes)] -- , (sDRepVoter, C.Yes)]
+        votes = [(committeeVoter, C.Yes, Nothing), (kDRepVoter, C.Yes, Nothing)] -- , (sDRepVoter, C.Yes)]
         -- TODO: build votes in plutus format as redeemer
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
             , -- , C.txInsCollateral = collateral
               -- , C.txMintValue = Tx.txMintValue era tokenValues mintWitness
-              C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+              C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -576,7 +596,7 @@ constitutionProposalAndVoteTest
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress2"
     H.annotate $ show result2TxOut
 
     -- wait for next epoch before asserting for new constitution
@@ -636,8 +656,8 @@ committeeProposalAndVoteTest
 
     -- build a transaction to propose the new committee
 
-    let anchorUrl = C.textToUrl "https://example.com/committee.txt"
-        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "new committee"
+    let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/committee.txt"
+        anchor = C.createAnchor (fromJust anchorUrl) "new committee"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
@@ -653,11 +673,12 @@ committeeProposalAndVoteTest
           (sPStakeKeyHash stakeDelegationPool)
           (C.ProposeNewCommittee C.SNothing prevConstitutionalCommittee newConstitutionalCommittee quorum)
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -674,12 +695,12 @@ committeeProposalAndVoteTest
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
         -- committee member not allowed to vote on committee update
-        votes = [(kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        votes = [(kDRepVoter, C.Yes, Nothing), (sPVoter stakeDelegationPool, C.Yes, Nothing)]
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -736,8 +757,8 @@ noConfidenceProposalAndVoteTest
 
     -- build a transaction to propose the motion of no-confidence
 
-    let anchorUrl = C.textToUrl "https://example.com/no_confidence.txt"
-        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "motion of no confidence"
+    let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/no_confidence.txt"
+        anchor = C.createAnchor (fromJust anchorUrl) "motion of no confidence"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
@@ -750,11 +771,12 @@ noConfidenceProposalAndVoteTest
           (sPStakeKeyHash stakeDelegationPool)
           (C.MotionOfNoConfidence C.SNothing)
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -771,12 +793,12 @@ noConfidenceProposalAndVoteTest
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
         -- committee not allowed to vote on motion of no-confidence
-        votes = [(kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        votes = [(kDRepVoter, C.Yes, Nothing), (sPVoter stakeDelegationPool, C.Yes, Nothing)]
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -836,27 +858,28 @@ parameterChangeProposalAndVoteTest
 
     -- build a transaction to propose a change to the protocol parameters
 
-    let anchorUrl = C.textToUrl "https://example.com/pparameters.txt"
-        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "protocol parameters"
+    let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/pparameters.txt"
+        anchor = C.createAnchor (fromJust anchorUrl) "protocol parameters"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
       -- protocol parameter update to change the committee minimum size to 1
-      pparamsUpdate = L.emptyPParamsUpdate & L.ppuCommitteeMinSizeL .~ StrictMaybe.SJust (1 :: Natural)
+      pparamsUpdate = L.emptyPParamsUpdate & L.ppuCommitteeMinSizeL .~ C.SJust (1 :: Natural)
       proposal =
         C.createProposalProcedure
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
           (sPStakeKeyHash stakeDelegationPool)
-          (C.UpdatePParams C.SNothing pparamsUpdate)
+          (C.UpdatePParams C.SNothing pparamsUpdate C.SNothing) -- last SNothing is governance policy
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -872,12 +895,13 @@ parameterChangeProposalAndVoteTest
     -- vote on the updated protocol parameters
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes)] -- SPO not allowed to vote on protocol parameters update
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        -- SPO not allowed to vote on protocol parameters update
+        votes = [(committeeVoter, C.Yes, Nothing), (kDRepVoter, C.Yes, Nothing)]
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -937,8 +961,8 @@ treasuryWithdrawalProposalAndVoteTest
 
     -- build a transaction to propose a treasury withdrawal
 
-    let anchorUrl = C.textToUrl "https://example.com/treasury_withdrawal.txt"
-        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "treasury withdrawal"
+    let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/treasury_withdrawal.txt"
+        anchor = C.createAnchor (fromJust anchorUrl) "treasury withdrawal"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
@@ -950,13 +974,14 @@ treasuryWithdrawalProposalAndVoteTest
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
           (sPStakeKeyHash stakeDelegationPool)
-          (C.TreasuryWithdrawal tWithdrawal)
+          (C.TreasuryWithdrawal tWithdrawal C.SNothing) -- SNothing is Governance policy
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -972,12 +997,13 @@ treasuryWithdrawalProposalAndVoteTest
     -- vote on the treasury withdrawal
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes)] -- SPO not allowed to vote on treasury withdrawal
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        -- SPO not allowed to vote on treasury withdrawal
+        votes = [(committeeVoter, C.Yes, Nothing), (kDRepVoter, C.Yes, Nothing)]
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -1044,14 +1070,14 @@ hardForkProposalAndVoteTest
 
     -- build a transaction to propose a treasury withdrawal
 
-    let anchorUrl = C.textToUrl "https://example.com/hard_fork.txt"
-        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "hard fork"
+    let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/hard_fork.txt"
+        anchor = C.createAnchor (fromJust anchorUrl) "hard fork"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     pvNat :: Natural <- toEnum <$> TN.pvFromOptions networkOptions
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
-      nextPv = mkProtocolVersionOrErr (pvNat + 1, 2)
+      nextPv = mkProtocolVersionOrErr (pvNat, 1)
       proposal =
         C.createProposalProcedure
           sbe
@@ -1060,11 +1086,12 @@ hardForkProposalAndVoteTest
           (sPStakeKeyHash stakeDelegationPool)
           (C.InitiateHardfork C.SNothing nextPv)
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -1080,12 +1107,16 @@ hardForkProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        votes =
+          [ (committeeVoter, C.Yes, Nothing)
+          , (kDRepVoter, C.Yes, Nothing)
+          , (sPVoter stakeDelegationPool, C.Yes, Nothing)
+          ]
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 
@@ -1145,8 +1176,8 @@ infoProposalAndVoteTest
 
     -- build a transaction to propose an Info action
 
-    let anchorUrl = C.textToUrl "https://example.com/info.txt"
-        anchor = C.createAnchor (U.unsafeFromMaybe anchorUrl) "Info"
+    let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/info.txt"
+        anchor = C.createAnchor (fromJust anchorUrl) "Info"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
@@ -1159,11 +1190,12 @@ infoProposalAndVoteTest
           (sPStakeKeyHash stakeDelegationPool)
           C.InfoAct
           anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
       tx1BodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [tx1In]
-          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` [proposal])
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
           , C.txOuts = [tx1Out1, tx1Out2]
           }
 
@@ -1179,12 +1211,16 @@ infoProposalAndVoteTest
     -- vote on the hard fork
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
-        votes = [(committeeVoter, C.Yes), (kDRepVoter, C.Yes), (sPVoter stakeDelegationPool, C.Yes)]
-        votingProcedures = Tx.buildVotingProcedures sbe ceo tx2InId1 0 votes
+        votes =
+          [ (committeeVoter, C.Yes, Nothing)
+          , (kDRepVoter, C.Yes, Nothing)
+          , (sPVoter stakeDelegationPool, C.Yes, Nothing)
+          ]
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
     let tx2BodyContent =
           (Tx.emptyTxBodyContent sbe pparams)
             { C.txIns = Tx.pubkeyTxIns [tx2In3]
-            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` votingProcedures)
+            , C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
             , C.txOuts = [tx2Out1]
             }
 

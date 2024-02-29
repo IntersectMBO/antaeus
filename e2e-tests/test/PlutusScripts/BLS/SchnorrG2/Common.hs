@@ -66,6 +66,7 @@ verifySchnorrG2Script
   -> Bool
 verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
   let
+    uncompressedG2 = P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator
     a = P.fst signature
     r = P.snd signature
     c =
@@ -79,10 +80,10 @@ verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
     pkDeser = P.bls12_381_G2_uncompress pubKey
     aDeser = P.bls12_381_G2_uncompress a
     rDeser = byteStringToInteger r
-  (rDeser `P.bls12_381_G2_scalarMul` P.bls12_381_G2_generator)
+  (rDeser `P.bls12_381_G2_scalarMul` uncompressedG2)
     P.== (aDeser `P.bls12_381_G2_add` (c `P.bls12_381_G2_scalarMul` pkDeser))
     -- additional check using negation is for testing the function
     -- it can be removed to improve performance
-    && (rDeser `P.bls12_381_G2_scalarMul` P.bls12_381_G2_generator)
+    && (rDeser `P.bls12_381_G2_scalarMul` uncompressedG2)
       `P.bls12_381_G2_add` (P.bls12_381_G2_neg aDeser)
       `P.bls12_381_G2_equals` (c `P.bls12_381_G2_scalarMul` pkDeser)

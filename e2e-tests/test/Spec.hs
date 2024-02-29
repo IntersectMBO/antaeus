@@ -41,12 +41,14 @@ import Spec.ConwayFeatures qualified as Conway
 import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
+import System.IO (hSetEncoding, stdout, utf8)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Text.XML.Light (showTopElement)
 
 main :: IO ()
 main = do
+  hSetEncoding stdout utf8
   runTestsWithResults
 
 data ResultsRefs = ResultsRefs
@@ -62,21 +64,20 @@ tests ResultsRefs{..} =
   testGroup
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has "Chain not extended" error on start
-      --  testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
+      -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
       testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
     , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
     , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
     , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
     -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
     --  testProperty "debug" (debugTests pv8ResultsRef)
-    --  testProperty
-    --    "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+    -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
 pv6Tests resultsRef = integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
   let options = TN.testnetOptionsAlonzo6
-  preTestnetTime <- liftIO Time.getPOSIXTime
+  preTestnetTime <- liftIO Time.getCurrentTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
@@ -102,7 +103,7 @@ pv6Tests resultsRef = integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
 pv7Tests :: IORef [TestResult] -> H.Property
 pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
   let options = TN.testnetOptionsBabbage7
-  preTestnetTime <- liftIO Time.getPOSIXTime
+  preTestnetTime <- liftIO Time.getCurrentTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
@@ -112,8 +113,8 @@ pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
   sequence_
     [ run Alonzo.checkTxInfoV1TestInfo
     , run Babbage.checkTxInfoV2TestInfo
-    , -- , run Alonzo.datumHashSpendTestInfo
-      run Alonzo.mintBurnTestInfo
+    , run Alonzo.datumHashSpendTestInfo
+    , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
@@ -136,7 +137,7 @@ pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
 pv8Tests :: IORef [TestResult] -> H.Property
 pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
   let options = TN.testnetOptionsBabbage8
-  preTestnetTime <- liftIO Time.getPOSIXTime
+  preTestnetTime <- liftIO Time.getCurrentTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
@@ -144,8 +145,8 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ -- run Alonzo.checkTxInfoV1TestInfo
-      run Babbage.checkTxInfoV2TestInfo
+    [ run Alonzo.checkTxInfoV1TestInfo
+    , run Babbage.checkTxInfoV2TestInfo
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -162,7 +163,8 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
     , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
     , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
     , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-    , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+    -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
+    -- run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -172,7 +174,7 @@ pv8Tests resultsRef = integrationRetryWorkspace 0 "pv8" $ \tempAbsPath -> do
 pv9Tests :: IORef [TestResult] -> H.Property
 pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
   let options = TN.testnetOptionsConway9
-  preTestnetTime <- liftIO Time.getPOSIXTime
+  preTestnetTime <- liftIO Time.getCurrentTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
@@ -180,10 +182,9 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ -- NO SUPPORT FOR PlutusScriptV1 in Conway https://github.com/input-output-hk/cardano-api/issues/74
-      -- run Alonzo.checkTxInfoV1TestInfo
-      run Babbage.checkTxInfoV2TestInfo
-    , run Conway.checkTxInfoV3TestInfo -- -- NOTE: Does not yet check V3 TxInfo fields
+    [ run Alonzo.checkTxInfoV1TestInfo
+    , run Babbage.checkTxInfoV2TestInfo
+    , run Conway.checkTxInfoV3TestInfo -- NOTE: Does not yet check V3 TxInfo fields
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -192,8 +193,8 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
     , run Builtins.verifySchnorrAndEcdsaTestInfo
     , run Builtins.verifyHashingFunctionsTestInfo
-    , -- , run Builtins.verifyBlsFunctionsTestInfo -- TODO: enable when PlutusV3 is supported again
-      run Babbage.referenceScriptMintTestInfo
+    , run Builtins.verifyBlsFunctionsTestInfo
+    , run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
     , run Babbage.inlineDatumSpendTestInfo
@@ -201,7 +202,8 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
     , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
     , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-    , run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+    -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
+    --  run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef
@@ -212,7 +214,7 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 pv9GovernanceTests :: IORef [TestResult] -> H.Property
 pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \tempAbsPath -> do
   let options = TN.testnetOptionsConway9Governance
-  preTestnetTime <- liftIO Time.getPOSIXTime
+  preTestnetTime <- liftIO Time.getCurrentTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
@@ -231,12 +233,13 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     [ run $ Conway.registerStakePoolTestInfo stakePool
     , run $ Conway.registerStakingTestInfo staking
     , run $ Conway.registerDRepTestInfo keyDRep
-    , run $ Conway.registerDRepTestInfo scriptDRep
-    , run $ Conway.delegateToDRepTestInfo keyDRep staking
+    , -- known failure due to cardano-api limitation not supporting DRep script witnesses
+      -- run $ Conway.registerDRepTestInfo scriptDRep
+      run $ Conway.delegateToDRepTestInfo keyDRep staking
     , run $ Conway.delegateToDRepTestInfo scriptDRep staking
     , run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo committee
-    , -- TODO: add tests for voting as script DRep
+    , -- TODO: add tests for voting as script DRep once cardano-api supports DRep script witnesses
       run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep scriptDRep staking
     , run $ Conway.committeeProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.noConfidenceProposalAndVoteTestInfo keyDRep staking
@@ -245,8 +248,8 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
     , run $ Conway.unregisterDRepTestInfo keyDRep
-    , -- TODO: use script witness once ledger supports it to enable test
-      -- , run $ Conway.unregisterDRepTestInfo scriptDRep
+    , -- known failure due to cardano-api limitation not supporting DRep script witnesses
+      -- run $ Conway.unregisterDRepTestInfo scriptDRep
       run $ Conway.unregisterStakingTestInfo staking
     , run $ Conway.retireStakePoolTestInfo stakePool
     -- TODO: test vote rejection with script evaluation failure
@@ -273,7 +276,7 @@ localNodeTests
   -> TN.TestEnvironmentOptions era
   -> H.Property
 localNodeTests resultsRef options = integrationRetryWorkspace 0 "local" $ \tempAbsPath -> do
-  -- preTestnetTime <- liftIO Time.getPOSIXTime
+  -- preTestnetTime <- liftIO Time.getCurrentTime
   (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
     TN.setupTestEnvironment options tempAbsPath
   let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath Nothing

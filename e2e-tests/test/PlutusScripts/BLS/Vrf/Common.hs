@@ -50,7 +50,8 @@ PlutusTx.unstableMakeIsData ''BlsParams
 redeemerParams :: BlsParams
 redeemerParams =
   BlsParams
-    { pubKey = P.bls12_381_G2_scalarMul vrfPrivKey P.bls12_381_G2_generator
+    { pubKey =
+        P.bls12_381_G2_scalarMul vrfPrivKey (P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator)
     , message = vrfMessage
     , proofWithOutput = generateVrfProofWithOutput vrfPrivKey vrfMessage
     }
@@ -68,6 +69,7 @@ verifyBlsVrfScript
   -> Bool
 verifyBlsVrfScript (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof gamma c s))) _sc = do
   let
+    uncompressedG2 = P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator
     -- cofactor of G2
     f :: Integer =
       305502333931268344200999753193121504214466019254188142667664032982267604182971884026507427359259977847832272839041692990889188039904403802465579155252111
@@ -82,7 +84,7 @@ verifyBlsVrfScript (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof 
     u =
       P.bls12_381_G2_add
         (P.bls12_381_G2_scalarMul (byteStringToInteger c) pubKey)
-        (P.bls12_381_G2_scalarMul s P.bls12_381_G2_generator)
+        (P.bls12_381_G2_scalarMul s uncompressedG2)
     h = P.bls12_381_G2_hashToGroup message P.emptyByteString
     v =
       P.bls12_381_G2_add
@@ -95,7 +97,7 @@ verifyBlsVrfScript (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof 
     P.== ( P.sha2_256
             P.. P.mconcat
             P.$ P.bls12_381_G2_compress
-            P.<$> [P.bls12_381_G2_generator, h, pubKey, gamma, u, v]
+            P.<$> [uncompressedG2, h, pubKey, gamma, u, v]
          )
     P.&& beta
     P.== (P.sha2_256 P.. P.bls12_381_G2_compress P.$ P.bls12_381_G2_scalarMul f gamma)
@@ -104,8 +106,9 @@ verifyBlsVrfScript (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof 
 generateVrfProofWithOutput :: Integer -> P.BuiltinByteString -> VrfProofWithOutput
 generateVrfProofWithOutput privKey message = do
   let
+    uncompressedG2 = P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator
     -- calculate public key
-    pub = P.bls12_381_G2_scalarMul privKey P.bls12_381_G2_generator
+    pub = P.bls12_381_G2_scalarMul privKey uncompressedG2
 
     -- hash this msg to G2
     h = P.bls12_381_G2_hashToGroup message P.emptyByteString
@@ -124,11 +127,11 @@ generateVrfProofWithOutput privKey message = do
     c =
       P.sha2_256 . mconcat $
         P.bls12_381_G2_compress
-          <$> [ P.bls12_381_G2_generator
+          <$> [ uncompressedG2
               , h
               , pub
               , gamma
-              , P.bls12_381_G2_scalarMul k P.bls12_381_G2_generator
+              , P.bls12_381_G2_scalarMul k uncompressedG2
               , P.bls12_381_G2_scalarMul k h
               ]
 

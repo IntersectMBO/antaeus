@@ -15,7 +15,7 @@ import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusScripts.Hashing.Common (hashingAssetName, hashingParamsV3, mkHashingPolicy)
+import PlutusScripts.Hashing.Common (hashingAssetName, hashingParamsV3, mkHashingPolicyV3)
 import PlutusScripts.Helpers (
   mintScriptWitness,
   plutusL3,
@@ -27,14 +27,14 @@ import PlutusTx qualified
 -- checkHashingPolicyV3 :: SerialisedScript
 -- checkHashingPolicyV3 =
 --   serialiseCompiledCode
---     $$(PlutusTx.compile [||wrap||])
+--     $$(PlutusTx.compile [||wrap||])mkHashingPolicy
 --   where
 --     wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkHashingPolicy
 
 checkHashingPolicy :: SerialisedScript
 checkHashingPolicy =
   serialiseCompiledCode $
-    $$(PlutusTx.compile [||mkHashingPolicy||])
+    $$(PlutusTx.compile [||mkHashingPolicyV3||])
       `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion110 hashingParamsV3)
 
 checkHashingPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3

@@ -15,18 +15,18 @@ import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Ledger.Conway.Governance qualified as C
 import Cardano.Ledger.SafeHash qualified as C
-import Cardano.Ledger.SafeHash qualified as L
 import Control.Concurrent (threadDelay)
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf, sortBy)
 import Data.Map qualified as Map
+import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (toShelleyBasedEra)
-import Helpers.Utils qualified as U
+import Ouroboros.Network.Protocol.LocalStateQuery.Type qualified as O
 
 -- | Find the first UTxO at address and return as TxIn. Used for txbody's txIns.
 firstTxIn
@@ -96,9 +96,11 @@ findUTxOByAddress era localNodeConnectInfo address =
           C.QueryUTxO $
             C.QueryUTxOByAddress $
               Set.singleton (C.toAddressAny address)
-   in H.leftFailM . H.leftFailM . liftIO $
-        C.queryNodeLocalState localNodeConnectInfo Nothing $
-          C.QueryInEra query
+   in H.leftFailM
+        . H.leftFailM
+        . liftIO
+        $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+        $ C.QueryInEra query
 
 -- | Get [TxIn] and total lovelace value for an address.
 getAddressTxInsLovelaceValue
@@ -227,10 +229,12 @@ getProtocolParams
   -> m (C.LedgerProtocolParameters era)
 getProtocolParams era localNodeConnectInfo = do
   lpp <-
-    H.leftFailM . H.leftFailM . liftIO $
-      C.queryNodeLocalState localNodeConnectInfo Nothing $
-        C.QueryInEra $
-          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
+    H.leftFailM
+      . H.leftFailM
+      . liftIO
+      $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+      $ C.QueryInEra
+      $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
   return $ C.LedgerProtocolParameters lpp
 
 -- | Query current epoch
@@ -240,10 +244,12 @@ getCurrentEpoch
   -> C.LocalNodeConnectInfo
   -> m C.EpochNo
 getCurrentEpoch era localNodeConnectInfo =
-  H.leftFailM . H.leftFailM . liftIO $
-    C.queryNodeLocalState localNodeConnectInfo Nothing $
-      C.QueryInEra $
-        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
+  H.leftFailM
+    . H.leftFailM
+    . liftIO
+    $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+    $ C.QueryInEra
+    $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
 
 waitForNextEpoch
   :: (MonadIO m, MonadTest m)
@@ -252,7 +258,7 @@ waitForNextEpoch
   -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m C.EpochNo
-waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (90 :: Int) -- 90 second timeout
+waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (210 :: Int) -- 210 second timeout
   where
     go 0 = error $ "waitForNextEpoch timeout. \n-- Debug --\nTest function: " ++ debugStr
     go i = do
@@ -282,10 +288,12 @@ getConstitution
   -> C.LocalNodeConnectInfo
   -> m (Maybe (C.Constitution (C.ShelleyLedgerEra era)))
 getConstitution era localNodeConnectInfo =
-  H.leftFailM . H.leftFailM . liftIO $
-    C.queryNodeLocalState localNodeConnectInfo Nothing $
-      C.QueryInEra $
-        C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
+  H.leftFailM
+    . H.leftFailM
+    . liftIO
+    $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
+    $ C.QueryInEra
+    $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
 
 getConstitutionAnchor
   :: (MonadIO m, MonadTest m)
@@ -293,7 +301,7 @@ getConstitutionAnchor
   -> C.LocalNodeConnectInfo
   -> m (C.Anchor (L.EraCrypto (C.ShelleyLedgerEra era)))
 getConstitutionAnchor era localNodeConnectInfo =
-  C.constitutionAnchor . U.unsafeFromMaybe <$> getConstitution era localNodeConnectInfo
+  C.constitutionAnchor . fromJust <$> getConstitution era localNodeConnectInfo
 
 getConstitutionAnchorUrl
   :: (MonadIO m, MonadTest m)
@@ -301,7 +309,7 @@ getConstitutionAnchorUrl
   -> C.LocalNodeConnectInfo
   -> m L.Url
 getConstitutionAnchorUrl era localNodeConnectInfo =
-  C.anchorUrl . C.constitutionAnchor . U.unsafeFromMaybe <$> getConstitution era localNodeConnectInfo
+  C.anchorUrl . C.constitutionAnchor . fromJust <$> getConstitution era localNodeConnectInfo
 
 getConstitutionAnchorHash
   :: (MonadIO m, MonadTest m)
@@ -309,7 +317,9 @@ getConstitutionAnchorHash
   -> C.LocalNodeConnectInfo
   -> m (C.SafeHash (L.EraCrypto (C.ShelleyLedgerEra era)) C.AnchorData)
 getConstitutionAnchorHash era localNodeConnectInfo =
-  C.anchorDataHash . C.constitutionAnchor . U.unsafeFromMaybe
+  C.anchorDataHash
+    . C.constitutionAnchor
+    . fromJust
     <$> getConstitution era localNodeConnectInfo
 
 getConstitutionAnchorHashAsString

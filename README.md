@@ -39,13 +39,15 @@ Antaeus has a growing suite of tests covering:
   - All builtin hashing functions (e.g. `sha2_256`)
 - Spending locked funds using reference scripts, reference inputs, and providing datum as witness in the transaction body.
 - Minting tokens using reference scripts and providing script witness in the transaction body.
-- Examining each field in Plutus V1 and V2 `TxInfo`.
+- Examining fields in Plutus V1, V2 and V3 `TxInfo`.
+- Governance functionality.
 
 ---
 
 ### Test Report
 
-After every test run a JUnit XML report is produced in e2e-tests/test-report-xml/test-results.xml. An existing report will be overwritten.
+After every test run a JUnit XML report is produced in `e2e-tests/test-report-xml/test-results.xml`. An existing report will be overwritten.
+Reports for each major cardano-node tag are stored. E.g `e2e-tests/test-report-xml_8-7-2`.
 Run `allure serve <test-report-xml>` to generate and host the Allure report.
 
 ### Planned Features

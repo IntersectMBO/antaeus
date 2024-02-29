@@ -1,7 +1,7 @@
 { repoRoot, inputs, pkgs, lib, system }:
 
 let
-  cardano-node-gitrev = "bc17a94280d73b605e6ffd6c7895996d93e7293a";
+  cardano-node-gitrev = "4bb2048db77d623ee6e3678618c2d8b6c4676333";
 
 
   cabalProject' = pkgs.haskell-nix.cabalProject' ({ config, pkgs, ... }:
@@ -9,18 +9,18 @@ let
       isCross = pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform;
     in
     {
-      compiler-nix-name = "ghc928";
+      compiler-nix-name = "ghc963";
 
       src = ../.;
 
       shell.withHoogle = false;
 
       sha256map = {
-        "https://github.com/james-iohk/cardano-node"."${cardano-node-gitrev}" = "sha256-kej3cZaQDFoo7EbCqowGTV/T7sn3tC+C9pL+sfY5d+8=";
+        "https://github.com/IntersectMBO/cardano-node"."${cardano-node-gitrev}" = "sha256-pWXI8dyqKQ3HncbBtd54wdHi3Pj7J5y+nybqpzMXOj4=";
       };
 
       inputMap = {
-        "https://input-output-hk.github.io/cardano-haskell-packages" = inputs.CHaP;
+        "https://chap.intersectmbo.org/" = inputs.CHaP;
       };
 
       modules = [{

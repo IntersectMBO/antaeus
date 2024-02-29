@@ -6,8 +6,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-{-# HLINT ignore "Use underscore" #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# HLINT ignore "Use underscore" #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 -- Not using all CardanoEra
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
@@ -67,4 +67,4 @@ verifySigG2Script dst BlsParams{..} _sc = do
 
   BI.bls12_381_finalVerify
     (BI.bls12_381_millerLoop hashedMsg pkDeser)
-    (BI.bls12_381_millerLoop sigDeser P.bls12_381_G2_generator)
+    (BI.bls12_381_millerLoop sigDeser (P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator))
