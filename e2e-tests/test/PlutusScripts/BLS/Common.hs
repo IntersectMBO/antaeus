@@ -31,7 +31,7 @@ byteString16Null = P.toBuiltin $ H.bytesFromHex "0000000000000000000000000000000
 -- Little-endian bytestring to integer conversion #-}
 {-# INLINEABLE byteStringToIntegerLE #-}
 byteStringToIntegerLE :: P.BuiltinByteString -> Integer
-byteStringToIntegerLE s = P.byteStringToInteger False s
+byteStringToIntegerLE = BI.byteStringToInteger False
 
 -- original PlutusTx implementation used before CIP-0087 support with https://github.com/IntersectMBO/plutus/pull/5654
 -- {-# INLINEABLE byteStringToInteger #-}

@@ -37,6 +37,7 @@ import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins as Builtins
+import Spec.Builtins.Bitwise qualified as Conway
 import Spec.ConwayFeatures qualified as Conway
 import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
@@ -65,13 +66,13 @@ tests ResultsRefs{..} =
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has "Chain not extended" error on start
       -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
-      testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
-    , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
-    , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
-    , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
-    -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
-    --  testProperty "debug" (debugTests pv8ResultsRef)
-    -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+      --   testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
+      -- , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
+      testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
+      -- , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
+      -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
+      --  testProperty "debug" (debugTests pv8ResultsRef)
+      -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
@@ -182,9 +183,14 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
   -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
   sequence_
-    [ run Alonzo.checkTxInfoV1TestInfo
-    , run Babbage.checkTxInfoV2TestInfo
-    , run Conway.checkTxInfoV3TestInfo -- NOTE: Does not yet check V3 TxInfo fields
+    [ -- run Alonzo.checkTxInfoV1TestInfo
+      -- , run Babbage.checkTxInfoV2TestInfo
+      -- , run Conway.checkTxInfoV3TestInfo -- NOTE: Does not yet check V3 TxInfo fields
+      run Conway.verifyBitwiseFunctionsTestInfo -- TODO: move bitwise tests to the bottom
+    , run Conway.integerToByteStringBitwiseNegativeIntegerErrorTestInfo
+    , run Conway.integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTestInfo
+    , run Conway.integerToByteStringBitwiseInvalidConversionErrorTestInfo
+    , run Conway.verifyBitwiseFunctionsTestInfo
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo

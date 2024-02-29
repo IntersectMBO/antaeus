@@ -16,12 +16,14 @@ import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
 import Hedgehog (MonadTest)
+import Hedgehog qualified as H
 import Helpers.Common (toShelleyBasedEra)
 import Helpers.Query qualified as Q
 import Helpers.Test (assert)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
+import PlutusScripts.Bitwise.Common qualified as PS
 import PlutusScripts.Bitwise.V_1_1 qualified as PS_1_1
 
 verifyBitwiseFunctionsTestInfo =
@@ -54,11 +56,11 @@ verifyBitwiseFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
           ( C.valueFromList
               [ (PS_1_1.byteStringToIntegerAssetIdV3, 1)
               , (PS_1_1.integerToByteStringAssetIdV3, 2)
-              , (PS_1_1.byteStringToIntegerAndBackAssetIdV3, 3)
+              , (PS_1_1.byteStringToIntegerRoundtripAssetIdV3, 3)
               ]
           , Map.fromList
-              [ PS_1_1.byteStringToIntegerMintWitnessV3 sbe -- TODO: insert params
-              , PS_1_1.integerToByteStringMintWitnessV3 sbe -- TODO: insert params
+              [ PS_1_1.byteStringToIntegerMintWitnessV3 sbe PS.bsToIParams
+              , PS_1_1.integerToByteStringMintWitnessV3 sbe PS.iToBsParams
               , PS_1_1.byteStringToIntegerAndBackMintWitnessV3 sbe "abcd" -- TOOD: also empty bs
               ]
           )
@@ -81,6 +83,7 @@ verifyBitwiseFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
   resultTxOut <-
     Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "TN.getTxOutAtAddress"
   txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
+  H.assert txOutHasTokenValue -- remove
   assert "txOut has tokens" txOutHasTokenValue
 
 integerToByteStringBitwiseNegativeIntegerErrorTestInfo =
@@ -89,7 +92,7 @@ integerToByteStringBitwiseNegativeIntegerErrorTestInfo =
     , testDescription =
         "Check scripts evaluation errors when using a negative Integer"
           ++ " with integerToByteString bitwise builtin"
-    , test = integerToByteStringBitwiseNegativeIntegerError
+    , test = integerToByteStringBitwiseNegativeIntegerErrorTest
     }
 integerToByteStringBitwiseNegativeIntegerErrorTest
   :: (MonadIO m, MonadTest m)
@@ -98,10 +101,10 @@ integerToByteStringBitwiseNegativeIntegerErrorTest
   -> m (Maybe String)
 integerToByteStringBitwiseNegativeIntegerErrorTest
   networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    let negIntegerParam = IntegerToByteStringParams False 0 (-1) ""
+  testParams = do
+    let params = PS.IntegerToByteStringParams False (-1) 0 ""
         expError = "some error"
-    checkIntegerToByteStringError networkOptions negIntegerParam expError
+    checkIntegerToByteStringError networkOptions testParams params expError
 
 integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTestInfo =
   TestInfo
@@ -118,10 +121,10 @@ integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTest
   -> m (Maybe String)
 integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTest
   networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    let negIntegerParam = IntegerToByteStringParams False 8193 1234 ""
+  testParams = do
+    let params = PS.IntegerToByteStringParams False 1234 8193 ""
         expError = "some error"
-    checkIntegerToByteStringError networkOptions negIntegerParam expError
+    checkIntegerToByteStringError networkOptions testParams params expError
 
 integerToByteStringBitwiseInvalidConversionErrorTestInfo =
   TestInfo
@@ -138,54 +141,58 @@ integerToByteStringBitwiseInvalidConversionErrorTest
   -> m (Maybe String)
 integerToByteStringBitwiseInvalidConversionErrorTest
   networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    let negIntegerParam = IntegerToByteStringParams False 0 123 ""
+  testParams = do
+    let params = PS.IntegerToByteStringParams False 123 0 ""
         expError = "some error"
-    checkIntegerToByteStringError networkOptions negIntegerParam expError
+    checkIntegerToByteStringError networkOptions testParams params expError
 
 checkIntegerToByteStringError
   :: (MonadIO m, MonadTest m)
   => TN.TestEnvironmentOptions era
-  -> IntegerToByteStringParams
+  -> TestParams era
+  -> PS.IntegerToByteStringParams
   -> String -- expected error
   -> m (Maybe String)
-checkIntegerToByteStringError networkOptions redeemer expError = do
-  era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-  let sbe = toShelleyBasedEra era
+checkIntegerToByteStringError
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath}
+  params
+  expError = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
-  -- build a transaction
+    -- build a transaction
 
-  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
-  let negIntegerParam = IntegerToByteStringParams False - 1 ""
-      (tokenValues, mintWitnesses) = case era of
-        C.AlonzoEra ->
-          error "Alonzo era not supported"
-        C.BabbageEra ->
-          error "Babbage era not supported"
-        C.ConwayEra ->
-          ( C.valueFromList [(PS_1_1.integerToByteStringAssetIdV3, 1)]
-          , Map.fromList [PS_1_1.integerToByteStringMintWitnessV3 sbe emptyIntegerParam]
-          )
-      txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
-      collateral = Tx.txInsCollateral era [txIn]
-      txBodyContent =
-        (Tx.emptyTxBodyContent sbe pparams)
-          { C.txIns = Tx.pubkeyTxIns [txIn]
-          , C.txInsCollateral = collateral
-          , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
-          , C.txOuts = [txOut]
-          }
+    let (tokenValues, mintWitnesses) = case era of
+          C.AlonzoEra ->
+            error "Alonzo era not supported"
+          C.BabbageEra ->
+            error "Babbage era not supported"
+          C.ConwayEra ->
+            ( C.valueFromList [(PS_1_1.integerToByteStringAssetIdV3, 1)]
+            , Map.fromList [PS_1_1.integerToByteStringMintWitnessV3 sbe params]
+            )
+        txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
+        collateral = Tx.txInsCollateral era [txIn]
+        txBodyContent =
+          (Tx.emptyTxBodyContent sbe pparams)
+            { C.txIns = Tx.pubkeyTxIns [txIn]
+            , C.txInsCollateral = collateral
+            , C.txMintValue = Tx.txMintValue era tokenValues mintWitnesses
+            , C.txOuts = [txOut]
+            }
 
-  -- Build and submit transaction
-  eitherTx <-
-    Tx.buildTxWithError
-      era
-      localNodeConnectInfo
-      txBodyContent
-      w1Address
-      Nothing
-      [C.WitnessPaymentKey w1SKey]
-  annotate $ show eitherTx
-  assert expError $ Tx.isTxBodyScriptExecutionError expError eitherTx
+    -- Build and submit transaction
+    eitherTx <-
+      Tx.buildTxWithError
+        era
+        localNodeConnectInfo
+        txBodyContent
+        w1Address
+        Nothing
+        [C.WitnessPaymentKey w1SKey]
+    H.annotate $ show eitherTx
+    assert expError $ Tx.isTxBodyScriptExecutionError expError eitherTx

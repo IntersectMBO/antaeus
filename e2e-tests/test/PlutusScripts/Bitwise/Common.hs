@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 -- Not using all CardanoEra
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
@@ -12,13 +13,7 @@
 module PlutusScripts.Bitwise.Common where
 
 import Cardano.Api qualified as C
-import Data.Aeson.Decoding.ByteString (bsToTokens)
-import Data.Aeson.Encoding qualified as P
-import PlutusScripts.BLS.Common qualified as P
-import PlutusScripts.Helpers (
-  bytesFromHex,
-  toScriptData,
- )
+import PlutusScripts.Helpers (bytesFromHex)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
@@ -33,34 +28,51 @@ PlutusTx.unstableMakeIsData ''ByteStringToIntegerParams
 data IntegerToByteStringParams = IntegerToByteStringParams
   { intByteOrder :: Bool
   , integer :: Integer
-  , outputSize :: Integer
+  , outputMinSize :: Integer
   , expByteString :: P.BuiltinByteString
   }
 PlutusTx.unstableMakeIsData ''IntegerToByteStringParams
 
 {-# INLINEABLE mkByteStringToIntegerPolicy #-}
-mkByteStringToIntegerPolicy :: ByteStringToIntegerParams -> P.BuiltinData -> Bool
+mkByteStringToIntegerPolicy :: ByteStringToIntegerParams -> sc -> Bool
 mkByteStringToIntegerPolicy ByteStringToIntegerParams{..} _sc = do
-  let int = P.byteStringToInteger bsByteOrder byteString
+  let int = BI.byteStringToInteger bsByteOrder byteString
   int P.== expInteger
 
 {-# INLINEABLE mkIntegerToByteStringPolicy #-}
-mkIntegerToByteStringPolicy :: ByteStringToIntegerParams -> P.BuiltinData -> Bool
-mkIntegerToByteStringPolicy ByteStringToIntegerParams{..} _sc = do
-  let int = P.integerToByteString bsByteOrder outputSize byteString
-  int P.== expInteger
+mkIntegerToByteStringPolicy :: IntegerToByteStringParams -> sc -> Bool
+mkIntegerToByteStringPolicy IntegerToByteStringParams{..} _sc = do
+  let bs = BI.integerToByteString intByteOrder outputMinSize integer
+  bs P.== expByteString
 
-{-# INLINEABLE mkByteStringToIntegerAndBackPolicy #-}
-mkByteStringToIntegerAndBackPolicy :: P.BuiltinByteString -> P.BuiltinData -> Bool
-mkByteStringToIntegerAndBackPolicy bs _sc = do
-  let intBE = P.byteStringToInteger True bs
-      bsBE = P.integerToByteString True 0 int
-      intLE = P.byteStringToInteger False bs
-      bsLE = P.integerToByteString False 0 int
+{-# INLINEABLE mkByteStringToIntegerRoundtripPolicy #-}
+mkByteStringToIntegerRoundtripPolicy :: P.BuiltinByteString -> sc -> Bool
+mkByteStringToIntegerRoundtripPolicy bs _sc = do
+  let intBE = BI.byteStringToInteger True bs
+      bsBE = BI.integerToByteString True 0 intBE
+      intLE = BI.byteStringToInteger False bs
+      bsLE = BI.integerToByteString False 0 intLE
   bs P.== bsBE P.&& bs P.== bsLE
 
 bitwiseAssetName :: C.AssetName
 bitwiseAssetName = C.AssetName "bitwise"
+
+bsToIParams :: ByteStringToIntegerParams
+bsToIParams =
+  ByteStringToIntegerParams
+    { bsByteOrder = True
+    , byteString = P.toBuiltin $ bytesFromHex "deadbeef"
+    , expInteger = 5700548879 -- tbc
+    }
+
+iToBsParams :: IntegerToByteStringParams
+iToBsParams =
+  IntegerToByteStringParams
+    { intByteOrder = True
+    , integer = 5700548879 -- tbc
+    , outputMinSize = 0
+    , expByteString = P.toBuiltin $ bytesFromHex "deadbeef"
+    }
 
 -- byteStringToIntegerRedeemer :: P.BuiltinByteString
 -- byteStringToIntegerRedeemer = toScriptData "deadbeef"
