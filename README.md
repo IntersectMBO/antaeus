@@ -27,6 +27,11 @@ Check these preconditions before following the private testnet steps above.
 4. Edit [Testnet.hs](e2e-tests/test/Helpers/Testnet.hs) so that `LocalNodeOption`'s `localEnvDir` points to the directory containing your keys ("utxo-keys") and node socket ("ipc").
 5. Edit [Spec.hs](e2e-tests/test/Spec.hs) to include `localNodeTests` in the `TestTree`. You can configure to run with or without the existing private testnet tests (e.g. `pv8Tests`).
 
+#### How to run on cardano-node-emulator
+
+Currently, the emulator is not implemented inline with the latest ledger. As a result, it is integrated and configured to run as part of the test suite on branch [emulator](https://github.com/input-output-hk/antaeus/tree/emulator).
+No additional configuration is required.
+
 ---
 
 ### Status
@@ -50,11 +55,13 @@ After every test run a JUnit XML report is produced in `e2e-tests/test-report-xm
 Reports for each major cardano-node tag are stored. E.g `e2e-tests/test-report-xml_8-7-2`.
 Run `allure serve <test-report-xml>` to generate and host the Allure report.
 
+Reports for each cardano-node tag are hosted alongside other end-to-end tests, for example here: https://tests.cardano.intersectmbo.org/test_results/node/tag_8_8_0.html
+
 ### Planned Features
 
 We're working on adding the following features to Antaeus:
 
-- Voltaire governance actions (coming in Conway era using PlutusV3 language version).
+- More Voltaire governance actions (coming in Conway era using PlutusV3 language version).
 - CI execution with private testnet on commit (nix configuration coming soon).
 - Nightly CI test execution would be useful in public environments.
 
