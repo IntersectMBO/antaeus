@@ -25,6 +25,8 @@ import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import PlutusScripts.Bitwise.Common qualified as PS
 import PlutusScripts.Bitwise.V_1_1 qualified as PS_1_1
+import PlutusScripts.Helpers (bytesFromHex)
+import PlutusTx.Prelude qualified as P
 
 verifyBitwiseFunctionsTestInfo =
   TestInfo
@@ -61,7 +63,7 @@ verifyBitwiseFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
           , Map.fromList
               [ PS_1_1.byteStringToIntegerMintWitnessV3 sbe PS.bsToIParams
               , PS_1_1.integerToByteStringMintWitnessV3 sbe PS.iToBsParams
-              , PS_1_1.byteStringToIntegerAndBackMintWitnessV3 sbe "abcd" -- TOOD: also empty bs
+              , PS_1_1.byteStringToIntegerAndBackMintWitnessV3 sbe "abcd"
               ]
           )
       txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
@@ -102,8 +104,28 @@ integerToByteStringBitwiseNegativeIntegerErrorTest
 integerToByteStringBitwiseNegativeIntegerErrorTest
   networkOptions
   testParams = do
-    let params = PS.IntegerToByteStringParams False (-1) 0 ""
-        expError = "some error"
+    let params = PS.IntegerToByteStringParams False 1 (-1) ""
+        expError = "integerToByteString: cannot convert negative Integer"
+    checkIntegerToByteStringError networkOptions testParams params expError
+
+integerToByteStringBitwiseNegativeOutputWidthErrorTestInfo =
+  TestInfo
+    { testName = "integerToByteStringBitwiseNegativeOutputWidthErrorTest"
+    , testDescription =
+        "Check scripts evaluation errors when using a negative Integer"
+          ++ " with integerToByteString bitwise builtin"
+    , test = integerToByteStringBitwiseNegativeOutputWidthErrorTest
+    }
+integerToByteStringBitwiseNegativeOutputWidthErrorTest
+  :: (MonadIO m, MonadTest m)
+  => TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+integerToByteStringBitwiseNegativeOutputWidthErrorTest
+  networkOptions
+  testParams = do
+    let params = PS.IntegerToByteStringParams False (-1) 1 ""
+        expError = "integerToByteString: inappropriate length argument"
     checkIntegerToByteStringError networkOptions testParams params expError
 
 integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTestInfo =
@@ -122,28 +144,9 @@ integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTest
 integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTest
   networkOptions
   testParams = do
-    let params = PS.IntegerToByteStringParams False 1234 8193 ""
-        expError = "some error"
-    checkIntegerToByteStringError networkOptions testParams params expError
-
-integerToByteStringBitwiseInvalidConversionErrorTestInfo =
-  TestInfo
-    { testName = "integerToByteStringBitwiseInvalidConversionErrorTest"
-    , testDescription =
-        "Check scripts evaluation errors when using an Integer that cannot be converted to ByteString"
-          ++ " with integerToByteString bitwise builtin"
-    , test = integerToByteStringBitwiseInvalidConversionErrorTest
-    }
-integerToByteStringBitwiseInvalidConversionErrorTest
-  :: (MonadIO m, MonadTest m)
-  => TN.TestEnvironmentOptions era
-  -> TestParams era
-  -> m (Maybe String)
-integerToByteStringBitwiseInvalidConversionErrorTest
-  networkOptions
-  testParams = do
-    let params = PS.IntegerToByteStringParams False 123 0 ""
-        expError = "some error"
+    -- why does size of 10241 cause "it is a bug" error?
+    let params = PS.IntegerToByteStringParams True 8193 3735928559 (P.toBuiltin $ bytesFromHex "deadbeef")
+        expError = "integerToByteString: cannot represent Integer in given number of bytes"
     checkIntegerToByteStringError networkOptions testParams params expError
 
 checkIntegerToByteStringError
@@ -195,4 +198,7 @@ checkIntegerToByteStringError
         Nothing
         [C.WitnessPaymentKey w1SKey]
     H.annotate $ show eitherTx
+    -- let actual = Tx.txBodyScriptExecutionError eitherTx
+    -- H.annotate $ show actual
+    -- H.failure
     assert expError $ Tx.isTxBodyScriptExecutionError expError eitherTx

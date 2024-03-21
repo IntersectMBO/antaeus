@@ -27,8 +27,8 @@ PlutusTx.unstableMakeIsData ''ByteStringToIntegerParams
 
 data IntegerToByteStringParams = IntegerToByteStringParams
   { intByteOrder :: Bool
-  , integer :: Integer
   , outputMinSize :: Integer
+  , integer :: Integer
   , expByteString :: P.BuiltinByteString
   }
 PlutusTx.unstableMakeIsData ''IntegerToByteStringParams
@@ -62,23 +62,14 @@ bsToIParams =
   ByteStringToIntegerParams
     { bsByteOrder = True
     , byteString = P.toBuiltin $ bytesFromHex "deadbeef"
-    , expInteger = 5700548879 -- tbc
+    , expInteger = 3735928559
     }
 
 iToBsParams :: IntegerToByteStringParams
 iToBsParams =
   IntegerToByteStringParams
     { intByteOrder = True
-    , integer = 5700548879 -- tbc
+    , integer = 3735928559
     , outputMinSize = 0
     , expByteString = P.toBuiltin $ bytesFromHex "deadbeef"
     }
-
--- byteStringToIntegerRedeemer :: P.BuiltinByteString
--- byteStringToIntegerRedeemer = toScriptData "deadbeef"
-
--- invalidByteStringToIntegerRedeemer :: C.BuiltinByteString
--- invalidByteStringToIntegerRedeemer = toScriptData "abc"
-
--- integerToByteStringRedeemer :: Integer
--- integerToByteStringRedeemer = toScriptData 2147483648

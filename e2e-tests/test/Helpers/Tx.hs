@@ -32,6 +32,11 @@ newtype SubmitError = SubmitError C.TxValidationErrorInCardanoMode
 notSupportedError :: (Show e) => e -> String
 notSupportedError e = show e ++ " not supported"
 
+-- for debugging
+txBodyScriptExecutionError :: Either (C.TxBodyErrorAutoBalance era) r -> Maybe String
+txBodyScriptExecutionError (Left (C.TxBodyScriptExecutionError m)) = Just $ show m
+txBodyScriptExecutionError _ = Nothing
+
 -- | Check whether the auto-balancing txbody build (constructBalancedTx) resulted in an error
 isTxBodyScriptExecutionError
   , isTxBodyError

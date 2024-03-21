@@ -119,7 +119,7 @@ aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
     -- scalar calcuates to (142819114285630344964654001480828217341 :: Integer)
     dsScalar =
       BI.byteStringToInteger
-        True
+        False
         ( P.sliceByteString
             0
             16

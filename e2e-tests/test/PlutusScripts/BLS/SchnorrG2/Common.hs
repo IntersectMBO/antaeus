@@ -71,7 +71,7 @@ verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
     r = P.snd signature
     c =
       BI.byteStringToInteger
-        True
+        False
         ( P.sliceByteString
             0
             16
@@ -80,7 +80,7 @@ verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
         )
     pkDeser = P.bls12_381_G2_uncompress pubKey
     aDeser = P.bls12_381_G2_uncompress a
-    rDeser = BI.byteStringToInteger True r
+    rDeser = BI.byteStringToInteger False r
   (rDeser `P.bls12_381_G2_scalarMul` uncompressedG2)
     P.== (aDeser `P.bls12_381_G2_add` (c `P.bls12_381_G2_scalarMul` pkDeser))
     -- additional check using negation is for testing the function
