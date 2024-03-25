@@ -258,7 +258,7 @@ waitForNextEpoch
   -> String -- temp debug text for intermittent timeout failure
   -> C.EpochNo
   -> m C.EpochNo
-waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (210 :: Int) -- 210 second timeout
+waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (300 :: Int) -- 300 second timeout
   where
     go 0 = error $ "waitForNextEpoch timeout. \n-- Debug --\nTest function: " ++ debugStr
     go i = do

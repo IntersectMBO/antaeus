@@ -14,11 +14,11 @@
 
 module PlutusScripts.BLS.AggregateSigWithMultipleKeys.Common where
 
-import PlutusScripts.BLS.Common (byteStringToInteger)
 import PlutusScripts.Helpers (
   bytesFromHex,
  )
 import PlutusTx qualified
+import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
 
 data BlsParams = BlsParams
@@ -118,7 +118,8 @@ aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
     pksDeser = P.map P.bls12_381_G2_uncompress pubKeys
     -- scalar calcuates to (142819114285630344964654001480828217341 :: Integer)
     dsScalar =
-      byteStringToInteger
+      BI.byteStringToInteger
+        False
         ( P.sliceByteString
             0
             16

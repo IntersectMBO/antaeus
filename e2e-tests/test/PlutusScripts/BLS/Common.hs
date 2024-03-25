@@ -28,15 +28,19 @@ blsSigBls12381G2XmdSha256SswuRoNul = BI.toBuiltin $ C8.pack "BLS_SIG_BLS12381G2_
 byteString16Null :: P.BuiltinByteString
 byteString16Null = P.toBuiltin $ H.bytesFromHex "00000000000000000000000000000000"
 
--- workaround the lack of ByteString to Integer interpretation
--- replace with builtin when available, see https://github.com/input-output-hk/plutus/pull/4733
-{-# INLINEABLE byteStringToInteger #-}
-byteStringToInteger :: P.BuiltinByteString -> Integer
-byteStringToInteger b =
-  go 0
-  where
-    len = P.lengthOfByteString b
-    go i =
-      if i P.>= len
-        then 0
-        else (P.indexByteString b i) P.+ 256 P.* (go (i P.+ 1))
+-- Little-endian bytestring to integer conversion #-}
+{-# INLINEABLE byteStringToIntegerLE #-}
+byteStringToIntegerLE :: P.BuiltinByteString -> Integer
+byteStringToIntegerLE = BI.byteStringToInteger False
+
+-- original PlutusTx implementation used before CIP-0087 support with https://github.com/IntersectMBO/plutus/pull/5654
+-- {-# INLINEABLE byteStringToInteger #-}
+-- byteStringToInteger :: P.BuiltinByteString -> Integer
+-- byteStringToInteger b =
+--   go 0
+--   where
+--     len = P.lengthOfByteString b
+--     go i =
+--       if i P.>= len
+--         then 0
+--         else (P.indexByteString b i) P.+ 256 P.* (go (i P.+ 1))

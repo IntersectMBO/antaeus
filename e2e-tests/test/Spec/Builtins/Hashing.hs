@@ -31,15 +31,15 @@ verifyHashingFunctionsTestInfo =
     , testDescription =
         "Hashing functions can be used in a single script to mint. New hashing functions are "
           ++ "used in supporting plutus language versions"
-    , test = checkHashingFunctionsTest
+    , test = verifyHashingFunctionsTest
     }
 
-checkHashingFunctionsTest
+verifyHashingFunctionsTest
   :: (MonadIO m, MonadTest m)
   => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-checkHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+verifyHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let sbe = toShelleyBasedEra era

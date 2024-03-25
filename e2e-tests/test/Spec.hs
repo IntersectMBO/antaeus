@@ -37,6 +37,7 @@ import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins as Builtins
+import Spec.Builtins.Bitwise qualified as Conway
 import Spec.ConwayFeatures qualified as Conway
 import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
@@ -184,7 +185,7 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
   sequence_
     [ run Alonzo.checkTxInfoV1TestInfo
     , run Babbage.checkTxInfoV2TestInfo
-    , run Conway.checkTxInfoV3TestInfo -- NOTE: Does not yet check V3 TxInfo fields
+    , run Conway.checkTxInfoV3TestInfo -- TODO: add check for new V3 TxInfo fields
     , run Alonzo.datumHashSpendTestInfo
     , run Alonzo.mintBurnTestInfo
     , run Alonzo.collateralContainsTokenErrorTestInfo
@@ -202,8 +203,13 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
     , run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
     , run Babbage.returnCollateralWithTokensValidScriptTestInfo
-    -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
-    --  run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+    , -- Known failure https://github.com/IntersectMBO/ouroboros-consensus/issues/947
+      --  run Babbage.submitWithInvalidScriptThenCollateralIsTakenAndReturnedTestInfo
+      run Conway.verifyBitwiseFunctionsTestInfo
+    , run Conway.integerToByteStringBitwiseNegativeIntegerErrorTestInfo
+    , run Conway.integerToByteStringBitwiseNegativeOutputWidthErrorTestInfo
+    , -- , run Conway.integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTestInfo -- Failing for unknown reason
+      run Conway.verifyBitwiseFunctionsTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef

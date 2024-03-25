@@ -14,11 +14,11 @@
 
 module PlutusScripts.BLS.SchnorrG1.Common where
 
-import PlutusScripts.BLS.Common (byteStringToInteger)
 import PlutusScripts.Helpers (
   bytesFromHex,
  )
 import PlutusTx qualified
+import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
 
 data BlsParams = BlsParams
@@ -67,7 +67,8 @@ verifySchnorrG1Script bs16Null BlsParams{..} _sc = do
     a = P.fst signature
     r = P.snd signature
     c =
-      byteStringToInteger
+      BI.byteStringToInteger
+        False
         ( P.sliceByteString
             0
             16
@@ -76,7 +77,7 @@ verifySchnorrG1Script bs16Null BlsParams{..} _sc = do
         )
     pkDeser = P.bls12_381_G1_uncompress pubKey
     aDeser = P.bls12_381_G1_uncompress a
-    rDeser = byteStringToInteger r
+    rDeser = BI.byteStringToInteger False r
   (rDeser `P.bls12_381_G1_scalarMul` P.bls12_381_G1_uncompress P.bls12_381_G1_compressed_generator)
     `P.bls12_381_G1_equals` (aDeser `P.bls12_381_G1_add` (c `P.bls12_381_G1_scalarMul` pkDeser))
     -- additional check using negation is for testing the function

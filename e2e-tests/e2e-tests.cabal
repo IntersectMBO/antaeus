@@ -130,6 +130,8 @@ test-suite antaeus-test
     PlutusScripts.Basic.Common
     PlutusScripts.Basic.V_1_0
     PlutusScripts.Basic.V_1_1
+    PlutusScripts.Bitwise.Common
+    PlutusScripts.Bitwise.V_1_1
     PlutusScripts.BLS
     PlutusScripts.BLS.AggregateSigWithMultipleKeys.Common
     PlutusScripts.BLS.AggregateSigWithMultipleKeys.V_1_1
@@ -165,6 +167,7 @@ test-suite antaeus-test
     Spec.AlonzoFeatures
     Spec.BabbageFeatures
     Spec.Builtins
+    Spec.Builtins.Bitwise
     Spec.Builtins.BLS
     Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1

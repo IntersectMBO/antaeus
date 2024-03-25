@@ -14,8 +14,8 @@
 
 module PlutusScripts.BLS.Vrf.Common where
 
-import PlutusScripts.BLS.Common (byteStringToInteger)
 import PlutusTx qualified
+import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
 
 {-# INLINEABLE vrfPrivKey #-}
@@ -83,12 +83,12 @@ verifyBlsVrfScript (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof 
     -- do the following calculation
     u =
       P.bls12_381_G2_add
-        (P.bls12_381_G2_scalarMul (byteStringToInteger c) pubKey)
+        (P.bls12_381_G2_scalarMul (BI.byteStringToInteger True c) pubKey)
         (P.bls12_381_G2_scalarMul s uncompressedG2)
     h = P.bls12_381_G2_hashToGroup message P.emptyByteString
     v =
       P.bls12_381_G2_add
-        (P.bls12_381_G2_scalarMul (byteStringToInteger c) gamma)
+        (P.bls12_381_G2_scalarMul (BI.byteStringToInteger True c) gamma)
         (P.bls12_381_G2_scalarMul s h)
 
   -- and check
@@ -125,8 +125,9 @@ generateVrfProofWithOutput privKey message = do
     -- the paper notes that this can actually be truncated to 128 bits without loss of the 128 bits security.
     -- truncating this will allow for smaller proof sizes.
     c =
-      P.sha2_256 . mconcat $
-        P.bls12_381_G2_compress
+      P.sha2_256
+        . mconcat
+        $ P.bls12_381_G2_compress
           <$> [ uncompressedG2
               , h
               , pub
@@ -137,7 +138,7 @@ generateVrfProofWithOutput privKey message = do
 
     -- define the third and last element of a proof of correct VRF
     s =
-      (k - (byteStringToInteger c) * privKey)
+      (k - (BI.byteStringToInteger True c) * privKey)
         `P.modulo` 52435875175126190479447740508185965837690552500527637822603658699938581184513
 
     -- cofactor of G2
