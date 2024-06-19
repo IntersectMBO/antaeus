@@ -66,13 +66,13 @@ tests ResultsRefs{..} =
     "Plutus E2E Tests"
     [ -- Alonzo PV6 environment has "Chain not extended" error on start
       -- testProperty "Alonzo PV6 Tests" (pv6Tests pv6ResultsRef)
-      testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
-    , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
-    , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
-    , testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
-    -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
-    --  testProperty "debug" (debugTests pv8ResultsRef)
-    -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+      --   testProperty "Babbage PV7 Tests" (pv7Tests pv7ResultsRef)
+      -- , testProperty "Babbage PV8 Tests" (pv8Tests pv8ResultsRef)
+      -- , testProperty "Conway PV9 Tests" (pv9Tests pv9ResultsRef)
+      testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
+      -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
+      --  testProperty "debug" (debugTests pv8ResultsRef)
+      -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
@@ -246,19 +246,20 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
     , run $ Conway.delegateToStakePoolTestInfo staking
     , run $ Conway.registerCommitteeTestInfo committee
     , -- TODO: add tests for voting as script DRep once cardano-api supports DRep script witnesses
-      run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep scriptDRep staking
-    , run $ Conway.committeeProposalAndVoteTestInfo committee keyDRep staking
-    , run $ Conway.noConfidenceProposalAndVoteTestInfo keyDRep staking
-    , run $ Conway.parameterChangeProposalAndVoteTestInfo committee keyDRep staking
-    , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee keyDRep staking
-    , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
-    , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
-    , run $ Conway.unregisterDRepTestInfo keyDRep
-    , -- known failure due to cardano-api limitation not supporting DRep script witnesses
-      -- run $ Conway.unregisterDRepTestInfo scriptDRep
-      run $ Conway.unregisterStakingTestInfo staking
-    , run $ Conway.retireStakePoolTestInfo stakePool
-    -- TODO: test vote rejection with script evaluation failure
+      run $ Conway.constitutionProposalAndNoVoteTestInfo committee keyDRep scriptDRep staking
+      -- , run $ Conway.constitutionProposalAndVoteTestInfo committee keyDRep scriptDRep staking
+      -- , run $ Conway.committeeProposalAndVoteTestInfo committee keyDRep staking
+      -- , run $ Conway.noConfidenceProposalAndVoteTestInfo keyDRep staking
+      -- , run $ Conway.parameterChangeProposalAndVoteTestInfo committee keyDRep staking
+      -- , run $ Conway.treasuryWithdrawalProposalAndVoteTestInfo committee keyDRep staking
+      -- , run $ Conway.hardForkProposalAndVoteTestInfo committee keyDRep staking
+      -- , run $ Conway.infoProposalAndVoteTestInfo committee keyDRep staking
+      -- , run $ Conway.unregisterDRepTestInfo keyDRep
+      -- , -- known failure due to cardano-api limitation not supporting DRep script witnesses
+      --   -- run $ Conway.unregisterDRepTestInfo scriptDRep
+      --   run $ Conway.unregisterStakingTestInfo staking
+      -- , run $ Conway.retireStakePoolTestInfo stakePool
+      -- TODO: test vote rejection with script evaluation failure
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef

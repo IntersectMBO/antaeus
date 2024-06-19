@@ -470,6 +470,162 @@ delegateToStakePoolTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
+constitutionProposalAndNoVoteTestInfo committee kDRep sDRep staking =
+  TestInfo
+    { testName = "constitutionProposalAndNoVoteTest"
+    , testDescription = "Propose and vote 'No' on new constitution"
+    , test = constitutionProposalAndNoVoteTest committee kDRep sDRep staking
+    }
+
+constitutionProposalAndNoVoteTest
+  :: (MonadTest m, MonadIO m)
+  => Committee era
+  -> DRep era
+  -> DRep era
+  -> Staking era
+  -> TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+constitutionProposalAndNoVoteTest
+  Committee{..}
+  KeyDRep{..}
+  ScriptDRep{} -- will be used
+  Staking{..}
+  networkOptions
+  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
+        ceo = toConwayEraOnwards era
+
+    currentEpoch1 <- Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch1
+
+    -- wait for next epoch to start before proposing governance action
+    currentEpoch2 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch2"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch2
+
+    -- check no existing constitution hash
+    existingConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
+    existingConstitutionHash === "\"0000000000000000000000000000000000000000000000000000000000000000\""
+
+    -- define a new constituion
+    let constitutionPath = tempAbsPath <> "/constituion.txt"
+    H.writeFile constitutionPath "a new way of life"
+    constituionBS <- H.evalIO $ BS.readFile constitutionPath
+    -- TODO: add constitution script (proposal policy) once implemented in cardano-api
+    let
+      constituionHash = show (Crypto.hashWith id constituionBS :: Crypto.Hash Crypto.Blake2b_256 BS.ByteString)
+      constitutionUrl = fromJust $ (\t -> C.textToUrl (Text.length t) t) "https://example.com/constituion.txt"
+      anchor = C.createAnchor constitutionUrl constituionBS
+    H.annotate constituionHash
+
+    -- build a transaction to propose the constituion
+
+    tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    let
+      tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+      tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
+      proposal =
+        C.createProposalProcedure
+          sbe
+          (C.toShelleyNetwork networkId)
+          0 -- govActionDeposit
+          (sPStakeKeyHash stakeDelegationPool)
+          -- fst SNothing is prev GovActId, snd SNothing is constitution script (snd got removed)
+          (C.ProposeNewConstitution C.SNothing anchor)
+          anchor
+      txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
+
+      {-- TODO: check proposal onchain with minting policy (once ledger supports it)
+        plutusProposalProcedure = fromCardanoProposal sbe proposal
+        -- proposalProcedureItems' = C.fromProposalProcedure sbe proposal
+        -- plutusProposalProcedure' = fromCardanoProposal proposalProcedureItems'
+        tokenValues = C.valueFromList [(PS_1_1.verifyProposalProceduresAssetIdV3, 1)]
+        mintWitness = Map.fromList [PS_1_1.verifyProposalProceduresMintWitnessV3 sbe [plutusProposalProcedure]]
+        --}
+
+      tx1BodyContent =
+        (Tx.emptyTxBodyContent sbe pparams)
+          { C.txIns = Tx.pubkeyTxIns [tx1In]
+          , C.txProposalProcedures = C.forEraInEonMaybe era (`C.Featured` txProposal)
+          , C.txOuts = [tx1Out1, tx1Out2]
+          }
+
+    signedTx1 <- Tx.buildTx era localNodeConnectInfo tx1BodyContent w1Address w1SKey
+    Tx.submitTx sbe localNodeConnectInfo signedTx1
+    let _tx2In1@(C.TxIn tx2InId1 _tx2InIx1) = Tx.txIn (Tx.txId signedTx1) 0
+        _tx2In2 = Tx.txIn (Tx.txId signedTx1) 1
+        tx2In3 = Tx.txIn (Tx.txId signedTx1) 2 -- change output
+    result1TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address tx2In3 "getTxOutAtAddress1"
+    H.annotate $ show result1TxOut
+
+    -- vote on the constituion
+
+    let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
+        -- NOTE : sDRepVoter uses alwaysSucceed
+        -- tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+        -- mintWitness = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
+        -- collateral = Tx.txInsCollateral era [tx2In3]
+        -- SPO not allowed to vote on constitution
+
+        -- Voting No explicitly in the new constitution
+        votes = [(committeeVoter, C.No, Nothing), (kDRepVoter, C.No, Nothing)] -- , (sDRepVoter, C.Yes)]
+        -- TODO: build votes in plutus format as redeemer
+        txVotingProcedures = Tx.buildTxVotingProcedures sbe ceo tx2InId1 0 votes
+    let tx2BodyContent =
+          (Tx.emptyTxBodyContent sbe pparams)
+            { C.txIns = Tx.pubkeyTxIns [tx2In3]
+            , -- , C.txInsCollateral = collateral
+              -- , C.txMintValue = Tx.txMintValue era tokenValues mintWitness
+              C.txVotingProcedures = C.forEraInEonMaybe era (`C.Featured` txVotingProcedures)
+            , C.txOuts = [tx2Out1]
+            }
+
+    signedTx2 <-
+      Tx.buildTxWithWitnessOverride
+        era
+        localNodeConnectInfo
+        tx2BodyContent
+        w1Address
+        (Just 3) -- witnesses
+        [ C.WitnessPaymentKey w1SKey
+        , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
+        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        ]
+    Tx.submitTx sbe localNodeConnectInfo signedTx2
+    let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
+    result2TxOut <-
+      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress2"
+    H.annotate $ show result2TxOut
+
+    -- wait for next epoch before asserting for new constitution
+    currentEpoch3 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch3"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch3
+
+    currentEpoch4 <-
+      Q.waitForNextEpoch era localNodeConnectInfo "currentEpoch4"
+        =<< Q.getCurrentEpoch era localNodeConnectInfo
+    H.annotate $ show currentEpoch4
+
+    -- wait 2 seconds at start of epoch to account for any delay with constitution enactment
+    liftIO $ threadDelay 2_000_000
+
+    -- check new constituion is enacted
+    newConstitutionHash <- Q.getConstitutionAnchorHashAsString era localNodeConnectInfo
+    constituionHash === newConstitutionHash -- debug assertion
+    -- since the dRepVoter and committeeVoter voted 'No', the expected constitution must not be enacted
+    assert
+      "expected constitution hash shouldn't match query result"
+      (not $ constituionHash == newConstitutionHash)
+constitutionProposalAndNoVoteTest _ ScriptDRep{} _ _ _ _ = error "ScriptDRep in wrong arg"
+constitutionProposalAndNoVoteTest _ _ KeyDRep{} _ _ _ = error "KeyDRep in wrong arg"
+
 constitutionProposalAndVoteTestInfo committee kDRep sDRep staking =
   TestInfo
     { testName = "constitutionProposalAndVoteTest"
