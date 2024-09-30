@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Helpers.DRep where
@@ -31,11 +32,14 @@ generateDRepKeyCredentialsAndCertificate
   :: (MonadIO m)
   => C.ConwayEraOnwards era
   -> m (DRep era)
-generateDRepKeyCredentialsAndCertificate ceo = do
+generateDRepKeyCredentialsAndCertificate conwayEraOnwards = do
   dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
-  let C.DRepKeyHash dRepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
-      dRepVotingCredential = C.conwayEraOnwardsConstraints ceo $ C.KeyHashObj dRepKeyHash
-  buildDRep ceo dRepVotingCredential (Just dRepSkey)
+  let C.DRepKeyHash dRepKeyHash =
+        C.verificationKeyHash $ C.getVerificationKey dRepSkey
+      dRepVotingCredential =
+        C.conwayEraOnwardsConstraints conwayEraOnwards $
+          C.KeyHashObj dRepKeyHash
+  buildDRep conwayEraOnwards dRepVotingCredential (Just dRepSkey)
 
 produceDRepScriptCredentialsAndCertificate
   :: (MonadIO m)
@@ -54,7 +58,7 @@ buildDRep
   -> m (DRep era)
 buildDRep ceo dRepVotingCredential mDRepSKey = do
   let
-    dRepDeposit = L.Coin 0
+    dRepDeposit = L.Coin 1_000_000
     dRepRegReqs =
       C.DRepRegistrationRequirements
         ceo
