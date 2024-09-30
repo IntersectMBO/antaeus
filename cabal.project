@@ -27,19 +27,6 @@ benchmarks: true
 -- 'tasty' output.
 test-show-details: direct
 
--- These packages appear in our dependency tree and are very slow to build.
--- Empirically, turning off optimization shaves off ~50% build time.
--- It also mildly improves recompilation avoidance.
--- For dev work we don't care about performance so much, so this is okay.
-package cardano-ledger-alonzo
-  optimization: False
-package ouroboros-consensus-shelley
-  optimization: False
-package ouroboros-consensus-cardano
-  optimization: False
-package cardano-api
-  optimization: False
-
 package cardano-crypto-praos
   flags: -external-libsodium-vrf
 
