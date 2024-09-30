@@ -92,7 +92,7 @@ pv6Tests resultsRef = integrationRetryWorkspace 0 "pv6" $ \tempAbsPath -> do
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
     , -- , run Alonzo.tooManyCollateralInputsErrorTestInfo
-      -- \^ fails, see https://github.com/input-output-hk/cardano-node/issues/5228
+      -- \^ fails, see https://github.com/IntersectMBO/cardano-node/issues/5228
       run Builtins.verifySchnorrAndEcdsaTestInfo
     , run Builtins.verifyHashingFunctionsTestInfo
     ]

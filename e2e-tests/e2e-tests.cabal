@@ -8,16 +8,16 @@ license-files:
 
 author:            James Browning
 maintainer:        james.browning@iohk.io
-homepage:          https://github.com/input-output-hk/antaeus#readme
-bug-reports:       https://github.com/input-output-hk/antaeus/issues
+homepage:          https://github.com/IntersectMBO/antaeus#readme
+bug-reports:       https://github.com/IntersectMBO/antaeus/issues
 description:
-  Please see the README on GitHub at <https://github.com/input-output-hk/antaeus#readme>
+  Please see the README on GitHub at <https://github.com/IntersectMBO/antaeus#readme>
 
 build-type:        Simple
 
 source-repository head
   type:     git
-  location: https://github.com/input-output-hk/antaeus
+  location: https://github.com/IntersectMBO/antaeus
 
 pkgconfig-depends: libblst
 
@@ -42,15 +42,14 @@ common lang
 
   ghc-options:
     -Wall -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wmissing-import-lists
-    -Wnoncanonical-monad-instances -Wredundant-constraints
-    -Wunused-packages
+    -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+    -Wredundant-constraints -Wunused-packages
 
   --------------------------
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api                    ^>=8.38.0.1
+    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-crypto-wrapper
@@ -178,7 +177,7 @@ test-suite antaeus-test
   -- Other IOG dependencies
   --------------------------
   build-depends:
-    , cardano-api           ^>=8.38.0.1
+    , cardano-api
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-core

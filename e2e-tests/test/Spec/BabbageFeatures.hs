@@ -531,7 +531,7 @@ referenceInputWithV1ScriptErrorTest
         Nothing
         [C.WitnessPaymentKey w1SKey]
     let expError = "ReferenceInputsNotSupported"
-    -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+    -- why is this validity interval error? https://github.com/IntersectMBO/cardano-node/issues/5080
     assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
 
 referenceScriptOutputWithV1ScriptErrorTestInfo =
@@ -585,7 +585,7 @@ referenceScriptOutputWithV1ScriptErrorTest
         [C.WitnessPaymentKey w1SKey]
     H.annotate $ show eitherTx
     let expError = "ReferenceScriptsNotSupported"
-    -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+    -- why is this validity interval error? https://github.com/IntersectMBO/cardano-node/issues/5080
     assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
 
 inlineDatumOutputWithV1ScriptErrorTestInfo =
@@ -639,7 +639,7 @@ inlineDatumOutputWithV1ScriptErrorTest
         [C.WitnessPaymentKey w1SKey]
     H.annotate $ show eitherTx
     let expError = "InlineDatumsNotSupported"
-    -- why is this validity interval error? https://github.com/input-output-hk/cardano-node/issues/5080
+    -- why is this validity interval error? https://github.com/IntersectMBO/cardano-node/issues/5080
     assert expError $ Tx.isTxBodyErrorValidityInterval expError eitherTx
 
 returnCollateralWithTokensValidScriptTestInfo =
