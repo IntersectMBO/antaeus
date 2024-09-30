@@ -326,8 +326,10 @@ w1All tempAbsPath networkId = do
     maybeReadAs (C.AsSigningKey C.AsPaymentKey) w1SKeyFile
 
   let
-    vKey :: C.VerificationKey C.PaymentKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
-    sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
+    vKey :: C.VerificationKey C.PaymentKey =
+      maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
+    sKey :: C.SigningKey C.PaymentKey =
+      maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
     address = makeAddress (Left vKey) networkId
 
   return (sKey, vKey, address)
@@ -338,7 +340,8 @@ w1
   FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 tempAbsPath networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
+w1 tempAbsPath networkId =
+  (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
 
 data TestnetStakePool = TestnetStakePool
   { stakePoolSKey :: C.SigningKey C.StakePoolKey

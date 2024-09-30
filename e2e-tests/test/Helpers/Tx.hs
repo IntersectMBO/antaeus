@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -251,9 +252,11 @@ txCertificates
 txCertificates era certs stakeCreds =
   C.inEonForEra
     (error $ notSupportedError era)
-    (\e -> C.TxCertificates e certs)
+    (`C.TxCertificates` certs)
     era
-    (C.BuildTxWith $ Map.fromList $ stakeCreds `zip` repeat (C.KeyWitness C.KeyWitnessForStakeAddr))
+    ( C.BuildTxWith $
+        Map.fromList ((,C.KeyWitness C.KeyWitnessForStakeAddr) <$> stakeCreds)
+    )
 
 -- Takens the action ID and a map of voters and their votes, builds multiple VotingProcedures
 -- and combines them into a single VotingProcedures
@@ -448,15 +451,13 @@ submitTx
   -> C.LocalNodeConnectInfo
   -> C.Tx era
   -> m ()
-submitTx sbe localNodeConnectInfo tx = do
-  submitResult :: C.SubmitResult era <-
-    liftIO $ C.submitTxToNodeLocal localNodeConnectInfo $ C.TxInMode sbe tx
-  failOnTxSubmitFail submitResult
-  where
-    failOnTxSubmitFail :: (Show a, MonadTest m) => C.SubmitResult a -> m ()
-    failOnTxSubmitFail = \case
-      C.SubmitFail reason -> H.failMessage GHC.callStack $ "Transaction failed: " <> show reason
-      C.SubmitSuccess -> pure ()
+submitTx era conn tx =
+  liftIO (C.submitTxToNodeLocal conn (C.TxInMode era tx)) >>= \case
+    C.SubmitSuccess -> pure ()
+    C.SubmitFail reason -> do
+      let txId = C.getTxId $ C.getTxBody tx
+      H.failMessage GHC.callStack $
+        "Transaction with id " ++ show txId ++ " failed: " ++ show reason
 
 submitTx'
   :: (MonadIO m, MonadTest m)

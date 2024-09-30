@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -243,38 +244,48 @@ registerStakingTest
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerStakingTest
-  Staking{..}
-  networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    let sbe = toShelleyBasedEra era
+registerStakingTest Staking{..} networkOptions testParams = do
+  let TestParams
+        { localNodeConnectInfo
+        , pparams
+        , networkId
+        , tempAbsPath
+        } = testParams
+  era <- TN.eraFromOptionsM networkOptions
+  let shelleyBasedEra = toShelleyBasedEra era
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
 
-    w1StakeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    let
-      adaValue = C.lovelaceToValue 2_000_000
-      w1StakeRegTxOut = Tx.txOut era adaValue w1Address
-      w1StakeRegTxBodyContent =
-        (Tx.emptyTxBodyContent sbe pparams)
-          { C.txIns = Tx.pubkeyTxIns [w1StakeRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [stakeRegCert] [stakeCred]
-          , C.txOuts = [w1StakeRegTxOut]
-          }
-    signedW1StakeRegTx1 <-
-      Tx.buildTxWithWitnessOverride
-        era
-        localNodeConnectInfo
-        w1StakeRegTxBodyContent
-        w1Address
-        (Just 2) -- witnesses
-        [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
-    Tx.submitTx sbe localNodeConnectInfo signedW1StakeRegTx1
-    let expTxIn = Tx.txIn (Tx.txId signedW1StakeRegTx1) 1 -- change output
-    w1StakeRegResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
-    H.annotate $ show w1StakeRegResultTxOut
-    success
+  w1StakeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+  let
+    adaValue = C.lovelaceToValue 2_000_000
+    w1StakeRegTxOut = Tx.txOut era adaValue w1Address
+    w1StakeRegTxBodyContent =
+      (Tx.emptyTxBodyContent shelleyBasedEra pparams)
+        { C.txIns = Tx.pubkeyTxIns [w1StakeRegTxIn]
+        , C.txCertificates = Tx.txCertificates era [stakeRegCert] [stakeCred]
+        , C.txOuts = [w1StakeRegTxOut]
+        }
+  signedW1StakeRegTx1 <-
+    Tx.buildTxWithWitnessOverride
+      era
+      localNodeConnectInfo
+      w1StakeRegTxBodyContent
+      w1Address
+      (Just 2) -- witnesses
+      [C.WitnessPaymentKey w1SKey, C.WitnessStakeKey stakeSKey]
+  Tx.submitTx shelleyBasedEra localNodeConnectInfo signedW1StakeRegTx1
+  let txId = Tx.txId signedW1StakeRegTx1
+  H.annotate $ show txId
+  let expTxIn = Tx.txIn txId 1 -- change output
+  w1StakeRegResultTxOut <-
+    Q.getTxOutAtAddress
+      era
+      localNodeConnectInfo
+      w1Address
+      expTxIn
+      "getTxOutAtAddress"
+  H.annotate $ show w1StakeRegResultTxOut
+  success
 
 registerDRepTestInfo :: DRep era -> TestInfo era
 registerDRepTestInfo dRep =
@@ -283,16 +294,23 @@ registerDRepTestInfo dRep =
     , testDescription = "Register a " ++ showKeyOrScript dRep ++ " DRep (for voting)"
     , test = registerDRepTest dRep
     }
+
 registerDRepTest
   :: (MonadTest m, MonadIO m)
   => DRep era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRepTest KeyDRep{kDRepSKey = sKey, kDRepRegCert = cert} = registerDRep (Just sKey) cert
-registerDRepTest ScriptDRep{sDRepRegCert = _cert} =
-  -- registerDRep Nothing cert -- TODO: add DRep script witness (once cardano-api supports it)
-  \_ _ -> failure "known failure due to cardano-api limitation not supporting DRep script witnesses"
+registerDRepTest = \case
+  KeyDRep{kDRepSKey = sKey, kDRepRegCert = cert} -> registerDRep (Just sKey) cert
+  ScriptDRep{sDRepRegCert = _cert} ->
+    -- registerDRep Nothing cert
+    -- TODO: add DRep script witness (once cardano-api supports it)
+    \_testEnvOpts _testParams ->
+      failure
+        "known failure due to cardano-api limitation \
+        \not supporting DRep script witnesses"
+
 registerDRep
   :: (MonadTest m, MonadIO m)
   => Maybe (C.SigningKey C.DRepKey)
@@ -300,40 +318,43 @@ registerDRep
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerDRep
-  mkDrepSkey
-  dRepRegCert
-  networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    let sbe = toShelleyBasedEra era
+registerDRep mkDrepSkey dRepRegCert networkOptions testParams = do
+  let TestParams
+        { localNodeConnectInfo = conn
+        , pparams
+        , networkId
+        , tempAbsPath
+        } = testParams
+  era <- TN.eraFromOptionsM networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
-    dRepRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    let
-      regDRepTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-      -- TODO: add DRep script witness (once ledger supports it)
-      regDRepTxBodyContent =
+  dRepRegTxIn <- Q.adaOnlyTxInAtAddress era conn w1Address
+  -- TODO: add DRep script witness (once ledger supports it)
+  let body =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [dRepRegTxIn]
           , C.txCertificates = Tx.txCertificates era [dRepRegCert] []
-          , C.txOuts = [regDRepTxOut]
+          , C.txOuts = [Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address]
           }
-    signedRegDRepTx <-
-      Tx.buildTxWithWitnessOverride
-        era
-        localNodeConnectInfo
-        regDRepTxBodyContent
-        w1Address
-        (maybe (Just 1) (\_ -> Just 2) mkDrepSkey) -- witness count
-        -- witness signing keys
-        (C.WitnessPaymentKey w1SKey : maybe [] (\dRepSKey -> [C.WitnessDRepKey dRepSKey]) mkDrepSkey)
-    Tx.submitTx sbe localNodeConnectInfo signedRegDRepTx
-    let expTxIn = Tx.txIn (Tx.txId signedRegDRepTx) 0
-    regDRepResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
-    H.annotate $ show regDRepResultTxOut
-    success
+  signedRegDRepTx <-
+    Tx.buildTxWithWitnessOverride
+      era
+      conn
+      body
+      w1Address
+      (maybe (Just 1) (\_ -> Just 2) mkDrepSkey) -- witness count
+      -- witness signing keys
+      ( C.WitnessPaymentKey w1SKey
+          : maybe [] (\dRepSKey -> [C.WitnessDRepKey dRepSKey]) mkDrepSkey
+      )
+  Tx.submitTx sbe conn signedRegDRepTx
+  let txId = Tx.txId signedRegDRepTx
+  H.annotate $ show txId
+  regDRepResultTxOut <-
+    Q.getTxOutAtAddress era conn w1Address (Tx.txIn txId 0) "getTxOutAtAddress"
+  H.annotate $ show regDRepResultTxOut
+  success
 
 registerCommitteeTestInfo committee =
   TestInfo
@@ -1318,7 +1339,9 @@ unregisterDRep
         (Just $ fromIntegral $ length unRegDRepTxWitnesses)
         unRegDRepTxWitnesses
     Tx.submitTx sbe localNodeConnectInfo signedDRepUnregTx
-    let expTxIn = Tx.txIn (Tx.txId signedDRepUnregTx) 0
+    let txId = Tx.txId signedDRepUnregTx
+    H.annotate $ show txId
+    let expTxIn = Tx.txIn txId 0
     stakeDelegResultTxOut <-
       Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
     H.annotate $ show stakeDelegResultTxOut
