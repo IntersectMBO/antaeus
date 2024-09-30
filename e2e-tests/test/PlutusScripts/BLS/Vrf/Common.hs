@@ -14,6 +14,8 @@
 
 module PlutusScripts.BLS.Vrf.Common where
 
+import GHC.ByteOrder (ByteOrder (BigEndian))
+import PlutusLedgerApi.V3 (ScriptContext)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
@@ -65,42 +67,44 @@ redeemerParams =
 {-# INLINEABLE verifyBlsVrfScript #-}
 verifyBlsVrfScript
   :: BlsParams
-  -> sc
+  -> ScriptContext
   -> Bool
-verifyBlsVrfScript (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof gamma c s))) _sc = do
-  let
-    uncompressedG2 = P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator
-    -- cofactor of G2
-    f :: Integer =
-      305502333931268344200999753193121504214466019254188142667664032982267604182971884026507427359259977847832272839041692990889188039904403802465579155252111
+verifyBlsVrfScript
+  (BlsParams pubKey message (VrfProofWithOutput beta (VrfProof gamma c s)))
+  _scriptContext = do
+    let
+      uncompressedG2 = P.bls12_381_G2_uncompress P.bls12_381_G2_compressed_generator
+      -- cofactor of G2
+      f :: Integer =
+        305502333931268344200999753193121504214466019254188142667664032982267604182971884026507427359259977847832272839041692990889188039904403802465579155252111
 
-    -- The proof of that the VRF hash of input alpha under our priv key is beta
-    -- To verify a VRF hash given an
-    --        input alpha
-    --        output beta
-    --        proof pi (gamma, c, s)
-    --        pubkey pub
-    -- do the following calculation
-    u =
-      P.bls12_381_G2_add
-        (P.bls12_381_G2_scalarMul (BI.byteStringToInteger True c) pubKey)
-        (P.bls12_381_G2_scalarMul s uncompressedG2)
-    h = P.bls12_381_G2_hashToGroup message P.emptyByteString
-    v =
-      P.bls12_381_G2_add
-        (P.bls12_381_G2_scalarMul (BI.byteStringToInteger True c) gamma)
-        (P.bls12_381_G2_scalarMul s h)
+      -- The proof of that the VRF hash of input alpha under our priv key is beta
+      -- To verify a VRF hash given an
+      --        input alpha
+      --        output beta
+      --        proof pi (gamma, c, s)
+      --        pubkey pub
+      -- do the following calculation
+      u =
+        P.bls12_381_G2_add
+          (P.bls12_381_G2_scalarMul (BI.byteStringToInteger BigEndian c) pubKey)
+          (P.bls12_381_G2_scalarMul s uncompressedG2)
+      h = P.bls12_381_G2_hashToGroup message P.emptyByteString
+      v =
+        P.bls12_381_G2_add
+          (P.bls12_381_G2_scalarMul (BI.byteStringToInteger BigEndian c) gamma)
+          (P.bls12_381_G2_scalarMul s h)
 
-  -- and check
+    -- and check
 
-  c
-    P.== ( P.sha2_256
-            P.. P.mconcat
-            P.$ P.bls12_381_G2_compress
-            P.<$> [uncompressedG2, h, pubKey, gamma, u, v]
-         )
-    P.&& beta
-    P.== (P.sha2_256 P.. P.bls12_381_G2_compress P.$ P.bls12_381_G2_scalarMul f gamma)
+    c
+      P.== ( P.sha2_256
+              P.. P.mconcat
+              P.$ P.bls12_381_G2_compress
+              P.<$> [uncompressedG2, h, pubKey, gamma, u, v]
+           )
+      P.&& beta
+      P.== (P.sha2_256 P.. P.bls12_381_G2_compress P.$ P.bls12_381_G2_scalarMul f gamma)
 
 -- used offchain to generate the vrf proof output
 generateVrfProofWithOutput :: Integer -> P.BuiltinByteString -> VrfProofWithOutput
@@ -138,7 +142,7 @@ generateVrfProofWithOutput privKey message = do
 
     -- define the third and last element of a proof of correct VRF
     s =
-      (k - (BI.byteStringToInteger True c) * privKey)
+      (k - BI.byteStringToInteger BigEndian c * privKey)
         `P.modulo` 52435875175126190479447740508185965837690552500527637822603658699938581184513
 
     -- cofactor of G2

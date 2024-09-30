@@ -63,21 +63,22 @@ mkHashingPolicyV1V2 V1_V2_HashingParams{..} _r _sc =
     ]
 
 {-# INLINEABLE mkHashingPolicyV3 #-}
-mkHashingPolicyV3 :: V3_HashingParams -> P.BuiltinData -> P.BuiltinData -> Bool
-mkHashingPolicyV3 V3_HashingParams{..} _r _sc =
-  P.all
-    (P.== True)
-    [ hashAndCheckResult BI.sha2_256 "sha2_256Long" (sha2_256Long v2HashingParams)
-    , hashAndCheckResult BI.sha2_256 "sha2_256Short" (sha2_256Short v2HashingParams)
-    , hashAndCheckResult BI.sha3_256 "sha3_256Long" (sha3_256Long v2HashingParams)
-    , hashAndCheckResult BI.sha3_256 "sha3_256Short" (sha3_256Short v2HashingParams)
-    , hashAndCheckResult BI.blake2b_256 "blake2b_256Long" (blake2b_256Long v2HashingParams)
-    , hashAndCheckResult BI.blake2b_256 "blake2b_256Short" (blake2b_256Long v2HashingParams)
-    , hashAndCheckResult BI.blake2b_224 "blake2b_224Long" blake2b_224Long
-    , hashAndCheckResult BI.blake2b_224 "blake2b_224Short" blake2b_224Short
-    , hashAndCheckResult BI.keccak_256 "keccak_256Long" keccak_256Long
-    , hashAndCheckResult BI.keccak_256 "keccak_256Short" keccak_256Short
-    ]
+mkHashingPolicyV3 :: V3_HashingParams -> P.BuiltinData -> P.BuiltinUnit
+mkHashingPolicyV3 V3_HashingParams{..} _sc =
+  P.check $
+    P.all
+      (P.== True)
+      [ hashAndCheckResult BI.sha2_256 "sha2_256Long" (sha2_256Long v2HashingParams)
+      , hashAndCheckResult BI.sha2_256 "sha2_256Short" (sha2_256Short v2HashingParams)
+      , hashAndCheckResult BI.sha3_256 "sha3_256Long" (sha3_256Long v2HashingParams)
+      , hashAndCheckResult BI.sha3_256 "sha3_256Short" (sha3_256Short v2HashingParams)
+      , hashAndCheckResult BI.blake2b_256 "blake2b_256Long" (blake2b_256Long v2HashingParams)
+      , hashAndCheckResult BI.blake2b_256 "blake2b_256Short" (blake2b_256Long v2HashingParams)
+      , hashAndCheckResult BI.blake2b_224 "blake2b_224Long" blake2b_224Long
+      , hashAndCheckResult BI.blake2b_224 "blake2b_224Short" blake2b_224Short
+      , hashAndCheckResult BI.keccak_256 "keccak_256Long" keccak_256Long
+      , hashAndCheckResult BI.keccak_256 "keccak_256Short" keccak_256Short
+      ]
 
 {-# INLINEABLE hashAndCheckResult #-}
 hashAndCheckResult

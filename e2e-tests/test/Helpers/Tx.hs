@@ -17,7 +17,8 @@ import Data.Functor ((<&>))
 import Data.List (isInfixOf)
 import Data.Map qualified as Map
 import Data.OSet.Strict qualified as OSet
-import Data.Word (Word32)
+import Data.Word (Word16)
+import GHC.Stack (HasCallStack)
 import GHC.Stack qualified as GHC
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
@@ -148,14 +149,25 @@ withDatumHash era datum (C.TxOut e v _ rs) =
 
 -- | Add datum hash to TxOut whilst including datum value in txbody
 withDatumInTx era datum (C.TxOut e v _ rs) =
-  C.TxOut e v (C.inEonForEra (error $ notSupportedError era) (\e -> C.TxOutDatumInTx e datum) era) rs
+  C.TxOut
+    e
+    v
+    ( C.inEonForEra
+        (error $ notSupportedError era)
+        (\e -> C.TxOutDatumInTx e datum)
+        era
+    )
+    rs
 
 -- | Empty transaction body to begin building from.
 emptyTxBodyContent
-  :: C.ShelleyBasedEra era -> C.LedgerProtocolParameters era -> C.TxBodyContent C.BuildTx era
-emptyTxBodyContent sbe pparams = (C.defaultTxBodyContent sbe){C.txProtocolParams = C.BuildTxWith $ Just pparams}
+  :: C.ShelleyBasedEra era
+  -> C.LedgerProtocolParameters era
+  -> C.TxBodyContent C.BuildTx era
+emptyTxBodyContent sbe pparams =
+  (C.defaultTxBodyContent sbe){C.txProtocolParams = C.BuildTxWith $ Just pparams}
 
-txFee :: C.CardanoEra era -> C.Lovelace -> C.TxFee era
+txFee :: C.CardanoEra era -> L.Coin -> C.TxFee era
 txFee era =
   C.inEonForEra (error $ notSupportedError era) (\e -> C.TxFeeExplicit e) era
 
@@ -180,7 +192,7 @@ txReturnCollateral :: C.CardanoEra era -> C.TxOut C.CtxTx era -> C.TxReturnColla
 txReturnCollateral era txIns =
   C.inEonForEra (error $ notSupportedError era) (\e -> C.TxReturnCollateral e txIns) era
 
-txTotalCollateral :: C.CardanoEra era -> C.Lovelace -> C.TxTotalCollateral era
+txTotalCollateral :: C.CardanoEra era -> L.Coin -> C.TxTotalCollateral era
 txTotalCollateral era lovelace =
   C.inEonForEra (error $ notSupportedError era) (\e -> C.TxTotalCollateral e lovelace) era
 
@@ -246,10 +258,11 @@ txCertificates era certs stakeCreds =
 -- Takens the action ID and a map of voters and their votes, builds multiple VotingProcedures
 -- and combines them into a single VotingProcedures
 buildTxVotingProcedures
-  :: C.ShelleyBasedEra era
+  :: forall era
+   . C.ShelleyBasedEra era
   -> C.ConwayEraOnwards era
   -> C.TxId -- action id
-  -> Word32
+  -> Word16
   -> [ ( L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))
        , C.Vote
        , Maybe (C.ScriptWitness C.WitCtxStake era)
@@ -268,10 +281,10 @@ buildTxVotingProcedures sbe ceo txId txIx votesWithSWitness = C.shelleyBasedEraC
         ledgerVotingProceduresWithVoterAndSWitness
           <&> (\(v, lvp, msw) -> (C.singletonVotingProcedures ceo v gAID lvp, msw))
       cardanoVotingProceduresWithOutSWitness =
-        cardanoVotingProceduresWithSWitness <&> (\(cvp, _msw) -> cvp)
+        cardanoVotingProceduresWithSWitness <&> fst
       voterAndSWitnessMap = Map.unions $ votesWithSWitness <&> (\(voter, _, msw) -> voterSWitnessSingleton voter msw)
 
-      votingProcedures = foldr1 C.unsafeMergeVotingProcedures cardanoVotingProceduresWithOutSWitness
+      votingProcedures = foldr1 unsafeMergeVotingProcedures cardanoVotingProceduresWithOutSWitness
   C.TxVotingProcedures (C.unVotingProcedures votingProcedures) (C.BuildTxWith voterAndSWitnessMap)
   where
     voterSWitnessSingleton
@@ -280,6 +293,13 @@ buildTxVotingProcedures sbe ceo txId txIx votesWithSWitness = C.shelleyBasedEraC
       -> Map.Map (L.Voter (C.EraCrypto (C.ShelleyLedgerEra era))) (C.ScriptWitness C.WitCtxStake era)
     voterSWitnessSingleton _voter Nothing = Map.empty
     voterSWitnessSingleton voter (Just scriptWitness) = Map.singleton voter scriptWitness
+
+    unsafeMergeVotingProcedures
+      :: C.VotingProcedures era -> C.VotingProcedures era -> C.VotingProcedures era
+    unsafeMergeVotingProcedures vps vps' =
+      case C.mergeVotingProcedures vps vps' of
+        Left (C.VotesMergingConflict conflict) -> error $ show conflict
+        Right vps'' -> vps''
 
 buildTxProposalProcedures
   :: (L.EraPParams (C.ShelleyLedgerEra era))
@@ -302,7 +322,7 @@ buildTxProposalProcedures proposalProcedures =
       Map.singleton proposalProcedure scriptWitness
 
 buildTx
-  :: (MonadIO m)
+  :: (HasCallStack, MonadIO m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
@@ -313,18 +333,18 @@ buildTx era localNodeConnectInfo txBody changeAddress sKey =
   buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress [C.WitnessPaymentKey sKey]
 
 buildTxWithAnyWitness
-  :: (MonadIO m)
+  :: (HasCallStack, MonadIO m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
   -> C.Address C.ShelleyAddr
   -> [C.ShelleyWitnessSigningKey]
   -> m (C.Tx era)
-buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress sKeys =
-  buildTxWithWitnessOverride era localNodeConnectInfo txBody changeAddress Nothing sKeys
+buildTxWithAnyWitness era localNodeConnectInfo txBody changeAddress =
+  buildTxWithWitnessOverride era localNodeConnectInfo txBody changeAddress Nothing
 
 buildTxWithWitnessOverride
-  :: (MonadIO m)
+  :: (HasCallStack, MonadIO m)
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo
   -> C.TxBodyContent C.BuildTx era
@@ -369,8 +389,8 @@ buildTxWithError era localNodeConnectInfo txBody changeAddress mWitnessOverride 
         , stakePools
         , stakeDelegDeposits
         , drepDelegDeposits
-        ) =
-          U.unsafeFromRight $ U.unsafeFromRight localStateQueryResult
+        , _featured
+        ) = U.unsafeFromRight $ U.unsafeFromRight localStateQueryResult
       sbe = toShelleyBasedEra era
 
   return $

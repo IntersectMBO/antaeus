@@ -13,9 +13,7 @@ module PlutusScripts.BLS.Vrf.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.Common (blsAssetName)
 import PlutusScripts.BLS.Vrf.Common (redeemerParams, verifyBlsVrfScript)
 import PlutusScripts.Helpers qualified as H
@@ -24,7 +22,7 @@ import PlutusTx qualified
 verifyBlsVrfPolicyV3 :: SerialisedScript
 verifyBlsVrfPolicyV3 =
   serialiseCompiledCode
-    $$(PlutusTx.compile [||mkUntypedMintingPolicy @PlutusV3.ScriptContext verifyBlsVrfScript||])
+    $$(PlutusTx.compile [||verifyBlsVrfScript||])
 
 verifyBlsVrfPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyBlsVrfPolicyScriptV3 = C.PlutusScriptSerialised verifyBlsVrfPolicyV3

@@ -14,11 +14,12 @@
 
 module PlutusScripts.BLS.SchnorrG2.Common where
 
+import PlutusLedgerApi.V3 (ScriptContext)
+import PlutusScripts.BLS.Common (byteStringToIntegerLE)
 import PlutusScripts.Helpers (
   bytesFromHex,
  )
 import PlutusTx qualified
-import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
 
 data BlsParams = BlsParams
@@ -62,7 +63,7 @@ redeemerParams =
 verifySchnorrG2Script
   :: P.BuiltinByteString
   -> BlsParams
-  -> sc
+  -> ScriptContext
   -> Bool
 verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
   let
@@ -70,8 +71,7 @@ verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
     a = P.fst signature
     r = P.snd signature
     c =
-      BI.byteStringToInteger
-        False
+      byteStringToIntegerLE
         ( P.sliceByteString
             0
             16
@@ -80,11 +80,11 @@ verifySchnorrG2Script bs16Null BlsParams{..} _sc = do
         )
     pkDeser = P.bls12_381_G2_uncompress pubKey
     aDeser = P.bls12_381_G2_uncompress a
-    rDeser = BI.byteStringToInteger False r
+    rDeser = byteStringToIntegerLE r
   (rDeser `P.bls12_381_G2_scalarMul` uncompressedG2)
     P.== (aDeser `P.bls12_381_G2_add` (c `P.bls12_381_G2_scalarMul` pkDeser))
     -- additional check using negation is for testing the function
     -- it can be removed to improve performance
     && (rDeser `P.bls12_381_G2_scalarMul` uncompressedG2)
-      `P.bls12_381_G2_add` (P.bls12_381_G2_neg aDeser)
+      `P.bls12_381_G2_add` P.bls12_381_G2_neg aDeser
       `P.bls12_381_G2_equals` (c `P.bls12_381_G2_scalarMul` pkDeser)

@@ -13,10 +13,8 @@ module PlutusScripts.BLS.AggregateSigWithSingleKey.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusCore.Core qualified as PLC
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.AggregateSigWithSingleKey.Common (aggregateSigSingleKeyG1, redeemerParams)
 import PlutusScripts.BLS.Common (blsAssetName, blsSigBls12381G2XmdSha256SswuRoNul)
 import PlutusScripts.Helpers qualified as H
@@ -25,9 +23,7 @@ import PlutusTx qualified
 verifyAggregateSigSingleKeyG1PolicyV3 :: SerialisedScript
 verifyAggregateSigSingleKeyG1PolicyV3 =
   serialiseCompiledCode $
-    $$( PlutusTx.compile
-          [||\a -> mkUntypedMintingPolicy @PlutusV3.ScriptContext (aggregateSigSingleKeyG1 a)||]
-      )
+    $$(PlutusTx.compile [||\a -> aggregateSigSingleKeyG1 a||])
       `PlutusTx.unsafeApplyCode` PlutusTx.liftCode PLC.plcVersion110 blsSigBls12381G2XmdSha256SswuRoNul
 
 verifyAggregateSigSingleKeyG1PolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3

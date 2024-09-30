@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -12,6 +13,10 @@
 module Spec.AlonzoFeatures where
 
 import Cardano.Api.Shelley qualified as C
+import Cardano.Ledger.Alonzo.PParams (ppMaxCollateralInputsL)
+import Cardano.Ledger.Coin (Coin)
+import Cardano.Ledger.Crypto ()
+import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
@@ -26,6 +31,7 @@ import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
 import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
+import Numeric.Natural (Natural)
 import PlutusLedgerApi.V1 as PlutusV1 hiding (lowerBound, upperBound)
 import PlutusLedgerApi.V1.Interval as P hiding (lowerBound, upperBound)
 import PlutusLedgerApi.V1.Time as P
@@ -57,7 +63,14 @@ checkTxInfoV1Test
   => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath, mTime} = do
+checkTxInfoV1Test networkOptions params = do
+  let TestParams
+        { localNodeConnectInfo
+        , pparams
+        , networkId
+        , tempAbsPath
+        , mTime
+        } = params
   era <- TN.eraFromOptionsM networkOptions
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
@@ -67,18 +80,32 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
 
   txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
   txInAsTxOut@(C.TxOut _ txInValue _ _) <-
-    Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
+    Q.getTxOutAtAddress
+      era
+      localNodeConnectInfo
+      w1Address
+      txIn
+      "txInAsTxOut <- getTxOutAtAddress"
 
   let tokenValues = C.valueFromList [(PS.checkV1TxInfoAssetIdV1, 1)]
-      executionUnits = C.ExecutionUnits{C.executionSteps = 1_000_000_000, C.executionMemory = 10_000_000}
+      executionUnits =
+        C.ExecutionUnits
+          { C.executionSteps = 1_000_000_000
+          , C.executionMemory = 10_000_000
+          }
       collateral = Tx.txInsCollateral era [txIn]
       totalLovelace = C.txOutValueToLovelace txInValue
-      fee = 2_000_000 :: C.Lovelace
+      fee = 2_000_000 :: Coin
       amountPaid = 10_000_000
       amountReturned = totalLovelace - amountPaid - fee
       datum = PS.toScriptData (42 :: Integer)
 
-      txOut1 = Tx.txOutWithDatumInTx era (C.lovelaceToValue amountPaid <> tokenValues) w1Address datum
+      txOut1 =
+        Tx.txOutWithDatumInTx
+          era
+          (C.lovelaceToValue amountPaid <> tokenValues)
+          w1Address
+          datum
       txOut2 = Tx.txOut era (C.lovelaceToValue amountReturned) w1Address
 
       lowerBound =
@@ -86,16 +113,14 @@ checkTxInfoV1Test networkOptions TestParams{localNodeConnectInfo, pparams, netwo
           P.DiffMilliSeconds $
             U.posixToMilliseconds $
               Time.utcTimeToPOSIXSeconds $
-                -- subtract 10 seconds from the lower bound so it is well before the testnet start time
+                -- subtract 10 seconds from the lower bound
+                -- so it is well before the testnet start time
                 Time.addUTCTime (-10) $
                   fromJust mTime -- before slot 1
       upperBound =
-        P.fromMilliSeconds
-        -- ~10mins after slot 1 (to account for testnet init time)
-        $
-          P.DiffMilliSeconds $
-            U.posixToMilliseconds startTime
-              + 600_000
+        P.fromMilliSeconds $
+          -- ~10mins after slot 1 (to account for testnet init time)
+          P.DiffMilliSeconds (U.posixToMilliseconds startTime + 600_000)
       timeRange = P.interval lowerBound upperBound :: PlutusV1.POSIXTimeRange
 
       expTxInfoInputs = PS.txInfoInputs era (txIn, txInAsTxOut)
@@ -155,7 +180,8 @@ datumHashSpendTestInfo =
   TestInfo
     { testName = "datumHashSpendTest"
     , testDescription =
-        "Test spending outputs with datum hash both with and without datum value embedded in tx body"
+        "Test spending outputs with datum hash both with and without \
+        \datum value embedded in tx body"
     , test = datumHashSpendTest
     }
 
@@ -164,7 +190,13 @@ datumHashSpendTest
   => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+datumHashSpendTest networkOptions testParams = do
+  let TestParams
+        { localNodeConnectInfo = conn
+        , pparams
+        , networkId
+        , tempAbsPath
+        } = testParams
   era <- TN.eraFromOptionsM networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let sbe = toShelleyBasedEra era
@@ -172,16 +204,29 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
   -- build a transaction with two script outputs to be spent
   -- only one has its datum value embedded in the tx body
 
-  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+  txIn <- Q.adaOnlyTxInAtAddress era conn w1Address
 
   let scriptAddress = case era of
-        C.AlonzoEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV1) networkId
-        C.BabbageEra -> makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
-        C.ConwayEra -> makeAddress (Right PS_1_1.alwaysSucceedSpendScriptHashV3) networkId
+        C.AlonzoEra ->
+          makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV1) networkId
+        C.BabbageEra ->
+          makeAddress (Right PS_1_0.alwaysSucceedSpendScriptHashV2) networkId
+        C.ConwayEra ->
+          makeAddress (Right PS_1_1.alwaysSucceedSpendScriptHashV3) networkId
       datum1 = PS.toScriptData (1 :: Integer)
       datum2 = PS.toScriptData (2 :: Integer)
-      scriptTxOut1 = Tx.txOutWithDatumHash era (C.lovelaceToValue 5_000_000) scriptAddress datum1
-      scriptTxOut2 = Tx.txOutWithDatumInTx era (C.lovelaceToValue 5_000_000) scriptAddress datum2
+      scriptTxOut1 =
+        Tx.txOutWithDatumHash
+          era
+          (C.lovelaceToValue 5_000_000)
+          scriptAddress
+          datum1
+      scriptTxOut2 =
+        Tx.txOutWithDatumInTx
+          era
+          (C.lovelaceToValue 5_000_000)
+          scriptAddress
+          datum2
       otherTxOut = Tx.txOut era (C.lovelaceToValue 5_000_000) w1Address
 
       txBodyContent =
@@ -190,12 +235,18 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
           , C.txOuts = [scriptTxOut1, scriptTxOut2, otherTxOut]
           }
 
-  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx sbe localNodeConnectInfo signedTx
-  let txInAtScript1 = Tx.txIn (Tx.txId signedTx) 0
-      txInAtScript2 = Tx.txIn (Tx.txId signedTx) 1
-      otherTxIn = Tx.txIn (Tx.txId signedTx) 2
-  Q.waitForTxInAtAddress era localNodeConnectInfo scriptAddress txInAtScript1 "waitForTxInAtAddress"
+  signedTx <- Tx.buildTx era conn txBodyContent w1Address w1SKey
+  let txId = Tx.txId signedTx
+  Tx.submitTx sbe conn signedTx
+  let txInAtScript1 = Tx.txIn txId 0
+      txInAtScript2 = Tx.txIn txId 1
+      otherTxIn = Tx.txIn txId 2
+  Q.waitForTxInAtAddress
+    era
+    conn
+    scriptAddress
+    txInAtScript1
+    "waitForTxInAtAddress"
 
   -- build a transaction to spend from script with datum attached to the trasaction
 
@@ -218,14 +269,14 @@ datumHashSpendTest networkOptions TestParams{localNodeConnectInfo, pparams, netw
           , C.txOuts = [txOut]
           }
 
-  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
-  Tx.submitTx sbe localNodeConnectInfo signedTx2
+  signedTx2 <- Tx.buildTx era conn txBodyContent2 w1Address w1SKey
+  Tx.submitTx sbe conn signedTx2
   let expectedTxIn1 = Tx.txIn (Tx.txId signedTx2) 0
   -- Query for txo and assert it contains expected ada value
   resultTxOut1 <-
     Q.getTxOutAtAddress
       era
-      localNodeConnectInfo
+      conn
       w1Address
       expectedTxIn1
       "resultTxOut1 <- getTxOutAtAddress"
@@ -263,9 +314,14 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 10), (PS_1_0.alwaysSucceedAssetIdV2, 10)]
+          ( C.valueFromList
+              [ (PS_1_0.alwaysSucceedAssetIdV1, 10)
+              , (PS_1_0.alwaysSucceedAssetIdV2, 10)
+              ]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
+              [ PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing
+              , PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing
+              ]
           )
         C.ConwayEra ->
           ( C.valueFromList
@@ -541,9 +597,14 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
+          ( C.valueFromList
+              [ (PS_1_0.alwaysSucceedAssetIdV1, 1)
+              , (PS_1_0.alwaysSucceedAssetIdV2, 1)
+              ]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
+              [ PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing
+              , PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing
+              ]
           )
         C.ConwayEra ->
           ( C.valueFromList
@@ -583,59 +644,72 @@ tooManyCollateralInputsErrorTestInfo =
     }
 
 tooManyCollateralInputsErrorTest
-  :: (MonadTest m, MonadIO m)
+  :: forall m era
+   . (MonadTest m, MonadIO m)
   => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-tooManyCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-  era <- TN.eraFromOptionsM networkOptions
-  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-  let sbe = toShelleyBasedEra era
+tooManyCollateralInputsErrorTest
+  networkOptions
+  TestParams
+    { localNodeConnectInfo
+    , pparams
+    , networkId
+    , tempAbsPath
+    } = do
+    era <- TN.eraFromOptionsM networkOptions
+    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+    let sbe = toShelleyBasedEra era
 
-  -- build a transaction to mint tokens
+    -- build a transaction to mint tokens
 
-  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+    txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
 
-  let C.LedgerProtocolParameters ledgerPParams = pparams
+    let
+      maxCollateralInputs :: Natural
       maxCollateralInputs =
-        fromIntegral $
-          fromJust $
-            C.protocolParamMaxCollateralInputs (C.fromLedgerPParams sbe ledgerPParams)
+        C.caseShelleyToMaryOrAlonzoEraOnwards
+          (error "ppMaxCollateralInputs not available in Shelley")
+          ( `C.alonzoEraOnwardsConstraints`
+              (C.unLedgerProtocolParameters pparams ^. ppMaxCollateralInputsL)
+          )
+          sbe
       txOut = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
-
       txBodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
           { C.txIns = Tx.pubkeyTxIns [txIn]
-          , C.txOuts = replicate (maxCollateralInputs + 1) txOut -- one more than max
+          , C.txOuts = replicate (fromIntegral maxCollateralInputs + 1) txOut -- one more than max
           }
 
-  signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-  Tx.submitTx sbe localNodeConnectInfo signedTx
-  let collateralTxIns = map (\i -> Tx.txIn (Tx.txId signedTx) i) [0 .. maxCollateralInputs]
-  Q.waitForTxInAtAddress
-    era
-    localNodeConnectInfo
-    w1Address
-    (head collateralTxIns)
-    "waitForTxInAtAddress"
+    signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
+    Tx.submitTx sbe localNodeConnectInfo signedTx
+    let collateralTxIns = do
+          i <- [0 .. maxCollateralInputs]
+          pure $ Tx.txIn (Tx.txId signedTx) (fromIntegral i)
+    Q.waitForTxInAtAddress
+      era
+      localNodeConnectInfo
+      w1Address
+      (head collateralTxIns)
+      "waitForTxInAtAddress"
 
-  -- build a transaction to mint again but using a collateral input that contains a native token
+    -- build a transaction to mint again but using a collateral input that contains a native token
 
-  let collateral = Tx.txInsCollateral era collateralTxIns
-      txOut2 = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
-      txBodyContent2 =
-        (Tx.emptyTxBodyContent sbe pparams)
-          { C.txIns = Tx.pubkeyTxIns (take 3 collateralTxIns)
-          , C.txInsCollateral = collateral
-          , C.txOuts = [txOut2]
-          }
+    let collateral = Tx.txInsCollateral era collateralTxIns
+        txOut2 = Tx.txOut era (C.lovelaceToValue 1_000_000) w1Address
+        txBodyContent2 =
+          (Tx.emptyTxBodyContent sbe pparams)
+            { C.txIns = Tx.pubkeyTxIns (take 3 collateralTxIns)
+            , C.txInsCollateral = collateral
+            , C.txOuts = [txOut2]
+            }
 
-  signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
+    signedTx2 <- Tx.buildTx era localNodeConnectInfo txBodyContent2 w1Address w1SKey
 
-  eitherSubmit <- Tx.submitTx' sbe localNodeConnectInfo signedTx2
-  -- this ledger error isn't caught by balancing so asserting for it on submit instead
-  let expError = "TooManyCollateralInputs"
-  assert expError $ Tx.isSubmitError expError eitherSubmit
+    eitherSubmit <- Tx.submitTx' sbe localNodeConnectInfo signedTx2
+    -- this ledger error isn't caught by balancing so asserting for it on submit instead
+    let expError = "TooManyCollateralInputs"
+    assert expError $ Tx.isSubmitError expError eitherSubmit
 
 -- TODO: tx to produce error: InsufficientCollateral
 -- TODO: collateral input at script address error

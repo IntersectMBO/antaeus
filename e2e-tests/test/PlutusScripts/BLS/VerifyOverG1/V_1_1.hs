@@ -13,10 +13,8 @@ module PlutusScripts.BLS.VerifyOverG1.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusCore.Core qualified as PLC
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.Common (blsAssetName, blsSigBls12381G2XmdSha256SswuRoNul)
 import PlutusScripts.BLS.VerifyOverG1.Common (redeemerParams, verifySigG1Script)
 import PlutusScripts.Helpers qualified as H
@@ -25,7 +23,7 @@ import PlutusTx qualified
 verifyBlsSigG1PolicyV3 :: SerialisedScript
 verifyBlsSigG1PolicyV3 =
   serialiseCompiledCode $
-    $$(PlutusTx.compile [||\a -> mkUntypedMintingPolicy @PlutusV3.ScriptContext (verifySigG1Script a)||])
+    $$(PlutusTx.compile [||\a -> verifySigG1Script a||])
       `PlutusTx.unsafeApplyCode` PlutusTx.liftCode PLC.plcVersion110 blsSigBls12381G2XmdSha256SswuRoNul
 
 verifyBlsSigG1PolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3

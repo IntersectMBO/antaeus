@@ -27,7 +27,7 @@ generateStakeKeyCredentialAndCertificate ceo stakePool = do
   stakeSKey <- liftIO $ C.generateSigningKey C.AsStakeKey
   let
     stakeCred = C.StakeCredentialByKey $ C.verificationKeyHash $ C.getVerificationKey stakeSKey
-    stakeDeposit = C.Lovelace 0 -- keyDeposit
+    stakeDeposit = 0 -- keyDeposit
     stakeReqs = C.StakeAddrRegistrationConway ceo stakeDeposit stakeCred
     stakeRegCert = C.makeStakeAddressRegistrationCertificate stakeReqs
     stakeUnregCert = C.makeStakeAddressUnregistrationCertificate stakeReqs

@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE Strict #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
@@ -14,13 +15,40 @@
 
 module PlutusScripts.Governance.Common where
 
+import PlutusTx.Prelude
+
 import Cardano.Api qualified as C
-import PlutusLedgerApi.V3 qualified as V3
-import PlutusScripts.Helpers (
-  toScriptData,
+import PlutusLedgerApi.V3 (
+  GovernanceAction (
+    HardForkInitiation,
+    InfoAction,
+    NewConstitution,
+    NoConfidence,
+    ParameterChange,
+    TreasuryWithdrawals,
+    UpdateCommittee
+  ),
+  GovernanceActionId,
+  Lovelace,
+  Map,
+  ProposalProcedure (ppDeposit, ppGovernanceAction, ppReturnAddr),
+  ScriptContext (scriptContextScriptInfo, scriptContextTxInfo),
+  ScriptInfo,
+  ScriptPurpose,
+  TxCert,
+  TxInfo (
+    txInfoCurrentTreasuryAmount,
+    txInfoProposalProcedures,
+    txInfoTreasuryDonation,
+    txInfoTxCerts,
+    txInfoVotes
+  ),
+  Value,
+  Vote,
+  Voter,
  )
+import PlutusScripts.Helpers (toScriptData)
 import PlutusTx.AssocMap qualified as AM
-import PlutusTx.Prelude qualified as P
 
 -- TODO: compare cost of this implementation with PlutusTx's length
 {-# INLINEABLE _lengthEq #-}
@@ -30,107 +58,126 @@ _lengthEq (_ : xs) (_ : ys) = _lengthEq xs ys
 _lengthEq _ _ = False
 
 {-# INLINEABLE listEq #-}
-listEq :: (P.Eq a) => [a] -> [a] -> Bool
-listEq rs cs =
-  P.length rs
-    P.== P.length cs
-    P.&& P.all (P.== True) (P.zipWith (P.==) rs cs)
+listEq :: (Eq a) => [a] -> [a] -> Bool
+listEq rs cs = length rs == length cs && and (zipWith (==) rs cs)
 
 -- ScriptPurpose --
 
--- data ScriptPurpose
---   = Minting CurrencySymbol
---   | Spending TxOutRef
---   | Rewarding Credential
---   | Certifying TxCert
---   | Voting Voter GovernanceActionId -- PlutusV3 still to be implemented for script DRep evaluation
---   | Proposing -- Constitution script (proposal policy) still TODO in caradno-api (8.33)
---   deriving (Show, Eq)
-
 {-# INLINEABLE mkVerifyScriptPurpose #-}
-mkVerifyScriptPurpose :: V3.ScriptPurpose -> V3.ScriptContext -> Bool
-mkVerifyScriptPurpose r sc = r P.== V3.scriptContextPurpose sc
+mkVerifyScriptPurpose :: ScriptContext -> (ScriptInfo -> Bool) -> Bool
+mkVerifyScriptPurpose sc = ($ scriptContextScriptInfo sc)
 
 scriptPurposeAssetName :: C.AssetName
 scriptPurposeAssetName = C.AssetName "ScriptPurpose"
 
-verifyScriptPurposeRedeemer :: V3.ScriptPurpose -> C.HashableScriptData
+verifyScriptPurposeRedeemer :: ScriptPurpose -> C.HashableScriptData
 verifyScriptPurposeRedeemer = toScriptData
 
 -- TxCert --
 
 {-# INLINEABLE mkVerifyTxCerts #-}
-mkVerifyTxCerts :: [V3.TxCert] -> V3.ScriptContext -> Bool
-mkVerifyTxCerts r sc = r P.== (V3.txInfoTxCerts P.$ V3.scriptContextTxInfo sc)
+mkVerifyTxCerts :: [TxCert] -> ScriptContext -> Bool
+mkVerifyTxCerts r sc = r == (txInfoTxCerts $ scriptContextTxInfo sc)
 
 txCertsAssetName :: C.AssetName
 txCertsAssetName = C.AssetName "TxCerts"
 
-verifyTxCertsRedeemer :: [V3.TxCert] -> C.HashableScriptData
+verifyTxCertsRedeemer :: [TxCert] -> C.HashableScriptData
 verifyTxCertsRedeemer = toScriptData
 
 -- txInfoVotes --
 
 {-# INLINEABLE mkVerifyVotes #-}
-mkVerifyVotes :: V3.Map V3.Voter (V3.Map V3.GovernanceActionId V3.Vote) -> V3.ScriptContext -> Bool
+mkVerifyVotes :: Map Voter (Map GovernanceActionId Vote) -> ScriptContext -> Bool
 mkVerifyVotes r sc = do
   let redeemerVoters = AM.keys r
-      contextVoters = AM.keys $ V3.txInfoVotes P.$ V3.scriptContextTxInfo sc
+      contextVoters = AM.keys $ txInfoVotes $ scriptContextTxInfo sc
       redeemerGovActionIds = AM.keys <$> AM.elems r
       contextGovActionIds = AM.keys <$> AM.elems r
       redeemerVotes = AM.elems <$> AM.elems r
       contextVotes = AM.elems <$> AM.elems r
   listEq redeemerVoters contextVoters
-    P.&& emListEq redeemerGovActionIds contextGovActionIds
-    P.&& emListEq redeemerVotes contextVotes
+    && emListEq redeemerGovActionIds contextGovActionIds
+    && emListEq redeemerVotes contextVotes
   where
     {-# INLINEABLE emListEq #-}
-    emListEq :: (P.Eq a) => [[a]] -> [[a]] -> Bool
+    emListEq :: (Eq a) => [[a]] -> [[a]] -> Bool
     emListEq rs cs =
-      P.length rs
-        P.== P.length cs
+      (length rs == length cs)
         -- lengthEq rs cs -- alternate implementation
-        P.&& P.all (P.== True) (P.zipWith listEq rs cs)
+        && and (zipWith listEq rs cs)
 
 votesAssetName :: C.AssetName
 votesAssetName = C.AssetName "Votes"
 
 verifyVotesRedeemer
-  :: V3.Map V3.Voter (V3.Map V3.GovernanceActionId V3.Vote) -> C.HashableScriptData
+  :: Map Voter (Map GovernanceActionId Vote) -> C.HashableScriptData
 verifyVotesRedeemer = toScriptData
 
 -- txInfoProposalProcedures --
 
 {-# INLINEABLE mkVerifyProposalProcedures #-}
-mkVerifyProposalProcedures :: [V3.ProposalProcedure] -> V3.ScriptContext -> Bool
-mkVerifyProposalProcedures r sc = listEq r (V3.txInfoProposalProcedures P.$ V3.scriptContextTxInfo sc)
+mkVerifyProposalProcedures :: [ProposalProcedure] -> ScriptContext -> Bool
+mkVerifyProposalProcedures expectedPProcedures ctx =
+  (length expectedPProcedures == length ctxPProcedures)
+    && all
+      (uncurry eqProposalProcedure)
+      (zip expectedPProcedures ctxPProcedures)
+  where
+    ctxPProcedures = txInfoProposalProcedures (scriptContextTxInfo ctx)
+
+    eqProposalProcedure :: ProposalProcedure -> ProposalProcedure -> Bool
+    eqProposalProcedure l r =
+      (ppDeposit l == ppDeposit r)
+        && (ppReturnAddr l == ppReturnAddr r)
+        && eqGovernanceAction
+          (ppGovernanceAction l)
+          (ppGovernanceAction r)
+
+    eqGovernanceAction :: GovernanceAction -> GovernanceAction -> Bool
+    eqGovernanceAction l r =
+      case (l, r) of
+        (ParameterChange a ps sh, ParameterChange a' ps' sh') ->
+          (a == a') && (ps == ps') && (sh == sh')
+        (HardForkInitiation a pv, HardForkInitiation a' pv') ->
+          (a == a') && (pv == pv')
+        (TreasuryWithdrawals m sh, TreasuryWithdrawals m' sh') ->
+          (toList m == toList m') && (sh == sh')
+        (NoConfidence a, NoConfidence a') -> a == a'
+        (UpdateCommittee a rm am q, UpdateCommittee a' rm' am' q') ->
+          (a == a') && (rm == rm') && (toList am == toList am') && (q == q')
+        (NewConstitution a c, NewConstitution a' c') ->
+          (a == a') && (c == c')
+        (InfoAction, InfoAction) -> True
+        _ -> False
 
 proposalProceduresAssetName :: C.AssetName
 proposalProceduresAssetName = C.AssetName "ProposalProcedures"
 
-verifyProposalProceduresRedeemer :: [V3.ProposalProcedure] -> C.HashableScriptData
+verifyProposalProceduresRedeemer :: [ProposalProcedure] -> C.HashableScriptData
 verifyProposalProceduresRedeemer = toScriptData
 
 -- txInfoCurrentTreasuryAmount --
 
 {-# INLINEABLE mkVerifyCurrentTreasuryAmount #-}
-mkVerifyCurrentTreasuryAmount :: P.Maybe V3.Lovelace -> V3.ScriptContext -> Bool
-mkVerifyCurrentTreasuryAmount r sc = r P.== (V3.txInfoCurrentTreasuryAmount P.$ V3.scriptContextTxInfo sc)
+mkVerifyCurrentTreasuryAmount :: Maybe Lovelace -> ScriptContext -> Bool
+mkVerifyCurrentTreasuryAmount r sc =
+  r == (txInfoCurrentTreasuryAmount $ scriptContextTxInfo sc)
 
 currentTreasuryAmountAssetName :: C.AssetName
 currentTreasuryAmountAssetName = C.AssetName "CurrentTreasuryAmount"
 
-currentTreasuryAmountRedeemer :: P.Maybe V3.Value -> C.HashableScriptData
+currentTreasuryAmountRedeemer :: Maybe Value -> C.HashableScriptData
 currentTreasuryAmountRedeemer = toScriptData
 
 -- txInfoTreasuryDonation --
 
 {-# INLINEABLE mkVerifyTreasuryDonation #-}
-mkVerifyTreasuryDonation :: P.Maybe V3.Lovelace -> V3.ScriptContext -> Bool
-mkVerifyTreasuryDonation r sc = r P.== (V3.txInfoTreasuryDonation P.$ V3.scriptContextTxInfo sc)
+mkVerifyTreasuryDonation :: Maybe Lovelace -> ScriptContext -> Bool
+mkVerifyTreasuryDonation r sc = r == (txInfoTreasuryDonation $ scriptContextTxInfo sc)
 
 treasuryDonationAssetName :: C.AssetName
 treasuryDonationAssetName = C.AssetName "TreasuryDonationAssetName"
 
-treasuryDonationRedeemer :: P.Maybe V3.Value -> C.HashableScriptData
+treasuryDonationRedeemer :: Maybe Value -> C.HashableScriptData
 treasuryDonationRedeemer = toScriptData

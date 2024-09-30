@@ -13,18 +13,18 @@ module PlutusScripts.BLS.SimpleSignAndVerify.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.Common (blsAssetName)
-import PlutusScripts.BLS.SimpleSignAndVerify.Common (redeemerParams, verifyBlsSimpleScript)
+import PlutusScripts.BLS.SimpleSignAndVerify.Common (
+  redeemerParams,
+  verifyBlsSimpleScript,
+ )
 import PlutusScripts.Helpers qualified as H
 import PlutusTx qualified
 
 verifyBlsSimplePolicyV3 :: SerialisedScript
 verifyBlsSimplePolicyV3 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||mkUntypedMintingPolicy @PlutusV3.ScriptContext verifyBlsSimpleScript||])
+  serialiseCompiledCode $$(PlutusTx.compile [||verifyBlsSimpleScript||])
 
 verifyBlsSimplePolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyBlsSimplePolicyScriptV3 = C.PlutusScriptSerialised verifyBlsSimplePolicyV3

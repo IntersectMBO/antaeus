@@ -15,6 +15,7 @@ module Spec.Builtins.Bitwise where
 import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
+import Debug.Trace qualified as Debug
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
 import Helpers.Common (toShelleyBasedEra)
@@ -197,8 +198,5 @@ checkIntegerToByteStringError
         w1Address
         Nothing
         [C.WitnessPaymentKey w1SKey]
-    H.annotate $ show eitherTx
-    -- let actual = Tx.txBodyScriptExecutionError eitherTx
-    -- H.annotate $ show actual
-    -- H.failure
+    Debug.traceM $ show eitherTx
     assert expError $ Tx.isTxBodyScriptExecutionError expError eitherTx

@@ -14,6 +14,7 @@
 
 module PlutusScripts.BLS.VerifyOverG1.Common where
 
+import PlutusLedgerApi.V3 (ScriptContext)
 import PlutusScripts.Helpers (bytesFromHex)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
@@ -56,9 +57,9 @@ redeemerParams =
 verifySigG1Script
   :: P.BuiltinByteString
   -> BlsParams
-  -> sc
+  -> ScriptContext
   -> Bool
-verifySigG1Script dst BlsParams{..} _sc = do
+verifySigG1Script dst BlsParams{..} _scriptContext = do
   let
     pkDeser = BI.bls12_381_G1_uncompress pubKey
     sigDeser = BI.bls12_381_G2_uncompress signature

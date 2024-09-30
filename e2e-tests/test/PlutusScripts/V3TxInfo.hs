@@ -14,20 +14,19 @@ module PlutusScripts.V3TxInfo where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
+import Cardano.Ledger.Coin qualified as L
 import Helpers.TypeConverters (
+  coinToLovelace,
   fromCardanoPaymentKeyHash,
   fromCardanoScriptData,
-  fromCardanoTxIn,
-  -- fromCardanoTxOutToPV3TxInfoTxOut,
-  -- fromCardanoTxOutToPV3TxInfoTxOut',
-
+  fromCardanoTxInV3,
   fromCardanoTxOutToPV3TxInfoTxOut,
   fromCardanoTxOutToPV3TxInfoTxOut',
   fromCardanoValue,
  )
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1.Interval qualified as P
+import PlutusLedgerApi.V1.Value qualified as PlutusV1
 import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.Helpers (mintScriptWitness', plutusL3, policyIdV3, toScriptData)
 import PlutusTx qualified
@@ -128,15 +127,15 @@ checkV3TxInfoRedeemer
 txInfoInputs :: C.ShelleyBasedEra era -> (C.TxIn, C.TxOut C.CtxUTxO era) -> PlutusV3.TxInInfo
 txInfoInputs sbe (txIn, txOut) = do
   PlutusV3.TxInInfo
-    { PlutusV3.txInInfoOutRef = fromCardanoTxIn txIn
+    { PlutusV3.txInInfoOutRef = fromCardanoTxInV3 txIn
     , PlutusV3.txInInfoResolved = fromCardanoTxOutToPV3TxInfoTxOut' sbe txOut
     }
 
 txInfoOutputs :: C.ShelleyBasedEra era -> [C.TxOut C.CtxTx era] -> [PlutusV3.TxOut]
 txInfoOutputs sbe = map (fromCardanoTxOutToPV3TxInfoTxOut sbe)
 
-txInfoFee :: C.Lovelace -> PlutusV3.Value
-txInfoFee = fromCardanoValue . C.lovelaceToValue
+txInfoFee :: L.Coin -> PlutusV3.Value
+txInfoFee = PlutusV1.lovelaceValue . coinToLovelace
 
 txInfoMint :: C.Value -> PlutusV3.Value
 txInfoMint = fromCardanoValue
@@ -146,10 +145,13 @@ txInfoSigs = map (fromCardanoPaymentKeyHash . C.verificationKeyHash)
 
 txInfoData :: [C.HashableScriptData] -> PlutusV3.Map PlutusV3.DatumHash PlutusV3.Datum
 txInfoData =
-  PlutusV3.fromList
+  PlutusV3.unsafeFromList
     . map
       ( \datum ->
-          ( PlutusV3.DatumHash $ PlutusV3.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptDataBytes datum
+          ( PlutusV3.DatumHash $
+              PlutusV3.toBuiltin $
+                C.serialiseToRawBytes $
+                  C.hashScriptDataBytes datum
           , PlutusV3.Datum $ fromCardanoScriptData datum
           )
       )
@@ -181,22 +183,18 @@ mkCheckV3TxInfo V3TxInfo{..} ctx =
     checkTxInfoFee = expTxInfoFee P.== PlutusV3.txInfoFee info
     checkTxInfoMint = expTxInfoMint P.== PlutusV3.txInfoMint info
     checkTxInfoTxCert = expTxInfoTxCert P.== PlutusV3.txInfoTxCerts info
-    checkTxInfoWdrl = expTxInfoWdrl P.== PlutusV3.txInfoWdrl info
+    checkTxInfoWdrl = P.toList expTxInfoWdrl P.== P.toList (PlutusV3.txInfoWdrl info)
     checkTxInfoValidRange = expTxInfoValidRange `P.contains` PlutusV3.txInfoValidRange info
     checkTxInfoSignatories = expTxInfoSignatories P.== PlutusV3.txInfoSignatories info
     checkTxInfoRedeemers = False -- do -- TODO: uncomment section when ownCurrencySymbol etc is implemented for V3
     -- let ownScriptPurpose = PlutusV3.Minting (ownCurrencySymbol ctx)
     --    withoutOwnRedeemer = AMap.delete ownScriptPurpose (PlutusV3.txInfoRedeemers info)
     -- expTxInfoRedeemers P.== withoutOwnRedeemer -- cannot check own redeemer so only check other script's redeemer
-    checkTxInfoData = expTxInfoData P.== PlutusV3.txInfoData info
+    checkTxInfoData = P.toList expTxInfoData P.== P.toList (PlutusV3.txInfoData info)
     checkTxInfoId = P.equalsInteger 32 (P.lengthOfByteString P.$ PlutusV3.getTxId P.$ PlutusV3.txInfoId info)
 
 checkV3TxInfoV3 :: SerialisedScript
-checkV3TxInfoV3 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkCheckV3TxInfo
+checkV3TxInfoV3 = serialiseCompiledCode $$(PlutusTx.compile [||mkCheckV3TxInfo||])
 
 checkV3TxInfoScriptV3 :: C.PlutusScript C.PlutusScriptV3
 checkV3TxInfoScriptV3 = C.PlutusScriptSerialised checkV3TxInfoV3

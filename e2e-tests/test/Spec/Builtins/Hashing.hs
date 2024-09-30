@@ -54,8 +54,14 @@ verifyHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
           , Map.fromList [PS_1_0.checkHashingMintWitnessV1 sbe]
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4), (PS_1_0.checkHashingAssetIdV2, 2)]
-          , Map.fromList [PS_1_0.checkHashingMintWitnessV1 sbe, PS_1_0.checkHashingMintWitnessV2 sbe]
+          ( C.valueFromList
+              [ (PS_1_0.checkHashingAssetIdV1, 4)
+              , (PS_1_0.checkHashingAssetIdV2, 2)
+              ]
+          , Map.fromList
+              [ PS_1_0.checkHashingMintWitnessV1 sbe
+              , PS_1_0.checkHashingMintWitnessV2 sbe
+              ]
           )
         C.ConwayEra ->
           ( C.valueFromList

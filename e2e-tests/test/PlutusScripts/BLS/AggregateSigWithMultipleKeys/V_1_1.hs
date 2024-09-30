@@ -13,26 +13,22 @@ module PlutusScripts.BLS.AggregateSigWithMultipleKeys.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusCore.Core qualified as PLC
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.AggregateSigWithMultipleKeys.Common (
   aggregateMultiKeyG2Script,
   redeemerParams,
  )
 import PlutusScripts.BLS.Common (blsAssetName, blsSigBls12381G2XmdSha256SswuRoNul, byteString16Null)
 import PlutusScripts.Helpers qualified as H
-import PlutusTx qualified
+import PlutusTx qualified as P
 
 verifyBlsAggregateSigMultiKeyG2PolicyV3 :: SerialisedScript
 verifyBlsAggregateSigMultiKeyG2PolicyV3 =
   serialiseCompiledCode $
-    $$( PlutusTx.compile
-          [||\a b -> mkUntypedMintingPolicy @PlutusV3.ScriptContext (aggregateMultiKeyG2Script a b)||]
-      )
-      `PlutusTx.unsafeApplyCode` PlutusTx.liftCode PLC.plcVersion110 byteString16Null
-      `PlutusTx.unsafeApplyCode` PlutusTx.liftCode PLC.plcVersion110 blsSigBls12381G2XmdSha256SswuRoNul
+    $$(P.compile [||\a b -> aggregateMultiKeyG2Script a b||])
+      `P.unsafeApplyCode` P.liftCode PLC.plcVersion110 byteString16Null
+      `P.unsafeApplyCode` P.liftCode PLC.plcVersion110 blsSigBls12381G2XmdSha256SswuRoNul
 
 verifyBlsAggregateSigMultiKeyG2PolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyBlsAggregateSigMultiKeyG2PolicyScriptV3 = C.PlutusScriptSerialised verifyBlsAggregateSigMultiKeyG2PolicyV3

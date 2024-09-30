@@ -13,16 +13,15 @@ module PlutusScripts.Bitwise.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (mkUntypedMintingPolicy)
+import GHC.ByteOrder (ByteOrder (..))
+import Helpers.ScriptUtils (tracedUnsafeFrom)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
+import PlutusLedgerApi.V3 qualified as V3
+import PlutusScripts.BLS.Common (byteStringToIntegerLE)
 import PlutusScripts.Bitwise.Common (
-  ByteStringToIntegerParams,
-  IntegerToByteStringParams,
+  ByteStringToIntegerParams (..),
+  IntegerToByteStringParams (..),
   bitwiseAssetName,
-  mkByteStringToIntegerPolicy,
-  mkByteStringToIntegerRoundtripPolicy,
-  mkIntegerToByteStringPolicy,
  )
 import PlutusScripts.Helpers (
   mintScriptWitness,
@@ -30,23 +29,36 @@ import PlutusScripts.Helpers (
   policyIdV3,
   toScriptData,
  )
-import PlutusTx qualified
+import PlutusTx qualified as P
+import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
 
 -- ByteString to Integer --
 
 byteStringToIntegerPolicyV3 :: SerialisedScript
 byteStringToIntegerPolicyV3 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
+  serialiseCompiledCode $$(P.compile [||byteStringToIntegerPolicy||])
   where
-    wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkByteStringToIntegerPolicy
+    {-# INLINEABLE byteStringToIntegerPolicy #-}
+    byteStringToIntegerPolicy :: P.BuiltinData -> P.BuiltinUnit
+    byteStringToIntegerPolicy sc = do
+      let scriptContext = tracedUnsafeFrom "ScriptContext decoded ok" sc
+      let redeemer = V3.getRedeemer (V3.scriptContextRedeemer scriptContext)
+      let ByteStringToIntegerParams{..} =
+            tracedUnsafeFrom "Redeemer decoded ok" redeemer
+      let int =
+            BI.byteStringToInteger
+              (if bsByteOrder then BigEndian else LittleEndian)
+              byteString
+      P.check $ int P.== expInteger
 
 byteStringToIntegerPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
-byteStringToIntegerPolicyScriptV3 = C.PlutusScriptSerialised byteStringToIntegerPolicyV3
+byteStringToIntegerPolicyScriptV3 =
+  C.PlutusScriptSerialised byteStringToIntegerPolicyV3
 
 byteStringToIntegerAssetIdV3 :: C.AssetId
-byteStringToIntegerAssetIdV3 = C.AssetId (policyIdV3 byteStringToIntegerPolicyV3) bitwiseAssetName
+byteStringToIntegerAssetIdV3 =
+  C.AssetId (policyIdV3 byteStringToIntegerPolicyV3) bitwiseAssetName
 
 byteStringToIntegerMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -54,23 +66,40 @@ byteStringToIntegerMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 byteStringToIntegerMintWitnessV3 sbe redeemer =
   ( policyIdV3 byteStringToIntegerPolicyV3
-  , mintScriptWitness sbe plutusL3 (Left byteStringToIntegerPolicyScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left byteStringToIntegerPolicyScriptV3)
+      (toScriptData redeemer)
   )
 
 -- Integer to ByteString --
 
 integerToByteStringPolicyV3 :: SerialisedScript
 integerToByteStringPolicyV3 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
+  serialiseCompiledCode $$(P.compile [||integerToByteStringPolicy||])
   where
-    wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkIntegerToByteStringPolicy
+    {-# INLINEABLE integerToByteStringPolicy #-}
+    integerToByteStringPolicy :: P.BuiltinData -> P.BuiltinUnit
+    integerToByteStringPolicy sc = do
+      let scriptContext = tracedUnsafeFrom "ScriptContext decoded ok" sc
+      let redeemer = V3.getRedeemer (V3.scriptContextRedeemer scriptContext)
+      let IntegerToByteStringParams{..} =
+            tracedUnsafeFrom "Redeemer decoded ok" redeemer
+      let bs =
+            BI.integerToByteString
+              (if intByteOrder then BigEndian else LittleEndian)
+              outputMinSize
+              integer
+      P.check $ bs P.== expByteString
 
 integerToByteStringPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
-integerToByteStringPolicyScriptV3 = C.PlutusScriptSerialised integerToByteStringPolicyV3
+integerToByteStringPolicyScriptV3 =
+  C.PlutusScriptSerialised integerToByteStringPolicyV3
 
 integerToByteStringAssetIdV3 :: C.AssetId
-integerToByteStringAssetIdV3 = C.AssetId (policyIdV3 integerToByteStringPolicyV3) bitwiseAssetName
+integerToByteStringAssetIdV3 =
+  C.AssetId (policyIdV3 integerToByteStringPolicyV3) bitwiseAssetName
 
 integerToByteStringMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -78,7 +107,11 @@ integerToByteStringMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 integerToByteStringMintWitnessV3 sbe redeemer =
   ( policyIdV3 integerToByteStringPolicyV3
-  , mintScriptWitness sbe plutusL3 (Left integerToByteStringPolicyScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left integerToByteStringPolicyScriptV3)
+      (toScriptData redeemer)
   )
 
 -- ByteString to Integer and Integer to ByteString Roundtrip --
@@ -86,15 +119,27 @@ integerToByteStringMintWitnessV3 sbe redeemer =
 byteStringToIntegerRoundtripPolicyV3 :: SerialisedScript
 byteStringToIntegerRoundtripPolicyV3 =
   serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
+    $$(P.compile [||byteStringToIntegerRoundtripPolicy||])
   where
-    wrap = mkUntypedMintingPolicy @PlutusV3.ScriptContext mkByteStringToIntegerRoundtripPolicy
-
+    {-# INLINEABLE byteStringToIntegerRoundtripPolicy #-}
+    byteStringToIntegerRoundtripPolicy :: P.BuiltinData -> P.BuiltinUnit
+    byteStringToIntegerRoundtripPolicy sc = do
+      let scriptContext = tracedUnsafeFrom "ScriptContext decoded ok" sc
+      let redeemer = V3.getRedeemer (V3.scriptContextRedeemer scriptContext)
+      let bs :: P.BuiltinByteString
+          bs = tracedUnsafeFrom "Redeemer decoded ok" redeemer
+      let intBE = BI.byteStringToInteger BigEndian bs
+          bsBE = BI.integerToByteString BigEndian 0 intBE
+          intLE = byteStringToIntegerLE bs
+          bsLE = BI.integerToByteString LittleEndian 0 intLE
+      P.check $ bs P.== bsBE P.&& bs P.== bsLE
 byteStringToIntegerRoundtripPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
-byteStringToIntegerRoundtripPolicyScriptV3 = C.PlutusScriptSerialised byteStringToIntegerRoundtripPolicyV3
+byteStringToIntegerRoundtripPolicyScriptV3 =
+  C.PlutusScriptSerialised byteStringToIntegerRoundtripPolicyV3
 
 byteStringToIntegerRoundtripAssetIdV3 :: C.AssetId
-byteStringToIntegerRoundtripAssetIdV3 = C.AssetId (policyIdV3 byteStringToIntegerRoundtripPolicyV3) bitwiseAssetName
+byteStringToIntegerRoundtripAssetIdV3 =
+  C.AssetId (policyIdV3 byteStringToIntegerRoundtripPolicyV3) bitwiseAssetName
 
 byteStringToIntegerAndBackMintWitnessV3
   :: C.ShelleyBasedEra era

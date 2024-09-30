@@ -1,25 +1,19 @@
-cabal-version:     3.0
-name:              e2e-tests
-version:           1.2.0.0
-license:           Apache-2.0
-license-files:
-  LICENSE
-  NOTICE
-
-author:            James Browning
-maintainer:        james.browning@iohk.io
-homepage:          https://github.com/IntersectMBO/antaeus#readme
-bug-reports:       https://github.com/IntersectMBO/antaeus/issues
+cabal-version: 3.0
+name:          e2e-tests
+version:       1.2.0.0
+license-file:  LICENSE
+author:        James Browning
+maintainer:    james.browning@iohk.io
+homepage:      https://github.com/IntersectMBO/antaeus#readme
+bug-reports:   https://github.com/IntersectMBO/antaeus/issues
 description:
   Please see the README on GitHub at <https://github.com/IntersectMBO/antaeus#readme>
 
-build-type:        Simple
+build-type:    Simple
 
 source-repository head
   type:     git
   location: https://github.com/IntersectMBO/antaeus
-
-pkgconfig-depends: libblst
 
 common lang
   default-language:   Haskell2010

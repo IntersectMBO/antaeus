@@ -12,10 +12,7 @@
 module PlutusScripts.SECP256k1.Common where
 
 import Cardano.Api qualified as C
-import PlutusScripts.Helpers (
-  bytesFromHex,
-  toScriptData,
- )
+import PlutusScripts.Helpers (bytesFromHex, toScriptData)
 import PlutusTx qualified
 import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
@@ -28,19 +25,16 @@ data Secp256Params = Secp256Params
   , sig :: P.BuiltinByteString
   }
 
-PlutusTx.unstableMakeIsData ''Secp256Params
-PlutusTx.makeLift ''Secp256Params
+$(PlutusTx.unstableMakeIsData ''Secp256Params)
+$(PlutusTx.makeLift ''Secp256Params)
 
 -- Schnorr minting policy --
 
 -- Use redeemer once PlutusV3 is fully implemented in the ledger
 -- {-# INLINEABLE mkVerifySchnorrPolicy #-}
 -- mkVerifySchnorrPolicy :: Secp256Params -> sc -> Bool
--- mkVerifySchnorrPolicy Secp256Params{..} _sc = BI.verifySchnorrSecp256k1Signature vkey msg sig
-
-{-# INLINEABLE mkVerifySchnorrPolicy #-}
-mkVerifySchnorrPolicy :: Secp256Params -> P.BuiltinData -> P.BuiltinData -> Bool
-mkVerifySchnorrPolicy Secp256Params{..} _r _sc = BI.verifySchnorrSecp256k1Signature vkey msg sig
+-- mkVerifySchnorrPolicy Secp256Params{..} _sc =
+--   BI.verifySchnorrSecp256k1Signature vkey msg sig
 
 schnorrAssetName :: C.AssetName
 schnorrAssetName = C.AssetName "Schnorr"
@@ -49,7 +43,9 @@ verifySchnorrParams :: Secp256Params
 verifySchnorrParams =
   Secp256Params
     { vkey =
-        BI.toBuiltin $ bytesFromHex "599de3e582e2a3779208a210dfeae8f330b9af00a47a7fb22e9bb8ef596f301b"
+        BI.toBuiltin $
+          bytesFromHex
+            "599de3e582e2a3779208a210dfeae8f330b9af00a47a7fb22e9bb8ef596f301b"
     , msg =
         BI.toBuiltin $
           bytesFromHex
@@ -72,11 +68,8 @@ verifySchnorrRedeemer = toScriptData verifySchnorrParams
 -- Use redeemer once PlutusV3 is fully implemented in the ledger
 -- {-# INLINEABLE mkVerifyEcdsaPolicy #-}
 -- mkVerifyEcdsaPolicy :: Secp256Params -> sc -> Bool
--- mkVerifyEcdsaPolicy Secp256Params{..} _sc = BI.verifyEcdsaSecp256k1Signature vkey msg sig
-
-{-# INLINEABLE mkVerifyEcdsaPolicy #-}
-mkVerifyEcdsaPolicy :: Secp256Params -> P.BuiltinData -> P.BuiltinData -> Bool
-mkVerifyEcdsaPolicy Secp256Params{..} _r _sc = BI.verifyEcdsaSecp256k1Signature vkey msg sig
+-- mkVerifyEcdsaPolicy Secp256Params{..} _sc =
+--   BI.verifyEcdsaSecp256k1Signature vkey msg sig
 
 ecdsaAssetName :: C.AssetName
 ecdsaAssetName = C.AssetName "ECDSA"

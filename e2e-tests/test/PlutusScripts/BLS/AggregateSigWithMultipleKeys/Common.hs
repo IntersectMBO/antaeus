@@ -14,11 +14,10 @@
 
 module PlutusScripts.BLS.AggregateSigWithMultipleKeys.Common where
 
-import PlutusScripts.Helpers (
-  bytesFromHex,
- )
+import PlutusLedgerApi.V3 (ScriptContext)
+import PlutusScripts.BLS.Common (byteStringToIntegerLE)
+import PlutusScripts.Helpers (bytesFromHex)
 import PlutusTx qualified
-import PlutusTx.Builtins qualified as BI
 import PlutusTx.Prelude qualified as P
 
 data BlsParams = BlsParams
@@ -110,16 +109,15 @@ aggregateMultiKeyG2Script
   :: P.BuiltinByteString
   -> P.BuiltinByteString
   -> BlsParams
-  -> sc
+  -> ScriptContext
   -> Bool
-aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
+aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _scriptContext = do
   let
     hashedMsg = P.bls12_381_G1_hashToGroup message dst
     pksDeser = P.map P.bls12_381_G2_uncompress pubKeys
     -- scalar calcuates to (142819114285630344964654001480828217341 :: Integer)
     dsScalar =
-      BI.byteStringToInteger
-        False
+      byteStringToIntegerLE
         ( P.sliceByteString
             0
             16
@@ -162,7 +160,7 @@ aggregateMultiKeyG2Script bs16Null dst BlsParams{..} _sc = do
       -> P.BuiltinBLS12_381_G2_Element
       -> P.BuiltinBLS12_381_G2_Element
     go _ [] _ acc = acc
-    go i (x : xs) (x' : xs') acc = go (i P.+ 1) xs xs' (acc `P.bls12_381_G2_add` (calcAggregatedPubkey x x'))
+    go i (x : xs) (x' : xs') acc = go (i P.+ 1) xs xs' (acc `P.bls12_381_G2_add` calcAggregatedPubkey x x')
     go _ _ _ _ = P.traceError "go: unexpected"
 
     calcAggregatedPubkey :: P.BuiltinBLS12_381_G2_Element -> Integer -> P.BuiltinBLS12_381_G2_Element

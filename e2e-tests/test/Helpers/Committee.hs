@@ -1,10 +1,13 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Helpers.Committee where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C hiding (Voter)
 import Cardano.Ledger.Keys qualified as Keys
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -20,41 +23,47 @@ data Committee era = Committee
   deriving (Show)
 
 generateCommitteeKeysAndCertificate
-  :: (MonadIO m)
-  => C.ConwayEraOnwards era
-  -> m (Committee era)
-generateCommitteeKeysAndCertificate ceo = do
+  :: forall m era. (MonadIO m) => C.ConwayEraOnwards era -> m (Committee era)
+generateCommitteeKeysAndCertificate era = do
   -- generate committee cold key
   committeeColdSKey <- liftIO $ C.generateSigningKey C.AsCommitteeColdKey
-  let
-    committeeColdVerificationKey@(C.CommitteeColdVerificationKey committeeColdVkey) =
-      C.getVerificationKey committeeColdSKey
-    committeeColdHash = C.verificationKeyHash committeeColdVerificationKey
-
   -- generate committee hot key
   committeeHotSKey <- liftIO $ C.generateSigningKey C.AsCommitteeHotKey
+
   let
-    _committeeHotVerificationKey@(C.CommitteeHotVerificationKey committeeHotVKey) =
+    commiteeColdVKey@(C.CommitteeColdVerificationKey ccColdVKey) =
+      C.getVerificationKey committeeColdSKey
+    committeeColdKeyHash = C.verificationKeyHash commiteeColdVKey
+
+    C.CommitteeHotVerificationKey ccHotVKey =
       C.getVerificationKey committeeHotSKey
 
     -- produce committee hot key authorization certificate
-    ckh = C.conwayEraOnwardsConstraints ceo $ Keys.hashKey committeeColdVkey
-    hkh = C.conwayEraOnwardsConstraints ceo $ Keys.hashKey committeeHotVKey
-    committeeHotRequirements = C.CommitteeHotKeyAuthorizationRequirements ceo ckh hkh
-    committeeHotKeyAuthCert = C.makeCommitteeHotKeyAuthorizationCertificate committeeHotRequirements
+    coldKeyHash =
+      C.conwayEraOnwardsConstraints era $ L.KeyHashObj $ Keys.hashKey ccColdVKey
+    hotKeyHash =
+      C.conwayEraOnwardsConstraints era $ L.KeyHashObj $ Keys.hashKey ccHotVKey
+    committeeHotRequirements =
+      C.CommitteeHotKeyAuthorizationRequirements era coldKeyHash hotKeyHash
+    committeeHotKeyAuthCert =
+      C.makeCommitteeHotKeyAuthorizationCertificate committeeHotRequirements
 
     -- produce committee voter
-    C.CommitteeHotKeyHash committeeHotHash = C.verificationKeyHash $ C.getVerificationKey committeeHotSKey
-    dRepVotingCredential = C.conwayEraOnwardsConstraints ceo C.KeyHashObj committeeHotHash
-    committeeVoter = C.CommitteeVoter dRepVotingCredential
-  return $
+    C.CommitteeHotKeyHash committeeHotHash =
+      C.verificationKeyHash $ C.getVerificationKey committeeHotSKey
+    committeeVotingCredential =
+      C.conwayEraOnwardsConstraints era $ C.KeyHashObj committeeHotHash
+    committeeVoter = C.CommitteeVoter committeeVotingCredential
+  pure
     Committee
-      committeeColdSKey
-      committeeColdVerificationKey
-      committeeColdHash
-      committeeHotSKey
-      committeeHotKeyAuthCert
-      committeeVoter
+      { committeeColdSKey
+      , commiteeColdVKey
+      , committeeColdKeyHash
+      , committeeHotSKey
+      , committeeHotKeyAuthCert
+      , committeeVoter
+      }
 
-castCommittee :: C.SigningKey C.CommitteeHotKey -> C.SigningKey C.PaymentKey
-castCommittee (C.CommitteeHotSigningKey committeeHotSK) = C.PaymentSigningKey committeeHotSK
+keyAsWitness :: C.SigningKey C.CommitteeHotKey -> C.ShelleyWitnessSigningKey
+keyAsWitness (C.CommitteeHotSigningKey key) =
+  C.WitnessPaymentKey (C.PaymentSigningKey key)

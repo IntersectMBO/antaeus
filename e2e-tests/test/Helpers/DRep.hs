@@ -5,6 +5,7 @@ module Helpers.DRep where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C hiding (Voter)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
@@ -53,11 +54,18 @@ buildDRep
   -> m (DRep era)
 buildDRep ceo dRepVotingCredential mDRepSKey = do
   let
-    dRepDeposit = C.Lovelace 0
-    dRepRegReqs = C.DRepRegistrationRequirements ceo dRepVotingCredential dRepDeposit
-    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
-    dRepUnregReqs = C.DRepUnregistrationRequirements ceo dRepVotingCredential 0
-    dRepUnregCert = C.makeDrepUnregistrationCertificate dRepUnregReqs
+    dRepDeposit = L.Coin 0
+    dRepRegReqs =
+      C.DRepRegistrationRequirements
+        ceo
+        dRepVotingCredential
+        dRepDeposit
+    dRepRegCert =
+      C.makeDrepRegistrationCertificate dRepRegReqs Nothing
+    dRepUnregReqs =
+      C.DRepUnregistrationRequirements ceo dRepVotingCredential dRepDeposit
+    dRepUnregCert =
+      C.makeDrepUnregistrationCertificate dRepUnregReqs
     dRepVoter = C.DRepVoter dRepVotingCredential
   return $ case mDRepSKey of
     Nothing ->

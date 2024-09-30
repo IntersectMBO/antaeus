@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
@@ -10,16 +11,22 @@ module Spec.ConwayFeatures where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
-import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
+import Cardano.Api.Shelley qualified as L
 import Cardano.Crypto.Hash qualified as Crypto
+import Cardano.Ledger.BaseTypes (Network (Testnet))
+import Cardano.Ledger.BaseTypes qualified as L
 import Cardano.Ledger.Conway.PParams qualified as L
 import Cardano.Ledger.Core qualified as L
+import Cardano.Ledger.Credential qualified as L
+import Cardano.Ledger.Crypto (StandardCrypto)
+import Cardano.Ledger.Keys (KeyRole (ColdCommitteeRole))
 import Control.Concurrent (threadDelay)
 import Control.Lens ((.~))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString qualified as BS
 import Data.Function ((&))
+import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
@@ -95,7 +102,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
       executionUnits2 = C.ExecutionUnits{C.executionSteps = 1_000_000_000, C.executionMemory = 4_000_000}
       collateral = Tx.txInsCollateral era [txIn]
       totalLovelace = C.txOutValueToLovelace txInValue
-      fee = 2_500_000 :: C.Lovelace
+      fee = 2_500_000
       amountPaid = 10_000_000
       amountReturned = totalLovelace - amountPaid - fee
       datum = PS.toScriptData (42 :: Integer)
@@ -124,7 +131,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
       expTxInfoFee = PS.txInfoFee fee
       expTxInfoMint = PS.txInfoMint tokenValues
       expDCert = [] -- not testing any staking registration certificate
-      expWdrl = PlutusV2.fromList [] -- not testing any staking reward withdrawal
+      expWdrl = PlutusV2.unsafeFromList [] -- not testing any staking reward withdrawal
       expTxInfoSigs = PS.txInfoSigs [w1VKey]
       expTxInfoRedeemers = PS_1_0.alwaysSucceedPolicyTxInfoRedeemerV2
       expTxInfoData = PS.txInfoData [datum]
@@ -334,51 +341,60 @@ registerCommitteeTestInfo committee =
     , testDescription = "Register a committee member (for voting)"
     , test = registerCommitteeTest committee
     }
+
 registerCommitteeTest
   :: (MonadTest m, MonadIO m)
   => Committee era
   -> TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-registerCommitteeTest
-  Committee{..}
-  networkOptions
-  TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
-    era <- TN.eraFromOptionsM networkOptions
-    (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
-    let sbe = toShelleyBasedEra era
+registerCommitteeTest committee networkOptions testParams = do
+  let Committee{committeeHotKeyAuthCert, committeeColdSKey} = committee
+      TestParams{localNodeConnectInfo = conn, pparams, networkId, tempAbsPath} =
+        testParams
+  era <- TN.eraFromOptionsM networkOptions
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+  let sbe = toShelleyBasedEra era
 
-    -- register committee
-    committeeRegTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    let
-      committeeRegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
-      committeeRegTxBodyContent =
-        (Tx.emptyTxBodyContent sbe pparams)
-          { C.txIns = Tx.pubkeyTxIns [committeeRegTxIn]
-          , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] []
-          , C.txOuts = [committeeRegTxOut]
-          }
-    signedCommitteeRegTx <-
-      Tx.buildTxWithWitnessOverride
-        era
-        localNodeConnectInfo
-        committeeRegTxBodyContent
-        w1Address
-        (Just 2)
-        [C.WitnessPaymentKey w1SKey, C.WitnessCommitteeColdKey committeeColdSKey]
-    Tx.submitTx sbe localNodeConnectInfo signedCommitteeRegTx
-    let expTxIn = Tx.txIn (Tx.txId signedCommitteeRegTx) 0
-    regDRepResultTxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address expTxIn "getTxOutAtAddress"
-    H.annotate $ show regDRepResultTxOut
-    success
+  -- register committee
+  committeeRegTxIn <- Q.adaOnlyTxInAtAddress era conn w1Address
+  let
+    committeeRegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
+    hotKeyRegTxBodyContent =
+      (Tx.emptyTxBodyContent sbe pparams)
+        { C.txIns = Tx.pubkeyTxIns [committeeRegTxIn]
+        , C.txCertificates = Tx.txCertificates era [committeeHotKeyAuthCert] []
+        , C.txOuts = [committeeRegTxOut]
+        }
+  signedCommitteeRegTx <-
+    Tx.buildTxWithWitnessOverride
+      era
+      conn
+      hotKeyRegTxBodyContent
+      w1Address
+      (Just 2)
+      [ C.WitnessPaymentKey w1SKey
+      , C.WitnessCommitteeColdKey committeeColdSKey
+      ]
+  Tx.submitTx sbe conn signedCommitteeRegTx
+  let txId = Tx.txId signedCommitteeRegTx
+  H.annotate $ show txId
+  regDRepResultTxOut <-
+    Q.getTxOutAtAddress era conn w1Address (Tx.txIn txId 0) "getTxOutAtAddress"
+  H.annotate $ show regDRepResultTxOut
+  success
 
 delegateToDRepTestInfo keyDRep staking =
   TestInfo
-    { testName = "delegateToDRepTest (" ++ showKeyOrScript keyDRep ++ ")"
-    , testDescription = "Delegate stake to " ++ showKeyOrScript keyDRep ++ " DRep (for vote delegation)"
+    { testName =
+        "delegateToDRepTest (" ++ showKeyOrScript keyDRep ++ ")"
+    , testDescription =
+        "Delegate stake to "
+          ++ showKeyOrScript keyDRep
+          ++ " DRep (for vote delegation)"
     , test = delegateToDRepTest keyDRep staking
     }
+
 delegateToDRepTest
   :: (MonadTest m, MonadIO m)
   => DRep era
@@ -388,6 +404,7 @@ delegateToDRepTest
   -> m (Maybe String)
 delegateToDRepTest KeyDRep{kDRepLedgerCred = c} = delegateToDRep c
 delegateToDRepTest ScriptDRep{sDRepLedgerCred = c} = delegateToDRep c
+
 delegateToDRep
   dRepLedgerCred
   Staking{..}
@@ -532,9 +549,9 @@ constitutionProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (C.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           -- fst SNothing is prev GovActId, snd SNothing is constitution script (snd got removed)
-          (C.ProposeNewConstitution C.SNothing anchor)
+          (C.ProposeNewConstitution C.SNothing anchor C.SNothing)
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
 
@@ -591,7 +608,7 @@ constitutionProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , CC.keyAsWitness committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -663,14 +680,19 @@ committeeProposalAndVoteTest
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
       prevConstitutionalCommittee = []
-      newConstitutionalCommittee = Map.singleton committeeColdKeyHash (currentEpoch2 + 1)
+      newConstitutionalCommittee
+        :: Map (L.Credential ColdCommitteeRole StandardCrypto) L.EpochNo
+      newConstitutionalCommittee =
+        Map.singleton
+          (L.KeyHashObj $ C.unCommitteeColdKeyHash committeeColdKeyHash)
+          (succ currentEpoch2)
       quorum = 1 % 1
       proposal =
         C.createProposalProcedure
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (C.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           (C.ProposeNewCommittee C.SNothing prevConstitutionalCommittee newConstitutionalCommittee quorum)
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -768,7 +790,7 @@ noConfidenceProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (L.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           (C.MotionOfNoConfidence C.SNothing)
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -871,7 +893,7 @@ parameterChangeProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (L.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           (C.UpdatePParams C.SNothing pparamsUpdate C.SNothing) -- last SNothing is governance policy
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -914,7 +936,7 @@ parameterChangeProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , CC.keyAsWitness committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -967,13 +989,13 @@ treasuryWithdrawalProposalAndVoteTest
     let
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
-      tWithdrawal = [(L.Testnet, stakeCred, 10_000_000 :: C.Lovelace)]
+      tWithdrawal = [(Testnet, stakeCred, 10_000_000)]
       proposal =
         C.createProposalProcedure
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (L.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           (C.TreasuryWithdrawal tWithdrawal C.SNothing) -- SNothing is Governance policy
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -1016,7 +1038,7 @@ treasuryWithdrawalProposalAndVoteTest
         (Just 3) -- witnesses
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , CC.keyAsWitness committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -1083,7 +1105,7 @@ hardForkProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (L.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           (C.InitiateHardfork C.SNothing nextPv)
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -1130,7 +1152,7 @@ hardForkProposalAndVoteTest
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , CC.keyAsWitness committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
@@ -1187,7 +1209,7 @@ infoProposalAndVoteTest
           sbe
           (C.toShelleyNetwork networkId)
           0 -- govActionDeposit
-          (sPStakeKeyHash stakeDelegationPool)
+          (L.StakeCredentialByKey $ sPStakeKeyHash stakeDelegationPool)
           C.InfoAct
           anchor
       txProposal = C.shelleyBasedEraConstraints sbe $ Tx.buildTxProposalProcedures [(proposal, Nothing)]
@@ -1234,15 +1256,21 @@ infoProposalAndVoteTest
         [ C.WitnessPaymentKey w1SKey
         , C.WitnessStakePoolKey (sPSKey stakeDelegationPool)
         , C.WitnessPaymentKey (DRep.castDRep kDRepSKey)
-        , C.WitnessPaymentKey (CC.castCommittee committeeHotSKey)
+        , CC.keyAsWitness committeeHotSKey
         ]
     Tx.submitTx sbe localNodeConnectInfo signedTx2
     let result2TxIn = Tx.txIn (Tx.txId signedTx2) 0
     result2TxOut <-
-      Q.getTxOutAtAddress era localNodeConnectInfo w1Address result2TxIn "getTxOutAtAddress"
+      Q.getTxOutAtAddress
+        era
+        localNodeConnectInfo
+        w1Address
+        result2TxIn
+        "getTxOutAtAddress"
     H.annotate $ show result2TxOut
     success -- TODO: check hard fork is enacted
-infoProposalAndVoteTest _ ScriptDRep{} _ _ _ = error "infoProposalAndVoteTest: ScriptDRep not yet supported"
+infoProposalAndVoteTest _ ScriptDRep{} _ _ _ =
+  error "infoProposalAndVoteTest: ScriptDRep not yet supported"
 
 unregisterDRepTestInfo dRep =
   TestInfo
@@ -1367,7 +1395,7 @@ retireStakePoolTest
 
     stakeDelgTxIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
     let
-      retireSPCert = makeStakePoolRetireCertification ceo stakePool (currentEpoch + 1)
+      retireSPCert = makeStakePoolRetireCertification ceo stakePool (succ currentEpoch)
       stakeDelegTxOut = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       stakeDelegTxBodyContent =
         (Tx.emptyTxBodyContent sbe pparams)

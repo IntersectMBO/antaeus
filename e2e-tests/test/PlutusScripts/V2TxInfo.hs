@@ -24,20 +24,24 @@ module PlutusScripts.V2TxInfo (
 ) where
 
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
+import Debug.Trace qualified as Debug
 import Helpers.Common (toShelleyBasedEra)
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
+import Helpers.ScriptUtils (mkUntypedMintingPolicy)
 import Helpers.TypeConverters (
+  coinToLovelace,
   fromCardanoPaymentKeyHash,
   fromCardanoScriptData,
-  fromCardanoTxIn,
   fromCardanoTxOutToPV2TxInfoTxOut,
   fromCardanoTxOutToPV2TxInfoTxOut',
   fromCardanoValue,
  )
+import PlutusCore.Pretty (Render (render), prettyPlcClassicSimple)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V1.Interval qualified as P
-import PlutusLedgerApi.V2 qualified as PlutusV2
+import PlutusLedgerApi.V1.Interval qualified as Interval
+import PlutusLedgerApi.V1.Value qualified as Value
+import PlutusLedgerApi.V2 qualified as V2
 import PlutusLedgerApi.V2.Contexts (ownCurrencySymbol)
 import PlutusScripts.Helpers (mintScriptWitness', plutusL2, policyIdV2, toScriptData)
 import PlutusTx qualified
@@ -46,83 +50,122 @@ import PlutusTx.Builtins qualified as P
 import PlutusTx.Prelude qualified as P
 
 data V2TxInfo = V2TxInfo
-  { expTxInfoInputs :: [PlutusV2.TxInInfo]
+  { expTxInfoInputs :: [V2.TxInInfo]
   -- ^ Transaction inputs; cannot be an empty list
-  , expTxInfoReferenceInputs :: [PlutusV2.TxInInfo]
+  , expTxInfoReferenceInputs :: [V2.TxInInfo]
   -- ^ Added in V2: Transaction reference inputs
-  , expTxInfoOutputs :: [PlutusV2.TxOut]
+  , expTxInfoOutputs :: [V2.TxOut]
   -- ^ Transaction outputs
-  , expTxInfoFee :: PlutusV2.Value
+  , expTxInfoFee :: V2.Value
   -- ^ The fee paid by this transaction.
-  , expTxInfoMint :: PlutusV2.Value
+  , expTxInfoMint :: V2.Value
   -- ^ The 'Value' minted by this transaction.
-  , expTxInfoDCert :: [PlutusV2.DCert]
+  , expTxInfoDCert :: [V2.DCert]
   -- ^ Digests of certificates included in this transaction
-  , expTxInfoWdrl :: PlutusV2.Map PlutusV2.StakingCredential Integer
+  , expTxInfoWdrl :: V2.Map V2.StakingCredential Integer
   -- ^ Withdrawals
-  , expTxInfoValidRange :: PlutusV2.POSIXTimeRange
+  , expTxInfoValidRange :: V2.POSIXTimeRange
   -- ^ The valid range for the transaction.
-  , expTxInfoSignatories :: [PlutusV2.PubKeyHash]
+  , expTxInfoSignatories :: [V2.PubKeyHash]
   -- ^ Signatures provided with the transaction, attested that they all signed the tx
-  , expTxInfoRedeemers :: PlutusV2.Map PlutusV2.ScriptPurpose PlutusV2.Redeemer
+  , expTxInfoRedeemers :: V2.Map V2.ScriptPurpose V2.Redeemer
   -- ^ Added in V2: a table of redeemers attached to the transaction
-  , expTxInfoData :: PlutusV2.Map PlutusV2.DatumHash PlutusV2.Datum
+  , expTxInfoData :: V2.Map V2.DatumHash V2.Datum
   -- ^ The lookup table of datums attached to the transaction
-  -- , expTxInfoId          :: PlutusV2.TxId
-  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses). Cannot be verified onchain.
+  -- , expTxInfoId          :: V2.TxId
+  -- ^ Hash of the pending transaction body (i.e. transaction excluding witnesses).
+  -- Cannot be verified onchain.
   }
 PlutusTx.unstableMakeIsData ''V2TxInfo
 
 checkV2TxInfoRedeemer
-  :: [PlutusV2.TxInInfo]
-  -> [PlutusV2.TxInInfo]
-  -> [PlutusV2.TxOut]
-  -> PlutusV2.Value
-  -> PlutusV2.Value
-  -> [PlutusV2.DCert]
-  -> PlutusV2.Map PlutusV2.StakingCredential Integer
-  -> PlutusV2.POSIXTimeRange
-  -> [PlutusV2.PubKeyHash]
-  -> PlutusV2.Map PlutusV2.ScriptPurpose PlutusV2.Redeemer
-  -> PlutusV2.Map PlutusV2.DatumHash PlutusV2.Datum
+  :: [V2.TxInInfo]
+  -> [V2.TxInInfo]
+  -> [V2.TxOut]
+  -> V2.Value
+  -> V2.Value
+  -> [V2.DCert]
+  -> V2.Map V2.StakingCredential Integer
+  -> V2.POSIXTimeRange
+  -> [V2.PubKeyHash]
+  -> V2.Map V2.ScriptPurpose V2.Redeemer
+  -> V2.Map V2.DatumHash V2.Datum
   -> C.HashableScriptData
-checkV2TxInfoRedeemer expIns expRefIns expOuts expFee expMint expDCert expWdrl expRange expSigs expReds expData =
-  toScriptData $
-    V2TxInfo expIns expRefIns expOuts expFee expMint expDCert expWdrl expRange expSigs expReds expData
+checkV2TxInfoRedeemer
+  expIns
+  expRefIns
+  expOuts
+  expFee
+  expMint
+  expDCert
+  expWdrl
+  expRange
+  expSigs
+  expReds
+  expData =
+    toScriptData $
+      V2TxInfo
+        expIns
+        expRefIns
+        expOuts
+        expFee
+        expMint
+        expDCert
+        expWdrl
+        expRange
+        expSigs
+        expReds
+        expData
 
-txInfoInputs :: C.CardanoEra era -> (C.TxIn, C.TxOut C.CtxUTxO era) -> PlutusV2.TxInInfo
+txInfoInputs
+  :: C.CardanoEra era
+  -> (C.TxIn, C.TxOut C.CtxUTxO era)
+  -> V2.TxInInfo
 txInfoInputs era (txIn, txOut) = do
-  PlutusV2.TxInInfo
-    { PlutusV2.txInInfoOutRef = fromCardanoTxIn txIn
-    , PlutusV2.txInInfoResolved = fromCardanoTxOutToPV2TxInfoTxOut' (toShelleyBasedEra era) txOut
+  V2.TxInInfo
+    { V2.txInInfoOutRef = fromCardanoTxIn txIn
+    , V2.txInInfoResolved =
+        fromCardanoTxOutToPV2TxInfoTxOut' (toShelleyBasedEra era) txOut
     }
+  where
+    fromCardanoTxIn :: C.TxIn -> V2.TxOutRef
+    fromCardanoTxIn (C.TxIn txId (C.TxIx txIx)) =
+      V2.TxOutRef (fromCardanoTxId txId) (toInteger txIx)
 
-txInfoOutputs :: C.CardanoEra era -> [C.TxOut C.CtxTx era] -> [PlutusV2.TxOut]
+    fromCardanoTxId :: C.TxId -> V2.TxId
+    fromCardanoTxId = V2.TxId . P.toBuiltin . C.serialiseToRawBytes
+
+txInfoOutputs :: C.CardanoEra era -> [C.TxOut C.CtxTx era] -> [V2.TxOut]
 txInfoOutputs era = map (fromCardanoTxOutToPV2TxInfoTxOut (toShelleyBasedEra era))
 
-txInfoFee :: C.Lovelace -> PlutusV2.Value
-txInfoFee = fromCardanoValue . C.lovelaceToValue
+txInfoFee :: L.Coin -> V2.Value
+txInfoFee = Value.lovelaceValue . coinToLovelace
 
-txInfoMint :: C.Value -> PlutusV2.Value
+txInfoMint :: C.Value -> V2.Value
 txInfoMint = fromCardanoValue
 
-txInfoSigs :: [C.VerificationKey C.PaymentKey] -> [PlutusV2.PubKeyHash]
+txInfoSigs :: [C.VerificationKey C.PaymentKey] -> [V2.PubKeyHash]
 txInfoSigs = map (fromCardanoPaymentKeyHash . C.verificationKeyHash)
 
-txInfoData :: [C.HashableScriptData] -> PlutusV2.Map PlutusV2.DatumHash PlutusV2.Datum
+txInfoData
+  :: [C.HashableScriptData]
+  -> V2.Map V2.DatumHash V2.Datum
 txInfoData =
-  PlutusV2.fromList
+  V2.unsafeFromList
     . map
       ( \datum ->
-          ( PlutusV2.DatumHash $ PlutusV2.toBuiltin $ C.serialiseToRawBytes $ C.hashScriptDataBytes datum
-          , PlutusV2.Datum $ fromCardanoScriptData datum
+          ( V2.DatumHash $
+              V2.toBuiltin $
+                C.serialiseToRawBytes $
+                  C.hashScriptDataBytes datum
+          , V2.Datum $ fromCardanoScriptData datum
           )
       )
 
 -- minting policy --
 
 {-# INLINEABLE mkCheckV2TxInfo #-}
-mkCheckV2TxInfo :: V2TxInfo -> PlutusV2.ScriptContext -> Bool
+mkCheckV2TxInfo :: V2TxInfo -> V2.ScriptContext -> Bool
 mkCheckV2TxInfo V2TxInfo{..} ctx =
   P.traceIfFalse "unexpected txInfoInputs" checkTxInfoInputs
     P.&& P.traceIfFalse "unexpected txInfoReferenceInputs" checkTxInfoReferenceInputs
@@ -137,31 +180,48 @@ mkCheckV2TxInfo V2TxInfo{..} ctx =
     P.&& P.traceIfFalse "unexpected txInfoData" checkTxInfoData
     P.&& P.traceIfFalse "txInfoId isn't the expected TxId length" checkTxInfoId
   where
-    info :: PlutusV2.TxInfo
-    info = PlutusV2.scriptContextTxInfo ctx
+    info :: V2.TxInfo
+    info = V2.scriptContextTxInfo ctx
 
-    checkTxInfoInputs = expTxInfoInputs P.== PlutusV2.txInfoInputs info
-    checkTxInfoReferenceInputs = expTxInfoReferenceInputs P.== PlutusV2.txInfoReferenceInputs info
-    checkTxInfoOutputs = expTxInfoOutputs P.== PlutusV2.txInfoOutputs info
-    checkTxInfoFee = expTxInfoFee P.== PlutusV2.txInfoFee info
-    checkTxInfoMint = expTxInfoMint P.== PlutusV2.txInfoMint info
-    checkTxInfoDCert = expTxInfoDCert P.== PlutusV2.txInfoDCert info
-    checkTxInfoWdrl = expTxInfoWdrl P.== PlutusV2.txInfoWdrl info
-    checkTxInfoValidRange = expTxInfoValidRange `P.contains` PlutusV2.txInfoValidRange info
-    checkTxInfoSignatories = expTxInfoSignatories P.== PlutusV2.txInfoSignatories info
+    checkTxInfoInputs =
+      expTxInfoInputs P.== V2.txInfoInputs info
+    checkTxInfoReferenceInputs =
+      expTxInfoReferenceInputs P.== V2.txInfoReferenceInputs info
+    checkTxInfoOutputs =
+      expTxInfoOutputs P.== V2.txInfoOutputs info
+    checkTxInfoFee =
+      expTxInfoFee P.== V2.txInfoFee info
+    checkTxInfoMint =
+      expTxInfoMint P.== V2.txInfoMint info
+    checkTxInfoDCert =
+      expTxInfoDCert P.== V2.txInfoDCert info
+    checkTxInfoWdrl =
+      P.toList expTxInfoWdrl P.== P.toList (V2.txInfoWdrl info)
+    checkTxInfoValidRange =
+      expTxInfoValidRange `Interval.contains` V2.txInfoValidRange info
+    checkTxInfoSignatories =
+      expTxInfoSignatories P.== V2.txInfoSignatories info
     checkTxInfoRedeemers = do
-      let ownScriptPurpose = PlutusV2.Minting (ownCurrencySymbol ctx)
-          withoutOwnRedeemer = AMap.delete ownScriptPurpose (PlutusV2.txInfoRedeemers info)
-      expTxInfoRedeemers P.== withoutOwnRedeemer -- cannot check own redeemer so only check other script's redeemer
-    checkTxInfoData = expTxInfoData P.== PlutusV2.txInfoData info
-    checkTxInfoId = P.equalsInteger 32 (P.lengthOfByteString P.$ PlutusV2.getTxId P.$ PlutusV2.txInfoId info)
+      let ownScriptPurpose = V2.Minting (ownCurrencySymbol ctx)
+          withoutOwnRedeemer = AMap.delete ownScriptPurpose (V2.txInfoRedeemers info)
+      P.toList expTxInfoRedeemers P.== P.toList withoutOwnRedeemer
+    -- \^ cannot check own redeemer so only check other script's redeemer
+    checkTxInfoData = P.toList expTxInfoData P.== P.toList (V2.txInfoData info)
+    checkTxInfoId =
+      P.equalsInteger
+        32
+        (P.lengthOfByteString P.$ V2.getTxId P.$ V2.txInfoId info)
 
 checkV2TxInfoV2 :: SerialisedScript
-checkV2TxInfoV2 =
-  serialiseCompiledCode
-    $$(PlutusTx.compile [||wrap||])
+checkV2TxInfoV2 = Debug.trace "" typedMintingPolicy
   where
-    wrap = mkUntypedMintingPolicy @PlutusV2.ScriptContext mkCheckV2TxInfo
+    debug :: String =
+      render . prettyPlcClassicSimple $
+        V2.uncheckedDeserialiseUPLC typedMintingPolicy
+    typedMintingPolicy =
+      serialiseCompiledCode $$(PlutusTx.compile [||untypedMintingPolicy||])
+    untypedMintingPolicy =
+      mkUntypedMintingPolicy @V2.ScriptContext mkCheckV2TxInfo
 
 checkV2TxInfoScriptV2 :: C.PlutusScript C.PlutusScriptV2
 checkV2TxInfoScriptV2 = C.PlutusScriptSerialised checkV2TxInfoV2
