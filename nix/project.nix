@@ -55,7 +55,9 @@ let
 
   project = lib.iogx.mkHaskellProject {
     inherit cabalProject;
-    includeMingwW64HydraJobs = true;
+    includeMingwW64HydraJobs = false; # Can't cross-compile to Windows as it would
+    # bring GHC boot library dependency Win32-2.13.3.0 and it conflicts with the
+    # constraint imposed by Win32-network: Win32 ^>= 2.14
     shellArgs = repoRoot.nix.shell;
   };
 
