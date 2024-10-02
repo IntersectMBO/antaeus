@@ -11,6 +11,7 @@ module PlutusScripts.SECP256k1.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
+import Helpers.ScriptUtils qualified as U
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusScripts.Helpers (
@@ -34,8 +35,19 @@ import PlutusTx.Prelude qualified as P
 
 -- Schnorr minting policy --
 
-verifySchnorrPolicy :: SerialisedScript
-verifySchnorrPolicy =
+verifyEcdsaPolicyV12 :: SerialisedScript
+verifyEcdsaPolicyV12 =
+  serialiseCompiledCode $
+    $$(P.compile [||mkVerifyEcdsaPolicy||])
+      `P.unsafeApplyCode` P.liftCode plcVersion110 verifyEcdsaParams
+  where
+    {-# INLINEABLE mkVerifyEcdsaPolicy #-}
+    mkVerifyEcdsaPolicy :: Secp256Params -> P.BuiltinData -> P.BuiltinData -> ()
+    mkVerifyEcdsaPolicy Secp256Params{..} _redeemer _sc =
+      U.check $ P.verifyEcdsaSecp256k1Signature vkey msg sig
+
+verifySchnorrPolicyV3 :: SerialisedScript
+verifySchnorrPolicyV3 =
   serialiseCompiledCode $
     $$(P.compile [||mkVerifySchnorrPolicy||])
       `P.unsafeApplyCode` P.liftCode plcVersion110 verifySchnorrParams
@@ -46,7 +58,7 @@ verifySchnorrPolicy =
       P.check $ BI.verifySchnorrSecp256k1Signature vkey msg sig
 
 verifySchnorrPolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
-verifySchnorrPolicyScriptV3 = C.PlutusScriptSerialised verifySchnorrPolicy
+verifySchnorrPolicyScriptV3 = C.PlutusScriptSerialised verifySchnorrPolicyV3
 
 writeVerifySchnorrPolicyScriptV3 :: IO ()
 writeVerifySchnorrPolicyScriptV3 =
@@ -54,13 +66,13 @@ writeVerifySchnorrPolicyScriptV3 =
 
 verifySchnorrAssetIdV3 :: C.AssetId
 verifySchnorrAssetIdV3 =
-  C.AssetId (policyIdV3 verifySchnorrPolicy) schnorrAssetName
+  C.AssetId (policyIdV3 verifySchnorrPolicyV3) schnorrAssetName
 
 verifySchnorrMintWitnessV3
   :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifySchnorrMintWitnessV3 era =
-  ( policyIdV3 verifySchnorrPolicy
+  ( policyIdV3 verifySchnorrPolicyV3
   , mintScriptWitness
       era
       plutusL3

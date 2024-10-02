@@ -85,14 +85,16 @@ verifySchnorrAndEcdsaTest networkOptions testParams = do
         C.ConwayEra ->
           ( C.valueFromList
               [ (PS_1_0.verifySchnorrAssetIdV2, 4)
-              , (PS_1_0.verifyEcdsaAssetIdV2, 2)
               , (PS_1_1.verifySchnorrAssetIdV3, 3)
+              , -- ECDSA
+                (PS_1_0.verifyEcdsaAssetIdV2, 2)
               , (PS_1_1.verifyEcdsaAssetIdV3, 5)
               ]
           , Map.fromList
               [ PS_1_0.verifySchnorrMintWitnessV2 sbe
-              , PS_1_0.verifyEcdsaMintWitnessV2 sbe
               , PS_1_1.verifySchnorrMintWitnessV3 sbe
+              , -- ECDSA
+                PS_1_0.verifyEcdsaMintWitnessV2 sbe
               , PS_1_1.verifyEcdsaMintWitnessV3 sbe
               ]
           , show C.PlutusV3

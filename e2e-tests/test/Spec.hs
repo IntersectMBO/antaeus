@@ -124,8 +124,7 @@ pv7Tests resultsRef = integrationRetryWorkspace 0 "pv7" $ \tempAbsPath -> do
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
-    , -- , run Builtins.verifySchnorrAndEcdsaTestInfo
-      run Builtins.verifyHashingFunctionsTestInfo
+    , run Builtins.verifyHashingFunctionsTestInfo
     , run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo
     , run Babbage.referenceScriptDatumHashSpendTestInfo
@@ -199,8 +198,8 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
     , run Alonzo.noCollateralInputsErrorTestInfo
     , run Alonzo.missingCollateralInputErrorTestInfo
     , run Alonzo.tooManyCollateralInputsErrorTestInfo
-    , -- , run Builtins.verifySchnorrAndEcdsaTestInfo
-      -- , run Builtins.verifyHashingFunctionsTestInfo
+    , run Builtins.verifySchnorrAndEcdsaTestInfo
+    , -- run Builtins.verifyHashingFunctionsTestInfo
       -- , run Builtins.verifyBlsFunctionsTestInfo
       run Babbage.referenceScriptMintTestInfo
     , run Babbage.referenceScriptInlineDatumSpendTestInfo

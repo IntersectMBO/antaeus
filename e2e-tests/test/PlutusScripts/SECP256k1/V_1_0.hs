@@ -90,8 +90,19 @@ verifySchnorrMintWitnessV2 sbe =
 
 -- ECDSA minting policy --
 
-verifyEcdsaPolicy :: SerialisedScript
-verifyEcdsaPolicy =
+verifyEcdsaPolicyV12 :: SerialisedScript
+verifyEcdsaPolicyV12 =
+  serialiseCompiledCode $
+    $$(P.compile [||mkVerifyEcdsaPolicy||])
+      `P.unsafeApplyCode` P.liftCode plcVersion100 verifyEcdsaParams
+  where
+    {-# INLINEABLE mkVerifyEcdsaPolicy #-}
+    mkVerifyEcdsaPolicy :: Secp256Params -> P.BuiltinData -> P.BuiltinData -> ()
+    mkVerifyEcdsaPolicy Secp256Params{..} _redeemer _sc =
+      U.check $ P.verifyEcdsaSecp256k1Signature vkey msg sig
+
+verifyEcdsaPolicyV3 :: SerialisedScript
+verifyEcdsaPolicyV3 =
   serialiseCompiledCode $
     $$(P.compile [||mkVerifyEcdsaPolicy||])
       `P.unsafeApplyCode` P.liftCode plcVersion100 verifyEcdsaParams
@@ -102,22 +113,24 @@ verifyEcdsaPolicy =
       P.check $ P.verifyEcdsaSecp256k1Signature vkey msg sig
 
 verifyEcdsaPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
-verifyEcdsaPolicyScriptV1 = C.PlutusScriptSerialised verifyEcdsaPolicy
+verifyEcdsaPolicyScriptV1 = C.PlutusScriptSerialised verifyEcdsaPolicyV12
 
 verifyEcdsaPolicyScriptV2 :: C.PlutusScript C.PlutusScriptV2
-verifyEcdsaPolicyScriptV2 = C.PlutusScriptSerialised verifyEcdsaPolicy
+verifyEcdsaPolicyScriptV2 = C.PlutusScriptSerialised verifyEcdsaPolicyV12
 
 verifyEcdsaAssetIdV1 :: C.AssetId
-verifyEcdsaAssetIdV1 = C.AssetId (policyIdV1 verifyEcdsaPolicy) ecdsaAssetName
+verifyEcdsaAssetIdV1 =
+  C.AssetId (policyIdV1 verifyEcdsaPolicyV12) ecdsaAssetName
 
 verifyEcdsaAssetIdV2 :: C.AssetId
-verifyEcdsaAssetIdV2 = C.AssetId (policyIdV2 verifyEcdsaPolicy) ecdsaAssetName
+verifyEcdsaAssetIdV2 =
+  C.AssetId (policyIdV2 verifyEcdsaPolicyV12) ecdsaAssetName
 
 verifyEcdsaMintWitnessV1
   :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyEcdsaMintWitnessV1 sbe =
-  ( policyIdV1 verifyEcdsaPolicy
+  ( policyIdV1 verifyEcdsaPolicyV12
   , mintScriptWitness
       sbe
       plutusL1
@@ -129,7 +142,7 @@ verifyEcdsaMintWitnessV2
   :: C.ShelleyBasedEra era
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyEcdsaMintWitnessV2 sbe =
-  ( policyIdV2 verifyEcdsaPolicy
+  ( policyIdV2 verifyEcdsaPolicyV12
   , mintScriptWitness
       sbe
       plutusL2
