@@ -1,23 +1,18 @@
 { repoRoot, inputs, pkgs, lib, system }:
 
 let
-  cardano-node-gitrev = "4bb2048db77d623ee6e3678618c2d8b6c4676333";
-
+  cardano-node-gitrev = "efd560070aaf042d1eb4680ae37fc607c7742319"; # 9.1.1
 
   cabalProject' = pkgs.haskell-nix.cabalProject' ({ config, pkgs, ... }:
     let
       isCross = pkgs.stdenv.hostPlatform != pkgs.stdenv.buildPlatform;
     in
     {
-      compiler-nix-name = "ghc963";
+      compiler-nix-name = "ghc966";
 
       src = ../.;
 
       shell.withHoogle = false;
-
-      sha256map = {
-        "https://github.com/IntersectMBO/cardano-node"."${cardano-node-gitrev}" = "sha256-pWXI8dyqKQ3HncbBtd54wdHi3Pj7J5y+nybqpzMXOj4=";
-      };
 
       inputMap = {
         "https://chap.intersectmbo.org/" = inputs.CHaP;
@@ -30,7 +25,7 @@ let
         # The lines `export CARDANO_NODE=...` and `export CARDANO_CLI=...`
         # is necessary to prevent the error
         # `../dist-newstyle/cache/plan.json: openBinaryFile: does not exist (No such file or directory)`.
-        # See https://github.com/input-output-hk/cardano-node/issues/4194.
+        # See https://github.com/IntersectMBO/cardano-node/issues/4194.
         #
         # The line 'export CARDANO_NODE_SRC=...' is used to specify the
         # root folder used to fetch the `configuration.yaml` file (in
@@ -60,7 +55,9 @@ let
 
   project = lib.iogx.mkHaskellProject {
     inherit cabalProject;
-    includeMingwW64HydraJobs = true;
+    includeMingwW64HydraJobs = false; # Can't cross-compile to Windows as it would
+    # bring GHC boot library dependency Win32-2.13.3.0 and it conflicts with the
+    # constraint imposed by Win32-network: Win32 ^>= 2.14
     shellArgs = repoRoot.nix.shell;
   };
 

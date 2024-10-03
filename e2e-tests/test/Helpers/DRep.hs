@@ -1,10 +1,12 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Helpers.DRep where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Ledger qualified as C
+import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C hiding (Voter)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
@@ -30,11 +32,14 @@ generateDRepKeyCredentialsAndCertificate
   :: (MonadIO m)
   => C.ConwayEraOnwards era
   -> m (DRep era)
-generateDRepKeyCredentialsAndCertificate ceo = do
+generateDRepKeyCredentialsAndCertificate conwayEraOnwards = do
   dRepSkey <- liftIO $ C.generateSigningKey C.AsDRepKey
-  let C.DRepKeyHash dRepKeyHash = C.verificationKeyHash $ C.getVerificationKey dRepSkey
-      dRepVotingCredential = C.conwayEraOnwardsConstraints ceo $ C.KeyHashObj dRepKeyHash
-  buildDRep ceo dRepVotingCredential (Just dRepSkey)
+  let C.DRepKeyHash dRepKeyHash =
+        C.verificationKeyHash $ C.getVerificationKey dRepSkey
+      dRepVotingCredential =
+        C.conwayEraOnwardsConstraints conwayEraOnwards $
+          C.KeyHashObj dRepKeyHash
+  buildDRep conwayEraOnwards dRepVotingCredential (Just dRepSkey)
 
 produceDRepScriptCredentialsAndCertificate
   :: (MonadIO m)
@@ -53,11 +58,18 @@ buildDRep
   -> m (DRep era)
 buildDRep ceo dRepVotingCredential mDRepSKey = do
   let
-    dRepDeposit = C.Lovelace 0
-    dRepRegReqs = C.DRepRegistrationRequirements ceo dRepVotingCredential dRepDeposit
-    dRepRegCert = C.makeDrepRegistrationCertificate dRepRegReqs Nothing
-    dRepUnregReqs = C.DRepUnregistrationRequirements ceo dRepVotingCredential 0
-    dRepUnregCert = C.makeDrepUnregistrationCertificate dRepUnregReqs
+    dRepDeposit = L.Coin 1_000_000
+    dRepRegReqs =
+      C.DRepRegistrationRequirements
+        ceo
+        dRepVotingCredential
+        dRepDeposit
+    dRepRegCert =
+      C.makeDrepRegistrationCertificate dRepRegReqs Nothing
+    dRepUnregReqs =
+      C.DRepUnregistrationRequirements ceo dRepVotingCredential dRepDeposit
+    dRepUnregCert =
+      C.makeDrepUnregistrationCertificate dRepUnregReqs
     dRepVoter = C.DRepVoter dRepVotingCredential
   return $ case mDRepSKey of
     Nothing ->

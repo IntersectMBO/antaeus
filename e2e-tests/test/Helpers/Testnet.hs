@@ -58,8 +58,10 @@ import System.Process.Internals (
   ProcessHandle__ (ClosedHandle, OpenExtHandle, OpenHandle),
   withProcessHandle,
  )
+import Testnet.Defaults (defaultAlonzoGenesis)
 import Testnet.Defaults qualified as CTN
 import Testnet.Runtime qualified as CTN
+import Testnet.Types (PoolNode (..), TestnetRuntime, poolNodes, poolSprockets, testnetMagic)
 
 data TestEnvironmentOptions era
   = TestnetOptions
@@ -84,8 +86,6 @@ defAlonzoTestnetOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
           , CTN.cardanoActiveSlotsCoeff = 0.1
-          , CTN.cardanoSecurityParam = 100
-          , CTN.cardanoProtocolVersion = 6
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
@@ -100,8 +100,6 @@ defBabbageTestnetOptions protocolVersion =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
           , CTN.cardanoActiveSlotsCoeff = 0.1
-          , CTN.cardanoSecurityParam = 100
-          , CTN.cardanoProtocolVersion = protocolVersion
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
@@ -116,8 +114,6 @@ defConwayTestnetOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
           , CTN.cardanoActiveSlotsCoeff = 0.1
-          , CTN.cardanoSecurityParam = 100
-          , CTN.cardanoProtocolVersion = 9
           , CTN.cardanoSlotLength = 0.1
           , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
           }
@@ -132,7 +128,6 @@ shortEpochConwayTestnetOptions =
           -- 200 second epoch for testing outcome of governance actions (shorter is unstable)
           , CTN.cardanoEpochLength = 2_000
           , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoSecurityParam = 20 -- adjusted from default due to short epoch length
           }
     }
 
@@ -184,16 +179,14 @@ startTestnet
       ( C.LocalNodeConnectInfo
       , C.LedgerProtocolParameters era
       , C.NetworkId
-      , Maybe [CTN.PoolNode]
+      , Maybe [PoolNode]
       )
 startTestnet LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
 startTestnet TestnetOptions{..} tempAbsBasePath = do
-  conf :: CTN.Conf <-
-    HE.noteShowM $
-      CTN.mkConf tempAbsBasePath
+  conf :: CTN.Conf <- HE.noteShowM $ CTN.mkConf tempAbsBasePath
   currentTime <- liftIO Time.getCurrentTime
   let sg = CTN.defaultShelleyGenesis currentTime testnetCardanoOptions
-      ag = U.unsafeFromRight CTN.defaultAlonzoGenesis
+      ag = U.unsafeFromRight (defaultAlonzoGenesis testnetEra)
       cg = CTN.defaultConwayGenesis
   tn <- CTN.cardanoTestnet testnetCardanoOptions conf currentTime sg ag cg
   -- needed to avoid duplication of directory in filepath
@@ -212,20 +205,20 @@ startTestnet TestnetOptions{..} tempAbsBasePath = do
           }
       networkId = getNetworkId tn
   pparams <- Q.getProtocolParams testnetEra localNodeConnectInfo
-  pure (localNodeConnectInfo, pparams, networkId, Just $ CTN.poolNodes tn)
+  pure (localNodeConnectInfo, pparams, networkId, Just $ poolNodes tn)
 
-cleanupTestnet :: (MonadIO m) => Maybe [CTN.PoolNode] -> m [Either TimedOut ()]
+cleanupTestnet :: (MonadIO m) => Maybe [PoolNode] -> m [Either TimedOut ()]
 cleanupTestnet mPoolNodes =
   case mPoolNodes of
     Just poolNodes -> do
-      forM_ poolNodes $ \(CTN.PoolNode poolRuntime _) -> do
+      forM_ poolNodes $ \(PoolNode poolRuntime _) -> do
         -- graceful SIGTERM all nodes
         liftIO $
           cleanupProcess
             (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
       forM poolNodes $ \node ->
         -- kill signal for any node unix handles still open
-        killUnixHandle $ CTN.nodeProcessHandle $ CTN.poolRuntime node
+        killUnixHandle $ CTN.nodeProcessHandle $ poolRuntime node
     _ ->
       return []
   where
@@ -246,7 +239,7 @@ connectToLocalNode
       ( C.LocalNodeConnectInfo
       , C.LedgerProtocolParameters era
       , C.NetworkId
-      , Maybe [CTN.PoolNode]
+      , Maybe [PoolNode]
       )
 connectToLocalNode TestnetOptions{} _ = error "TestnetOptions not supported"
 connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
@@ -263,7 +256,7 @@ connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
   -- Boilerplate codecs used for protocol serialisation. The number of epochSlots is specific
   -- to each blockchain instance. This value is used by cardano mainnet/testnet and only applies
   -- to the Byron era.
-  let epochSlots = C.EpochSlots 21600
+  let epochSlots = C.EpochSlots 21_600
       localNodeConnectInfo =
         C.LocalNodeConnectInfo
           { C.localConsensusModeParams = C.CardanoModeParams epochSlots
@@ -283,7 +276,7 @@ setupTestEnvironment
       ( C.LocalNodeConnectInfo
       , C.LedgerProtocolParameters era
       , C.NetworkId
-      , Maybe [CTN.PoolNode]
+      , Maybe [PoolNode]
       )
 setupTestEnvironment testnetOptions@TestnetOptions{..} tempAbsPath = do
   liftIO $
@@ -299,13 +292,13 @@ setupTestEnvironment localNodeOptions@LocalNodeOptions{} tempAbsPath = do
   connectToLocalNode localNodeOptions tempAbsPath
 
 -- | Network ID of the testnet
-getNetworkId :: CTN.TestnetRuntime -> C.NetworkId
-getNetworkId tn = C.Testnet $ C.NetworkMagic $ fromIntegral (CTN.testnetMagic tn)
+getNetworkId :: TestnetRuntime -> C.NetworkId
+getNetworkId tn = C.Testnet $ C.NetworkMagic $ fromIntegral (testnetMagic tn)
 
 -- | Path to a pool node's unix socket
-getPoolSocketPathAbs :: (MonadTest m, MonadIO m) => FilePath -> CTN.TestnetRuntime -> m C.SocketPath
+getPoolSocketPathAbs :: (MonadTest m, MonadIO m) => FilePath -> TestnetRuntime -> m C.SocketPath
 getPoolSocketPathAbs tempAbsPath tn = do
-  socketPath <- IO.sprocketArgumentName <$> H.headM (CTN.poolSprockets tn)
+  socketPath <- IO.sprocketArgumentName <$> H.headM (poolSprockets tn)
   fp <- liftIO $ IO.canonicalizePath $ tempAbsPath </> socketPath
   H.annotate fp
   return $ C.File fp
@@ -333,8 +326,10 @@ w1All tempAbsPath networkId = do
     maybeReadAs (C.AsSigningKey C.AsPaymentKey) w1SKeyFile
 
   let
-    vKey :: C.VerificationKey C.PaymentKey = maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
-    sKey :: C.SigningKey C.PaymentKey = maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
+    vKey :: C.VerificationKey C.PaymentKey =
+      maybe (fromJust mPaymentVKey) C.castVerificationKey mGenesisVKey
+    sKey :: C.SigningKey C.PaymentKey =
+      maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
     address = makeAddress (Left vKey) networkId
 
   return (sKey, vKey, address)
@@ -345,7 +340,8 @@ w1
   FilePath
   -> C.NetworkId
   -> m (C.SigningKey C.PaymentKey, C.Address C.ShelleyAddr)
-w1 tempAbsPath networkId = (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
+w1 tempAbsPath networkId =
+  (\(sKey, _, address) -> (sKey, address)) <$> w1All tempAbsPath networkId
 
 data TestnetStakePool = TestnetStakePool
   { stakePoolSKey :: C.SigningKey C.StakePoolKey

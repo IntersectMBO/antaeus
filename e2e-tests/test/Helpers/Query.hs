@@ -15,8 +15,9 @@ import Cardano.Api.Ledger qualified as L
 import Cardano.Api.Shelley qualified as C
 import Cardano.Ledger.Conway.Governance qualified as C
 import Cardano.Ledger.SafeHash qualified as C
+import Cardano.Slotting.Slot (unEpochNo)
 import Control.Concurrent (threadDelay)
-import Control.Monad (void, when)
+import Control.Monad (unless, void, when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.List (isInfixOf, sortBy)
 import Data.Map qualified as Map
@@ -99,6 +100,7 @@ findUTxOByAddress era localNodeConnectInfo address =
    in H.leftFailM
         . H.leftFailM
         . liftIO
+        . C.runExceptT
         $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
         $ C.QueryInEra query
 
@@ -108,7 +110,7 @@ getAddressTxInsLovelaceValue
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo
   -> C.Address a
-  -> m ([C.TxIn], C.Lovelace)
+  -> m ([C.TxIn], L.Coin)
 getAddressTxInsLovelaceValue era con address = do
   utxo <- findUTxOByAddress era con address
   let (txIns, txOuts) = unzip $ Map.toList $ C.unUTxO utxo
@@ -126,7 +128,7 @@ getAddressTxInsValue era con address = do
   utxo <- findUTxOByAddress era con address
   let (txIns, txOuts) = unzip $ Map.toList $ C.unUTxO utxo
       values = map (\case C.TxOut _ v _ _ -> C.txOutValueToValue v) txOuts
-  pure (txIns, (mconcat values))
+  pure (txIns, mconcat values)
 
 -- TODO: loop timeout
 waitForTxIdAtAddress
@@ -140,7 +142,7 @@ waitForTxIdAtAddress era localNodeConnectInfo address txId = do
   let loop = do
         txIns <- txInsFromUtxo =<< findUTxOByAddress era localNodeConnectInfo address
         let txIds = map (\(C.TxIn txId _) -> txId) txIns
-        when (not $ txId `elem` txIds) loop
+        unless (txId `elem` txIds) loop
   loop
 
 waitForTxInAtAddress
@@ -229,13 +231,13 @@ getProtocolParams
   -> m (C.LedgerProtocolParameters era)
 getProtocolParams era localNodeConnectInfo = do
   lpp <-
-    H.leftFailM
-      . H.leftFailM
-      . liftIO
-      $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
-      $ C.QueryInEra
-      $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryProtocolParameters
-  return $ C.LedgerProtocolParameters lpp
+    H.leftFailM . liftIO . C.runExceptT $
+      C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
+        C.QueryInEra $
+          C.QueryInShelleyBasedEra
+            (toShelleyBasedEra era)
+            C.QueryProtocolParameters
+  C.LedgerProtocolParameters <$> H.leftFail lpp
 
 -- | Query current epoch
 getCurrentEpoch
@@ -243,13 +245,13 @@ getCurrentEpoch
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo
   -> m C.EpochNo
-getCurrentEpoch era localNodeConnectInfo =
-  H.leftFailM
-    . H.leftFailM
-    . liftIO
-    $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
-    $ C.QueryInEra
-    $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
+getCurrentEpoch era localNodeConnectInfo = do
+  eno <-
+    H.leftFailM . liftIO . C.runExceptT $
+      C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
+        C.QueryInEra $
+          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryEpoch
+  H.leftFail eno
 
 waitForNextEpoch
   :: (MonadIO m, MonadTest m)
@@ -263,7 +265,7 @@ waitForNextEpoch era localNodeConnectInfo debugStr prevEpochNo = go (300 :: Int)
     go 0 = error $ "waitForNextEpoch timeout. \n-- Debug --\nTest function: " ++ debugStr
     go i = do
       currentEpochNo <- getCurrentEpoch era localNodeConnectInfo
-      case currentEpochNo - prevEpochNo of
+      case unEpochNo currentEpochNo - unEpochNo prevEpochNo of
         0 -> do
           liftIO $ threadDelay 1000000 -- 1s
           go (pred i)
@@ -287,13 +289,15 @@ getConstitution
   => C.CardanoEra era
   -> C.LocalNodeConnectInfo
   -> m (Maybe (C.Constitution (C.ShelleyLedgerEra era)))
-getConstitution era localNodeConnectInfo =
-  H.leftFailM
-    . H.leftFailM
-    . liftIO
-    $ C.queryNodeLocalState localNodeConnectInfo O.VolatileTip
-    $ C.QueryInEra
-    $ C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
+getConstitution era localNodeConnectInfo = do
+  constitution <-
+    H.leftFailM . liftIO . C.runExceptT $
+      C.queryNodeLocalState localNodeConnectInfo O.VolatileTip $
+        C.QueryInEra $
+          C.QueryInShelleyBasedEra (toShelleyBasedEra era) C.QueryConstitution
+  case constitution of
+    Left _eraMismatch -> pure Nothing
+    Right c -> pure (Just c)
 
 getConstitutionAnchor
   :: (MonadIO m, MonadTest m)

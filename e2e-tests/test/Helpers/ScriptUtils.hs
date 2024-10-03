@@ -5,7 +5,6 @@ module Helpers.ScriptUtils where
 
 import PlutusLedgerApi.V1 qualified as PV1
 import PlutusLedgerApi.V2 qualified as PV2
-import PlutusLedgerApi.V3 qualified as PV3
 import PlutusTx (UnsafeFromData)
 import PlutusTx.Prelude qualified as P
 
@@ -25,7 +24,7 @@ class (PV1.UnsafeFromData sc) => IsScriptContext sc where
     -> UntypedValidator
   -- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
   mkUntypedValidator f d r p =
-    P.check $
+    check $
       f
         (tracedUnsafeFrom "Data decoded successfully" d)
         (tracedUnsafeFrom "Redeemer decoded successfully" r)
@@ -37,27 +36,25 @@ class (PV1.UnsafeFromData sc) => IsScriptContext sc where
     => (r -> sc -> Bool)
     -> UntypedStakeValidator
   mkUntypedStakeValidator f r p =
-    P.check $
+    check $
       f
         (tracedUnsafeFrom "Redeemer decoded successfully" r)
         (tracedUnsafeFrom "Script context decoded successfully" p)
 
   {-# INLINEABLE mkUntypedMintingPolicy #-}
   mkUntypedMintingPolicy
-    :: (UnsafeFromData r)
-    => (r -> sc -> Bool)
-    -> UntypedMintingPolicy
-  -- We can use unsafeFromBuiltinData here as we would fail immediately anyway if parsing failed
-  mkUntypedMintingPolicy f r p =
-    P.check $
+    :: (UnsafeFromData r) => (r -> sc -> Bool) -> UntypedMintingPolicy
+  -- We can use unsafeFromBuiltinData here as we would fail immediately anyway
+  -- if parsing failed
+  mkUntypedMintingPolicy f r sc =
+    check $
       f
         (tracedUnsafeFrom "Redeemer decoded successfully" r)
-        (tracedUnsafeFrom "Script context decoded successfully" p)
+        (tracedUnsafeFrom "Script context decoded successfully" sc)
 
-type ScriptContextV1 = PV1.ScriptContext
-type ScriptContextV2 = PV2.ScriptContext
-type ScriptContextV3 = PV3.ScriptContext
+check :: Bool -> ()
+check True = ()
+check False = P.error ()
 
 instance IsScriptContext PV1.ScriptContext
 instance IsScriptContext PV2.ScriptContext
-instance IsScriptContext PV3.ScriptContext

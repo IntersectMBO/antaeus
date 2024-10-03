@@ -43,7 +43,13 @@ verifySchnorrAndEcdsaTest
   => TN.TestEnvironmentOptions era
   -> TestParams era
   -> m (Maybe String)
-verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId, tempAbsPath} = do
+verifySchnorrAndEcdsaTest networkOptions testParams = do
+  let TestParams
+        { localNodeConnectInfo = conn
+        , pparams
+        , networkId
+        , tempAbsPath
+        } = testParams
   era <- TN.eraFromOptionsM networkOptions
   pv <- TN.pvFromOptions networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
@@ -51,31 +57,45 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
 
   -- build a transaction
 
-  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+  txIn <- Q.adaOnlyTxInAtAddress era conn w1Address
 
   let (tokenValues, mintWitnesses, plutusVersion) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.verifySchnorrAssetIdV1, 4), (PS_1_0.verifyEcdsaAssetIdV1, 2)]
-          , Map.fromList [PS_1_0.verifySchnorrMintWitnessV1 sbe, PS_1_0.verifyEcdsaMintWitnessV1 sbe]
+          ( C.valueFromList
+              [ (PS_1_0.verifySchnorrAssetIdV1, 4)
+              , (PS_1_0.verifyEcdsaAssetIdV1, 2)
+              ]
+          , Map.fromList
+              [ PS_1_0.verifySchnorrMintWitnessV1 sbe
+              , PS_1_0.verifyEcdsaMintWitnessV1 sbe
+              ]
           , show C.PlutusV1
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.verifySchnorrAssetIdV2, 4), (PS_1_0.verifyEcdsaAssetIdV2, 2)]
-          , Map.fromList [PS_1_0.verifySchnorrMintWitnessV2 sbe, PS_1_0.verifyEcdsaMintWitnessV2 sbe]
+          ( C.valueFromList
+              [ (PS_1_0.verifySchnorrAssetIdV2, 4)
+              , (PS_1_0.verifyEcdsaAssetIdV2, 2)
+              ]
+          , Map.fromList
+              [ PS_1_0.verifySchnorrMintWitnessV2 sbe
+              , PS_1_0.verifyEcdsaMintWitnessV2 sbe
+              ]
           , show C.PlutusV2
           )
         C.ConwayEra ->
           ( C.valueFromList
               [ (PS_1_0.verifySchnorrAssetIdV2, 4)
-              , (PS_1_0.verifyEcdsaAssetIdV2, 2)
               , (PS_1_1.verifySchnorrAssetIdV3, 3)
+              , -- ECDSA
+                (PS_1_0.verifyEcdsaAssetIdV2, 2)
               , (PS_1_1.verifyEcdsaAssetIdV3, 5)
               ]
           , Map.fromList
               [ PS_1_0.verifySchnorrMintWitnessV2 sbe
-              , PS_1_0.verifyEcdsaMintWitnessV2 sbe
-              , PS_1_1.verifyEcdsaMintWitnessV3 sbe
               , PS_1_1.verifySchnorrMintWitnessV3 sbe
+              , -- ECDSA
+                PS_1_0.verifyEcdsaMintWitnessV2 sbe
+              , PS_1_1.verifyEcdsaMintWitnessV3 sbe
               ]
           , show C.PlutusV3
           )
@@ -95,7 +115,7 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
       eitherTx <-
         Tx.buildTxWithError
           era
-          localNodeConnectInfo
+          conn
           txBodyContent
           w1Address
           Nothing
@@ -111,17 +131,21 @@ verifySchnorrAndEcdsaTest networkOptions TestParams{localNodeConnectInfo, pparam
               ++ plutusVersion
               ++ " at and protocol version "
               ++ show pv
-      a1 <- assert expErrorSchnorr $ Tx.isTxBodyScriptExecutionError expErrorSchnorr eitherTx
-      a2 <- assert expErrorEcdsa $ Tx.isTxBodyScriptExecutionError expErrorEcdsa eitherTx
+      a1 <-
+        assert expErrorSchnorr $
+          Tx.isTxBodyScriptExecutionError expErrorSchnorr eitherTx
+      a2 <-
+        assert expErrorEcdsa $
+          Tx.isTxBodyScriptExecutionError expErrorEcdsa eitherTx
       U.concatMaybes [a1, a2]
     False -> do
       -- Build and submit transaction
-      signedTx <- Tx.buildTx era localNodeConnectInfo txBodyContent w1Address w1SKey
-      Tx.submitTx sbe localNodeConnectInfo signedTx
+      signedTx <- Tx.buildTx era conn txBodyContent w1Address w1SKey
+      Tx.submitTx sbe conn signedTx
       let expectedTxIn = Tx.txIn (Tx.txId signedTx) 0
 
       -- Query for txo and assert it contains newly minting tokens to prove successful use of SECP256k1 builtins
       resultTxOut <-
-        Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "TN.getTxOutAtAddress"
+        Q.getTxOutAtAddress era conn w1Address expectedTxIn "TN.getTxOutAtAddress"
       txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
       assert "txOut has tokens" txOutHasTokenValue

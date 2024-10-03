@@ -1,5 +1,4 @@
--- Custom repository for cardano haskell packages.
--- See https://github.com/input-output-hk/cardano-haskell-packages on how to use CHaP in a Haskell project.
+-- Custom repository for cardano haskell packages, see CONTRIBUTING for more
 repository cardano-haskell-packages
   url: https://chap.intersectmbo.org/
   secure: True
@@ -13,8 +12,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.adoc for how to update index-state
 index-state:
-  , hackage.haskell.org 2024-02-06T15:14:50Z
-  , cardano-haskell-packages 2024-02-07T07:51:35Z
+  , hackage.haskell.org 2024-09-19T08:49:40Z
+  , cardano-haskell-packages 2024-09-17T19:03:21Z
 packages: e2e-tests
 
 -- We never, ever, want this.
@@ -28,51 +27,17 @@ benchmarks: true
 -- 'tasty' output.
 test-show-details: direct
 
--- These packages appear in our dependency tree and are very slow to build.
--- Empirically, turning off optimization shaves off ~50% build time.
--- It also mildly improves recompilation avoidance.
--- For dev work we don't care about performance so much, so this is okay.
-package cardano-ledger-alonzo
-  optimization: False
-package ouroboros-consensus-shelley
-  optimization: False
-package ouroboros-consensus-cardano
-  optimization: False
-package cardano-api
-  optimization: False
-
 package cardano-crypto-praos
   flags: -external-libsodium-vrf
-
-constraints:
-  -- See https://github.com/input-output-hk/haskell.nix/issues/2042
-  concurrent-output < 1.10.19
-
--- Fork for improvements to cardano-testnet (awaiting upstream merge)
--- including PlutusV3 cost model
-source-repository-package
-    type: git
-    location: https://github.com/james-iohk/cardano-node
-    tag: a8f5895303b1adf7c553997d9982b11b26427124
-    subdir:
-      cardano-testnet
-    --sha256: sha256-Kw5VIzvvE8UlQC9blRWQhu+fHqFS3HEhXmN291Yy14E=
 
 source-repository-package
     type: git
     location: https://github.com/IntersectMBO/cardano-node
-    tag: 4bb2048db77d623ee6e3678618c2d8b6c4676333
+    tag: efd560070aaf042d1eb4680ae37fc607c7742319
+    --sha256: sha256-VIwEjpaGk09+dAcKELjLSR2OP3qBCWTGHpd0SBjgbVc=
     subdir:
       cardano-node
+      cardano-testnet
       trace-dispatcher
       trace-forward
       trace-resources
-    --sha256: sha256-pWXI8dyqKQ3HncbBtd54wdHi3Pj7J5y+nybqpzMXOj4=
-
-source-repository-package
-    type: git
-    location: https://github.com/IntersectMBO/cardano-api.git
-    tag: 0fa74a6b488ed1fed5f3865780051dd6324a3ff1
-    subdir: cardano-api
-    --sha256: sha256-WgQ5W5kdfvEUvBWS4YrvZT1C3rzDOQqQIvjDx2sAOB4=
-

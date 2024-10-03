@@ -20,7 +20,6 @@ module PlutusScripts.Governance.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (mkUntypedMintingPolicy)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V3 qualified as V3
 import PlutusScripts.Governance.Common (
@@ -48,15 +47,15 @@ import PlutusTx qualified
 -- ScriptPurpose --
 
 verifyScriptPurposePolicy :: SerialisedScript
-verifyScriptPurposePolicy = serialiseCompiledCode $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy mkVerifyScriptPurpose
+verifyScriptPurposePolicy =
+  serialiseCompiledCode $$(PlutusTx.compile [||mkVerifyScriptPurpose||])
 
 verifyScriptPurposeScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyScriptPurposeScriptV3 = C.PlutusScriptSerialised verifyScriptPurposePolicy
 
 verifyScriptPurposeAssetIdV3 :: C.AssetId
-verifyScriptPurposeAssetIdV3 = C.AssetId (policyIdV3 verifyScriptPurposePolicy) scriptPurposeAssetName
+verifyScriptPurposeAssetIdV3 =
+  C.AssetId (policyIdV3 verifyScriptPurposePolicy) scriptPurposeAssetName
 
 verifyScriptPurposeMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -64,21 +63,25 @@ verifyScriptPurposeMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyScriptPurposeMintWitnessV3 sbe redeemer =
   ( policyIdV3 verifyScriptPurposePolicy
-  , mintScriptWitness sbe plutusL3 (Left verifyScriptPurposeScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left verifyScriptPurposeScriptV3)
+      (toScriptData redeemer)
   )
 
 -- TxCert --
 
 verifyTxCertsPolicy :: SerialisedScript
-verifyTxCertsPolicy = serialiseCompiledCode $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy mkVerifyTxCerts
+verifyTxCertsPolicy =
+  serialiseCompiledCode $$(PlutusTx.compile [||mkVerifyTxCerts||])
 
 verifyTxCertsScriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyTxCertsScriptV3 = C.PlutusScriptSerialised verifyTxCertsPolicy
 
 verifyTxCertsAssetIdV3 :: C.AssetId
-verifyTxCertsAssetIdV3 = C.AssetId (policyIdV3 verifyTxCertsPolicy) txCertsAssetName
+verifyTxCertsAssetIdV3 =
+  C.AssetId (policyIdV3 verifyTxCertsPolicy) txCertsAssetName
 
 verifyTxCertsMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -86,15 +89,18 @@ verifyTxCertsMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyTxCertsMintWitnessV3 sbe redeemer =
   ( policyIdV3 verifyTxCertsPolicy
-  , mintScriptWitness sbe plutusL3 (Left verifyTxCertsScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left verifyTxCertsScriptV3)
+      (toScriptData redeemer)
   )
 
 -- txInfoVotingProcedures --
 
 verifyVotesPolicy :: SerialisedScript
-verifyVotesPolicy = serialiseCompiledCode $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy mkVerifyVotes
+verifyVotesPolicy =
+  serialiseCompiledCode $$(PlutusTx.compile [||mkVerifyVotes||])
 
 verifyVotescriptV3 :: C.PlutusScript C.PlutusScriptV3
 verifyVotescriptV3 = C.PlutusScriptSerialised verifyVotesPolicy
@@ -108,21 +114,28 @@ verifyVotesMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyVotesMintWitnessV3 sbe redeemer =
   ( policyIdV3 verifyVotesPolicy
-  , mintScriptWitness sbe plutusL3 (Left verifyVotescriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left verifyVotescriptV3)
+      (toScriptData redeemer)
   )
 
 -- txInfoProposalProcedures --
 
 verifyProposalProceduresPolicy :: SerialisedScript
-verifyProposalProceduresPolicy = serialiseCompiledCode $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy mkVerifyProposalProcedures
+verifyProposalProceduresPolicy =
+  serialiseCompiledCode $$(PlutusTx.compile [||mkVerifyProposalProcedures||])
 
 verifyProposalProcedureScriptV3 :: C.PlutusScript C.PlutusScriptV3
-verifyProposalProcedureScriptV3 = C.PlutusScriptSerialised verifyProposalProceduresPolicy
+verifyProposalProcedureScriptV3 =
+  C.PlutusScriptSerialised verifyProposalProceduresPolicy
 
 verifyProposalProceduresAssetIdV3 :: C.AssetId
-verifyProposalProceduresAssetIdV3 = C.AssetId (policyIdV3 verifyProposalProceduresPolicy) proposalProceduresAssetName
+verifyProposalProceduresAssetIdV3 =
+  C.AssetId
+    (policyIdV3 verifyProposalProceduresPolicy)
+    proposalProceduresAssetName
 
 verifyProposalProceduresMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -130,22 +143,28 @@ verifyProposalProceduresMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyProposalProceduresMintWitnessV3 sbe redeemer =
   ( policyIdV3 verifyProposalProceduresPolicy
-  , mintScriptWitness sbe plutusL3 (Left verifyProposalProcedureScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left verifyProposalProcedureScriptV3)
+      (toScriptData redeemer)
   )
 
 -- txInfoCurrentTreasuryAmount --
 
 verifyCurrentTreasuryAmountPolicy :: SerialisedScript
-verifyCurrentTreasuryAmountPolicy = serialiseCompiledCode $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy mkVerifyCurrentTreasuryAmount
+verifyCurrentTreasuryAmountPolicy =
+  serialiseCompiledCode $$(PlutusTx.compile [||mkVerifyCurrentTreasuryAmount||])
 
 verifyCurrentTreasuryAmountScriptV3 :: C.PlutusScript C.PlutusScriptV3
-verifyCurrentTreasuryAmountScriptV3 = C.PlutusScriptSerialised verifyCurrentTreasuryAmountPolicy
+verifyCurrentTreasuryAmountScriptV3 =
+  C.PlutusScriptSerialised verifyCurrentTreasuryAmountPolicy
 
 verifyCurrentTreasuryAmountPolicyAssetIdV3 :: C.AssetId
 verifyCurrentTreasuryAmountPolicyAssetIdV3 =
-  C.AssetId (policyIdV3 verifyCurrentTreasuryAmountPolicy) currentTreasuryAmountAssetName
+  C.AssetId
+    (policyIdV3 verifyCurrentTreasuryAmountPolicy)
+    currentTreasuryAmountAssetName
 
 verifyCurrentTreasuryAmountMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -153,21 +172,26 @@ verifyCurrentTreasuryAmountMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyCurrentTreasuryAmountMintWitnessV3 sbe redeemer =
   ( policyIdV3 verifyCurrentTreasuryAmountPolicy
-  , mintScriptWitness sbe plutusL3 (Left verifyCurrentTreasuryAmountScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left verifyCurrentTreasuryAmountScriptV3)
+      (toScriptData redeemer)
   )
 
 -- txInfoTreasuryDonation --
 
 verifyTreasuryDonationPolicy :: SerialisedScript
-verifyTreasuryDonationPolicy = serialiseCompiledCode $$(PlutusTx.compile [||wrap||])
-  where
-    wrap = mkUntypedMintingPolicy mkVerifyTreasuryDonation
+verifyTreasuryDonationPolicy =
+  serialiseCompiledCode $$(PlutusTx.compile [||mkVerifyTreasuryDonation||])
 
 verifyTreasuryDonationScriptV3 :: C.PlutusScript C.PlutusScriptV3
-verifyTreasuryDonationScriptV3 = C.PlutusScriptSerialised verifyTreasuryDonationPolicy
+verifyTreasuryDonationScriptV3 =
+  C.PlutusScriptSerialised verifyTreasuryDonationPolicy
 
 verifyTreasuryDonationAssetIdV3 :: C.AssetId
-verifyTreasuryDonationAssetIdV3 = C.AssetId (policyIdV3 verifyTreasuryDonationPolicy) treasuryDonationAssetName
+verifyTreasuryDonationAssetIdV3 =
+  C.AssetId (policyIdV3 verifyTreasuryDonationPolicy) treasuryDonationAssetName
 
 verifyTreasuryDonationMintWitnessV3
   :: C.ShelleyBasedEra era
@@ -175,5 +199,9 @@ verifyTreasuryDonationMintWitnessV3
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 verifyTreasuryDonationMintWitnessV3 sbe redeemer =
   ( policyIdV3 verifyTreasuryDonationPolicy
-  , mintScriptWitness sbe plutusL3 (Left verifyTreasuryDonationScriptV3) (toScriptData redeemer)
+  , mintScriptWitness
+      sbe
+      plutusL3
+      (Left verifyTreasuryDonationScriptV3)
+      (toScriptData redeemer)
   )

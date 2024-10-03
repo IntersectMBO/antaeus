@@ -14,6 +14,7 @@
 
 module PlutusScripts.BLS.SimpleSignAndVerify.Common where
 
+import PlutusLedgerApi.V3 (ScriptContext)
 import PlutusTx qualified
 import PlutusTx.Prelude qualified as P
 
@@ -21,7 +22,7 @@ data BlsParams = BlsParams
   { privKey :: Integer -- 32 bit private key
   , message :: P.BuiltinByteString
   }
-PlutusTx.unstableMakeIsData ''BlsParams
+$(PlutusTx.unstableMakeIsData ''BlsParams)
 
 redeemerParams :: BlsParams
 redeemerParams =
@@ -34,11 +35,8 @@ redeemerParams =
 -- BLS 12 381 simple verify with private key minting policy --
 
 {-# INLINEABLE verifyBlsSimpleScript #-}
-verifyBlsSimpleScript
-  :: BlsParams
-  -> sc
-  -> Bool
-verifyBlsSimpleScript BlsParams{..} _sc = do
+verifyBlsSimpleScript :: BlsParams -> ScriptContext -> Bool
+verifyBlsSimpleScript BlsParams{..} _scriptContext = do
   let
     uncompressedG1 = P.bls12_381_G1_uncompress P.bls12_381_G1_compressed_generator
     -- calculate public key

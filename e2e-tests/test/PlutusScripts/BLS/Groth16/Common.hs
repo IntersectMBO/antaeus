@@ -12,6 +12,7 @@ module PlutusScripts.BLS.Groth16.Common where
 
 import Data.ByteString qualified as BS
 import PlutusCore (DefaultUni)
+import PlutusLedgerApi.V3 (ScriptContext)
 import PlutusScripts.Helpers (bytesFromHex)
 import PlutusTx qualified
 import PlutusTx.Prelude qualified as P
@@ -126,7 +127,7 @@ verifyBlsGroth16Script
   -> P.BuiltinByteString -- G2
   -> P.BuiltinByteString -- G1
   -> Integer
-  -> sc
+  -> ScriptContext
   -> Bool
 verifyBlsGroth16Script
   (P.bls12_381_G1_uncompress -> alpha')
@@ -139,7 +140,7 @@ verifyBlsGroth16Script
   (P.bls12_381_G2_uncompress -> b')
   (P.bls12_381_G1_uncompress -> c')
   s
-  _sc =
+  _scriptContext =
     let l1 = P.bls12_381_millerLoop a' b'
         l2 = P.bls12_381_millerLoop alpha' beta'
         l3 = P.bls12_381_millerLoop c' delta'

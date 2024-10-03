@@ -28,14 +28,18 @@ import System.Info qualified as IO
 import Text.Printf (printf)
 
 integrationRetryWorkspace
-  :: (HasCallStack) => Int -> FilePath -> (FilePath -> H.Integration ()) -> H.Property
-integrationRetryWorkspace n workspaceName f = GHC.withFrozenCallStack $
-  CTN.integration $
-    H.retry n $ \i ->
-      (liftIO setDarwinTmpdir >>) $ H.runFinallies $ H.workspace (workspaceName <> "-" <> show i) f
-
-setDarwinTmpdir :: IO ()
-setDarwinTmpdir = when (IO.os == "darwin") $ IO.setEnv "TMPDIR" "/tmp"
+  :: (HasCallStack)
+  => Int
+  -> FilePath
+  -> (FilePath -> H.Integration ())
+  -> H.Property
+integrationRetryWorkspace n workspaceName f =
+  GHC.withFrozenCallStack $
+    CTN.integration $
+      H.retry n $ \i -> do
+        liftIO . when (IO.os == "darwin") $
+          IO.setEnv "TMPDIR" "/tmp"
+        H.runFinallies $ H.workspace (workspaceName <> "-" <> show i) f
 
 runTest
   :: (MonadIO m, MonadTest m)
@@ -51,11 +55,16 @@ runTest testInfo resultsRef networkOptions testParams = do
   t2 <- liftIO Time.getPOSIXTime
   let diff = realToFrac $ t2 - t :: Double
   case mError of
-    Nothing -> liftIO $ putStrLn $ "Result: Pass\nDuration: " ++ printf "%.2f" diff ++ "s"
+    Nothing ->
+      liftIO . putStrLn $
+        "Result: Pass\nDuration: " ++ printf "%.2f" diff ++ "s"
     Just e ->
-      liftIO $
-        putStrLn $
-          "Result: Fail\nDuration: " ++ printf "%.2f" diff ++ "s" ++ "\nFailure message: " ++ e
+      liftIO . putStrLn $
+        "Result: Fail\nDuration: "
+          ++ printf "%.2f" diff
+          ++ "s"
+          ++ "\nFailure message: "
+          ++ e
   let result =
         TestResult
           { resultTestName = testName testInfo
@@ -70,15 +79,13 @@ success :: (MonadTest m) => m (Maybe String)
 success = return Nothing
 
 failure :: (MonadTest m) => String -> m (Maybe String)
-failure s = do
-  let message = s ++ "\n\n" ++ prettyCallStack callStack
-  return $ Just message
+failure s = return $ Just $ s ++ "\n\n" ++ prettyCallStack callStack
 
 assert :: (MonadTest m, HasCallStack) => String -> Bool -> m (Maybe String)
 assert s b = do
   ok <- withFrozenCallStack $ H.eval b
   if ok
     then success
-    else do
-      let message = "assert failed: " ++ s ++ "\n\n" ++ prettyCallStack callStack
-      return $ Just message
+    else
+      return . Just $
+        "assert failed: " ++ s ++ "\n\n" ++ prettyCallStack callStack

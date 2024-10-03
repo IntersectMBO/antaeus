@@ -44,7 +44,7 @@ generateStakePoolKeyCredentialsAndCertificate ceo networkId = do
       C.StakePoolParameters
         { C.stakePoolId = stakePoolKeyHash
         , C.stakePoolVRF = stakePoolVrfKeyHash
-        , C.stakePoolCost = C.Lovelace 0
+        , C.stakePoolCost = 0
         , C.stakePoolMargin = 0 % 1
         , C.stakePoolRewardAccount = rewardAccountAddr
         , C.stakePoolPledge = 0

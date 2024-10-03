@@ -48,7 +48,9 @@ checkHashingPolicy :: SerialisedScript
 checkHashingPolicy =
   serialiseCompiledCode $
     $$(PlutusTx.compile [||mkHashingPolicyV1V2||])
-      `PlutusTx.unsafeApplyCode` (PlutusTx.liftCode plcVersion100 hashingParamsV1V2)
+      `PlutusTx.unsafeApplyCode` PlutusTx.liftCode
+        plcVersion100
+        hashingParamsV1V2
 
 checkHashingPolicyScriptV1 :: C.PlutusScript C.PlutusScriptV1
 checkHashingPolicyScriptV1 = C.PlutusScriptSerialised checkHashingPolicy
@@ -67,7 +69,11 @@ checkHashingMintWitnessV1
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 checkHashingMintWitnessV1 sbe =
   ( policyIdV1 checkHashingPolicy
-  , mintScriptWitness sbe plutusL1 (Left checkHashingPolicyScriptV1) (toScriptData ())
+  , mintScriptWitness
+      sbe
+      plutusL1
+      (Left checkHashingPolicyScriptV1)
+      (toScriptData ())
   )
 
 checkHashingMintWitnessV2
@@ -75,5 +81,9 @@ checkHashingMintWitnessV2
   -> (C.PolicyId, C.ScriptWitness C.WitCtxMint era)
 checkHashingMintWitnessV2 sbe =
   ( policyIdV2 checkHashingPolicy
-  , mintScriptWitness sbe plutusL2 (Left checkHashingPolicyScriptV2) (toScriptData ())
+  , mintScriptWitness
+      sbe
+      plutusL2
+      (Left checkHashingPolicyScriptV2)
+      (toScriptData ())
   )

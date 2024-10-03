@@ -13,10 +13,8 @@ module PlutusScripts.BLS.SchnorrG2.V_1_1 where
 
 import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
-import Helpers.ScriptUtils (IsScriptContext (mkUntypedMintingPolicy))
 import PlutusCore.Core qualified as PLC
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusLedgerApi.V3 qualified as PlutusV3
 import PlutusScripts.BLS.Common (blsAssetName, byteString16Null)
 import PlutusScripts.BLS.SchnorrG2.Common (redeemerParams, verifySchnorrG2Script)
 import PlutusScripts.Helpers qualified as H
@@ -25,9 +23,7 @@ import PlutusTx qualified
 verifyBlsSchnorrG2PolicyV3 :: SerialisedScript
 verifyBlsSchnorrG2PolicyV3 =
   serialiseCompiledCode $
-    $$( PlutusTx.compile
-          [||\a -> mkUntypedMintingPolicy @PlutusV3.ScriptContext (verifySchnorrG2Script a)||]
-      )
+    $$(PlutusTx.compile [||\a -> verifySchnorrG2Script a||])
       `PlutusTx.unsafeApplyCode` PlutusTx.liftCode PLC.plcVersion110 byteString16Null
 
 verifyBlsSchnorrG2PolicyScriptV3 :: C.PlutusScript C.PlutusScriptV3
