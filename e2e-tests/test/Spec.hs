@@ -33,23 +33,77 @@ import Helpers.TestResults (
  )
 import Helpers.Testnet qualified as TN
 import Helpers.Utils qualified as U
+import Main.Utf8 (withUtf8)
 import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
-import Spec.Builtins as Builtins
+import Spec.Builtins qualified as Builtins
 import Spec.ConwayFeatures qualified as Conway
 import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (ExitCode (ExitSuccess), exitFailure)
-import System.IO (hSetEncoding, stdout, utf8)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
 import Text.XML.Light (showTopElement)
 
 main :: IO ()
-main = do
-  hSetEncoding stdout utf8
-  runTestsWithResults
+main = withUtf8 do
+  createDirectoryIfMissing False "test-report-xml"
+
+  allRefs@[ pv6ResultsRef
+            , pv7ResultsRef
+            , pv8ResultsRef
+            , pv9ResultsRef
+            , pv9GovResultsRef
+            , pv10ResultsRef
+            ] <-
+    traverse newIORef $ replicate 6 []
+
+  -- Catch the exception returned by defaultMain to proceed with report generation
+  eException <-
+    try
+      ( defaultMain $
+          tests $
+            ResultsRefs
+              pv6ResultsRef
+              pv7ResultsRef
+              pv8ResultsRef
+              pv9ResultsRef
+              pv9GovResultsRef
+              pv10ResultsRef
+      )
+      :: IO (Either ExitCode ())
+
+  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults, pv10Results] <-
+    traverse readIORef allRefs
+
+  failureMessages <- liftIO $ allFailureMessages allRefs
+  liftIO . putStrLn $
+    "Total number of test failures: " ++ (show $ length failureMessages)
+
+  let pv6TestSuiteResult = TestSuiteResults "Alonzo PV6 Tests" pv6Results
+      pv7TestSuiteResult = TestSuiteResults "Babbage PV7 Tests" pv7Results
+      pv8TestSuiteResult = TestSuiteResults "Babbage PV8 Tests" pv8Results
+      pv9TestSuiteResult = TestSuiteResults "Conway PV9 Tests" pv9Results
+      pv9GovernanceTestSuiteResult =
+        TestSuiteResults "Conway PV9 Governanace Tests" pv9GovResults
+      pv10TestSuiteResult = TestSuiteResults "Conway PV10 Tests" pv10Results
+
+  -- Use 'results' to generate custom JUnit XML report
+  let xml =
+        testSuitesToJUnit
+          [ pv6TestSuiteResult
+          , pv7TestSuiteResult
+          , pv8TestSuiteResult
+          , pv9TestSuiteResult
+          , pv9GovernanceTestSuiteResult
+          , pv10TestSuiteResult
+          ]
+  writeFile "test-report-xml/test-results.xml" $ showTopElement xml
+
+  when
+    (eException /= Left ExitSuccess || not (null failureMessages))
+    exitFailure
 
 data ResultsRefs = ResultsRefs
   { pv6ResultsRef :: IORef [TestResult]
@@ -57,6 +111,7 @@ data ResultsRefs = ResultsRefs
   , pv8ResultsRef :: IORef [TestResult]
   , pv9ResultsRef :: IORef [TestResult]
   , pv9GovResultsRef :: IORef [TestResult]
+  , pv10RedultsRef :: IORef [TestResult]
   }
 
 tests :: ResultsRefs -> TestTree
@@ -68,15 +123,16 @@ tests ResultsRefs{..} =
       testProperty "PV7 Babbage Tests" (pv7Tests pv7ResultsRef)
     , testProperty "PV8 Babbage Tests" (pv8Tests pv8ResultsRef)
     , testProperty "PV9 Conway  Tests" (pv9Tests pv9ResultsRef)
-    -- "Conway Governance" tests are commented out as they need to be updated:
-    -- when they were written the ledger didn't have all the current rules in place;
-    -- e.g. a committee member hot key can only be registered if a cold key
-    -- has already applied to be a committee member.
-    --  testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
+    , -- "Conway Governance" tests are commented out as they need to be updated:
+      -- when they were written the ledger didn't have all the current rules in place;
+      -- e.g. a committee member hot key can only be registered if a cold key
+      -- has already applied to be a committee member.
+      --  testProperty "Conway PV9 Governance Tests" (pv9GovernanceTests pv9GovResultsRef)
 
-    -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
-    -- testProperty "debug" (debugTests pv8ResultsRef)
-    -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+      -- testProperty "Write Serialised Script Files" writeSerialisedScriptFiles
+      -- testProperty "debug" (debugTests pv8ResultsRef)
+      -- testProperty "Babbage PV8 Tests (on Preview testnet)" (localNodeTests pv8ResultsRef TN.localNodeOptionsPreview)
+      testProperty "PV10 Tests" (pv10Tests pv10RedultsRef)
     ]
 
 pv6Tests :: IORef [TestResult] -> H.Property
@@ -304,6 +360,48 @@ pv9GovernanceTests resultsRef = integrationRetryWorkspace 0 "pv9Governance" $ \t
   liftIO $ putStrLn $ "\nNumber of test failures in suite: " ++ (show $ length failureMessages)
   U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
 
+pv10Tests :: IORef [TestResult] -> H.Property
+pv10Tests resultsRef = integrationRetryWorkspace 0 "pv10" $ \tempAbsPath -> do
+  let options = TN.testnetOptionsConway10
+  preTestnetTime <- liftIO Time.getCurrentTime
+  (localNodeConnectInfo, pparams, networkId, mPoolNodes) <-
+    TN.setupTestEnvironment options tempAbsPath
+  let testParams = TestParams localNodeConnectInfo pparams networkId tempAbsPath (Just preTestnetTime)
+      run testInfo = runTest testInfo resultsRef options testParams
+
+  -- checkTxInfo tests must be first to run after new testnet is initialised due to expected slot to posix time
+  sequence_
+    [ run Alonzo.checkTxInfoV1TestInfo
+    , {- These tests fail with the same error: BabbageNonDisjointRefInputs
+      , run Babbage.checkTxInfoV2TestInfo
+      , run Conway.checkTxInfoV3TestInfo
+      -}
+      run Alonzo.datumHashSpendTestInfo
+    , run Alonzo.mintBurnTestInfo
+    , run Alonzo.collateralContainsTokenErrorTestInfo
+    , run Alonzo.noCollateralInputsErrorTestInfo
+    , run Alonzo.missingCollateralInputErrorTestInfo
+    , run Alonzo.tooManyCollateralInputsErrorTestInfo
+    , run Builtins.verifySchnorrAndEcdsaTestInfo
+    , {- This test fails because of the exhausted execution budget:
+      , run Builtins.verifyHashingFunctionsTestInfo
+      -}
+      run Babbage.referenceScriptMintTestInfo
+    , run Babbage.referenceScriptInlineDatumSpendTestInfo
+    , run Babbage.referenceScriptDatumHashSpendTestInfo
+    , run Babbage.inlineDatumSpendTestInfo
+    , {- Next 2 tests fail with `ReferenceScriptsNotSupported` error:
+      , run Babbage.referenceInputWithV1ScriptErrorTestInfo
+      , run Babbage.referenceScriptOutputWithV1ScriptErrorTestInfo
+      -}
+      run Babbage.inlineDatumOutputWithV1ScriptErrorTestInfo
+    , run Babbage.returnCollateralWithTokensValidScriptTestInfo
+    ]
+  failureMessages <- liftIO $ suiteFailureMessages resultsRef
+  liftIO . putStrLn $
+    "\nNumber of test failures in suite: " ++ show (length failureMessages)
+  U.anyLeftFail_ $ TN.cleanupTestnet mPoolNodes
+
 debugTests :: IORef [TestResult] -> H.Property
 debugTests resultsRef = integrationRetryWorkspace 0 "debug" $ \tempAbsPath -> do
   let options = TN.testnetOptionsAlonzo6
@@ -342,58 +440,3 @@ writeSerialisedScriptFiles :: H.Property
 writeSerialisedScriptFiles =
   integrationRetryWorkspace 0 "serialised-plutus-scripts" $ \_ -> do
     writeV3ScriptFiles
-
-runTestsWithResults :: IO ()
-runTestsWithResults = do
-  createDirectoryIfMissing False "test-report-xml"
-
-  allRefs@[ pv6ResultsRef
-            , pv7ResultsRef
-            , pv8ResultsRef
-            , pv9ResultsRef
-            , pv9GovResultsRef
-            ] <-
-    traverse newIORef $ replicate 5 []
-
-  -- Catch the exception returned by defaultMain to proceed with report generation
-  eException <-
-    try
-      ( defaultMain $
-          tests $
-            ResultsRefs
-              pv6ResultsRef
-              pv7ResultsRef
-              pv8ResultsRef
-              pv9ResultsRef
-              pv9GovResultsRef
-      )
-      :: IO (Either ExitCode ())
-
-  [pv6Results, pv7Results, pv8Results, pv9Results, pv9GovResults] <-
-    traverse readIORef allRefs
-
-  failureMessages <- liftIO $ allFailureMessages allRefs
-  liftIO . putStrLn $
-    "Total number of test failures: " ++ (show $ length failureMessages)
-
-  let pv6TestSuiteResult = TestSuiteResults "Alonzo PV6 Tests" pv6Results
-      pv7TestSuiteResult = TestSuiteResults "Babbage PV7 Tests" pv7Results
-      pv8TestSuiteResult = TestSuiteResults "Babbage PV8 Tests" pv8Results
-      pv9TestSuiteResult = TestSuiteResults "Conway PV9 Tests" pv9Results
-      pv9GovernanceTestSuiteResult =
-        TestSuiteResults "Conway PV9 Governanace Tests" pv9GovResults
-
-  -- Use 'results' to generate custom JUnit XML report
-  let xml =
-        testSuitesToJUnit
-          [ pv6TestSuiteResult
-          , pv7TestSuiteResult
-          , pv8TestSuiteResult
-          , pv9TestSuiteResult
-          , pv9GovernanceTestSuiteResult
-          ]
-  writeFile "test-report-xml/test-results.xml" $ showTopElement xml
-
-  when
-    (eException /= Left ExitSuccess || not (null failureMessages))
-    exitFailure

@@ -18,6 +18,7 @@ source-repository head
 common lang
   default-language:   Haskell2010
   default-extensions:
+    BlockArguments
     DeriveAnyClass
     DeriveFoldable
     DeriveFunctor
@@ -94,6 +95,7 @@ common lang
     , transformers-except
     , unliftio
     , unordered-containers
+    , with-utf8
 
   if (os(osx) || os(linux))
     build-depends: unix
