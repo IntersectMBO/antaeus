@@ -61,7 +61,13 @@ import System.Process.Internals (
 import Testnet.Defaults (defaultAlonzoGenesis)
 import Testnet.Defaults qualified as CTN
 import Testnet.Runtime qualified as CTN
-import Testnet.Types (PoolNode (..), TestnetRuntime, poolNodes, poolSprockets, testnetMagic)
+import Testnet.Types (
+  PoolNode (..),
+  TestnetRuntime,
+  poolNodes,
+  poolSprockets,
+  testnetMagic,
+ )
 
 data TestEnvironmentOptions era
   = TestnetOptions
@@ -72,7 +78,8 @@ data TestEnvironmentOptions era
   | LocalNodeOptions
       { localNodeEra :: C.CardanoEra era
       , localNodeProtocolVersion :: Int
-      , localNodeEnvDir :: FilePath -- path to directory containing 'utxo-keys' and 'ipc' directories
+      , localNodeEnvDir :: FilePath
+      -- ^ path to directory containing 'utxo-keys' and 'ipc' directories
       , localNodeTestnetMagic :: Int
       }
   deriving (Show)
@@ -87,7 +94,9 @@ defAlonzoTestnetOptions =
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
           , CTN.cardanoActiveSlotsCoeff = 0.1
           , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          , CTN.cardanoEpochLength = 10_000
+          -- ↑ higher value so that txs can have higher
+          -- upper bound validity range
           }
     }
 
@@ -101,32 +110,38 @@ defBabbageTestnetOptions protocolVersion =
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
           , CTN.cardanoActiveSlotsCoeff = 0.1
           , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          , CTN.cardanoEpochLength = 10_000
+          -- ↑ higher value so that txs can have
+          -- higher upper bound validity range
           }
     }
 
-defConwayTestnetOptions :: TestEnvironmentOptions C.ConwayEra
-defConwayTestnetOptions =
+defConwayTestnetOptions :: Int -> TestEnvironmentOptions C.ConwayEra
+defConwayTestnetOptions protocolVersion =
   TestnetOptions
     { testnetEra = C.ConwayEra
-    , testnetProtocolVersion = 9
+    , testnetProtocolVersion = protocolVersion
     , testnetCardanoOptions =
         CTN.cardanoDefaultTestnetOptions
           { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
           , CTN.cardanoActiveSlotsCoeff = 0.1
           , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoEpochLength = 10_000 -- higher value so that txs can have higher upper bound validity range
+          , CTN.cardanoEpochLength = 10_000
           }
+          -- ↑  higher value so that txs can have
+          -- higher upper bound validity range
     }
 
-shortEpochConwayTestnetOptions :: TestEnvironmentOptions C.ConwayEra
-shortEpochConwayTestnetOptions =
-  defConwayTestnetOptions
+shortEpochConwayTestnetOptions :: Int -> TestEnvironmentOptions C.ConwayEra
+shortEpochConwayTestnetOptions protocolVersion =
+  (defConwayTestnetOptions protocolVersion)
     { testnetCardanoOptions =
-        (testnetCardanoOptions defConwayTestnetOptions)
-          { CTN.cardanoActiveSlotsCoeff = 0.1 -- adjusted from default due to short epoch length
-          -- 200 second epoch for testing outcome of governance actions (shorter is unstable)
-          , CTN.cardanoEpochLength = 2_000
+        (testnetCardanoOptions (defConwayTestnetOptions protocolVersion))
+          { CTN.cardanoActiveSlotsCoeff = 0.1
+          , -- ↑ adjusted from default due to short epoch length
+            -- 200 second epoch for testing outcome of governance actions
+            -- (shorter is unstable)
+            CTN.cardanoEpochLength = 2_000
           , CTN.cardanoSlotLength = 0.1
           }
     }
@@ -150,18 +165,24 @@ testnetOptionsBabbage8 :: TestEnvironmentOptions C.BabbageEra
 testnetOptionsBabbage8 = defBabbageTestnetOptions 8
 
 testnetOptionsConway9 :: TestEnvironmentOptions C.ConwayEra
-testnetOptionsConway9 = defConwayTestnetOptions
+testnetOptionsConway9 = defConwayTestnetOptions 9
+
+testnetOptionsConway10 :: TestEnvironmentOptions C.ConwayEra
+testnetOptionsConway10 = defConwayTestnetOptions 10
 
 testnetOptionsConway9Governance :: TestEnvironmentOptions C.ConwayEra
-testnetOptionsConway9Governance = shortEpochConwayTestnetOptions
+testnetOptionsConway9Governance = shortEpochConwayTestnetOptions 9
 
 eraFromOptions :: TestEnvironmentOptions era -> C.CardanoEra era
 eraFromOptions options = case options of
   TestnetOptions era _ _ -> era
   LocalNodeOptions era _ _ _ -> era
 
-eraFromOptionsM :: (MonadTest m) => TestEnvironmentOptions era -> m (C.CardanoEra era)
-eraFromOptionsM = return . eraFromOptions
+eraFromOptionsM
+  :: (MonadTest m)
+  => TestEnvironmentOptions era
+  -> m (C.CardanoEra era)
+eraFromOptionsM = pure . eraFromOptions
 
 pvFromOptions :: (MonadTest m) => TestEnvironmentOptions era -> m Int
 pvFromOptions (TestnetOptions _ pv _) = pure pv
@@ -171,7 +192,9 @@ pvFromOptions (LocalNodeOptions _ pv _ _) = pure pv
 getProjectBase :: (MonadIO m, MonadTest m) => m String
 getProjectBase = liftIO . IO.canonicalizePath =<< HE.getProjectBase
 
--- | Start a testnet with provided testnet options (including era and protocol version)
+{- | Start a testnet with provided testnet options
+(including era and protocol version)
+-}
 startTestnet
   :: TestEnvironmentOptions era
   -> FilePath
@@ -192,9 +215,9 @@ startTestnet TestnetOptions{..} tempAbsBasePath = do
   -- needed to avoid duplication of directory in filepath
   let tmpAbsBasePath' = CTN.makeTmpBaseAbsPath $ CTN.tempAbsPath conf
 
-  -- Boilerplate codecs used for protocol serialisation. The number of epochSlots is specific
-  -- to each blockchain instance. This value is used by cardano mainnet/testnet and only applies
-  -- to the Byron era.
+  -- Boilerplate codecs used for protocol serialisation. The number of
+  -- epochSlots is specific to each blockchain instance. This value is used by
+  -- cardano mainnet/testnet and only applies to the Byron era.
   socketPathAbs <- getPoolSocketPathAbs tmpAbsBasePath' tn
   let epochSlots = C.EpochSlots 21_600
       localNodeConnectInfo =
@@ -215,22 +238,26 @@ cleanupTestnet mPoolNodes =
         -- graceful SIGTERM all nodes
         liftIO $
           cleanupProcess
-            (Just (CTN.nodeStdinHandle poolRuntime), Nothing, Nothing, CTN.nodeProcessHandle poolRuntime)
+            ( Just (CTN.nodeStdinHandle poolRuntime)
+            , Nothing
+            , Nothing
+            , CTN.nodeProcessHandle poolRuntime
+            )
       forM poolNodes $ \node ->
         -- kill signal for any node unix handles still open
         killUnixHandle $ CTN.nodeProcessHandle $ poolRuntime node
     _ ->
-      return []
+      pure []
   where
     killUnixHandle ph = liftIO $ withProcessHandle ph $ \case
       OpenHandle pid -> do
         signalProcess sigKILL pid -- send kill signal if handle still open
         eTimeOut <- waitSecondsForProcess 60 ph -- wait 60s for process to exit
         case eTimeOut of
-          Left _ -> return $ Left $ ProcessExitTimedOut 60 pid
-          Right _ -> return $ Right ()
-      OpenExtHandle _ _ -> return $ Right () -- do nothing on Windows
-      ClosedHandle _ -> return $ Right () -- do nothing if already closed
+          Left _ -> pure $ Left $ ProcessExitTimedOut 60 pid
+          Right _ -> pure $ Right ()
+      OpenExtHandle _ _ -> pure $ Right () -- do nothing on Windows
+      ClosedHandle _ -> pure $ Right () -- do nothing if already closed
 
 connectToLocalNode
   :: TestEnvironmentOptions era
@@ -246,16 +273,23 @@ connectToLocalNode LocalNodeOptions{..} tempAbsPath = do
   HE.createDirectoryIfMissing (tempAbsPath </> "utxo-keys")
   HE.createDirectoryIfMissing (tempAbsPath </> "sockets")
 
-  HE.createFileLink (localNodeEnvDir </> "test.skey") (tempAbsPath </> "utxo-keys/utxo1.skey")
-  HE.createFileLink (localNodeEnvDir </> "test.vkey") (tempAbsPath </> "utxo-keys/utxo1.vkey")
-  HE.createFileLink (localNodeEnvDir </> "ipc/node.socket") (tempAbsPath </> "sockets/node.socket")
+  HE.createFileLink
+    (localNodeEnvDir </> "test.skey")
+    (tempAbsPath </> "utxo-keys/utxo1.skey")
+  HE.createFileLink
+    (localNodeEnvDir </> "test.vkey")
+    (tempAbsPath </> "utxo-keys/utxo1.vkey")
+  HE.createFileLink
+    (localNodeEnvDir </> "ipc/node.socket")
+    (tempAbsPath </> "sockets/node.socket")
 
   let socketPathAbs = C.File $ tempAbsPath </> "sockets/node.socket"
-      networkId = C.Testnet $ C.NetworkMagic $ fromIntegral localNodeTestnetMagic
+      networkId =
+        C.Testnet . C.NetworkMagic $ fromIntegral localNodeTestnetMagic
 
-  -- Boilerplate codecs used for protocol serialisation. The number of epochSlots is specific
-  -- to each blockchain instance. This value is used by cardano mainnet/testnet and only applies
-  -- to the Byron era.
+  -- Boilerplate codecs used for protocol serialisation. The number of
+  -- epochSlots is specific to each blockchain instance. This value is used by
+  -- cardano mainnet/testnet and only applies to the Byron era.
   let epochSlots = C.EpochSlots 21_600
       localNodeConnectInfo =
         C.LocalNodeConnectInfo
@@ -296,12 +330,16 @@ getNetworkId :: TestnetRuntime -> C.NetworkId
 getNetworkId tn = C.Testnet $ C.NetworkMagic $ fromIntegral (testnetMagic tn)
 
 -- | Path to a pool node's unix socket
-getPoolSocketPathAbs :: (MonadTest m, MonadIO m) => FilePath -> TestnetRuntime -> m C.SocketPath
+getPoolSocketPathAbs
+  :: (MonadTest m, MonadIO m)
+  => FilePath
+  -> TestnetRuntime
+  -> m C.SocketPath
 getPoolSocketPathAbs tempAbsPath tn = do
   socketPath <- IO.sprocketArgumentName <$> H.headM (poolSprockets tn)
   fp <- liftIO $ IO.canonicalizePath $ tempAbsPath </> socketPath
   H.annotate fp
-  return $ C.File fp
+  pure $ C.File fp
 
 {- | Signing key and address for wallet 1
   Handles two key types: GenesisUTxOKey and PaymentKey
@@ -310,7 +348,11 @@ w1All
   :: (MonadIO m, MonadTest m)
   => FilePath
   -> C.NetworkId
-  -> m (C.SigningKey C.PaymentKey, C.VerificationKey C.PaymentKey, C.Address C.ShelleyAddr)
+  -> m
+      ( C.SigningKey C.PaymentKey
+      , C.VerificationKey C.PaymentKey
+      , C.Address C.ShelleyAddr
+      )
 w1All tempAbsPath networkId = do
   let w1VKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1/utxo.vkey"
       w1SKeyFile = C.File $ tempAbsPath </> "utxo-keys/utxo1/utxo.skey"
@@ -319,7 +361,8 @@ w1All tempAbsPath networkId = do
     maybeReadAs (C.AsVerificationKey C.AsGenesisUTxOKey) w1VKeyFile
   mGenesisSKey :: Maybe (C.SigningKey C.GenesisUTxOKey) <-
     maybeReadAs (C.AsSigningKey C.AsGenesisUTxOKey) w1SKeyFile
-  -- PaymentKey comes from cardano-cli (the likely type for a locally created wallet)
+  -- PaymentKey comes from cardano-cli
+  -- (the likely type for a locally created wallet)
   mPaymentVKey :: Maybe (C.VerificationKey C.PaymentKey) <-
     maybeReadAs (C.AsVerificationKey C.AsPaymentKey) w1VKeyFile
   mPaymentSKey :: Maybe (C.SigningKey C.PaymentKey) <-
@@ -332,7 +375,7 @@ w1All tempAbsPath networkId = do
       maybe (fromJust mPaymentSKey) C.castSigningKey mGenesisSKey
     address = makeAddress (Left vKey) networkId
 
-  return (sKey, vKey, address)
+  pure (sKey, vKey, address)
 
 w1
   :: (MonadIO m, MonadTest m)
@@ -370,7 +413,8 @@ pool1All tempAbsPath = do
       pool1VKeyHash = C.verificationKeyHash pool1VKey
       C.StakePoolKeyHash pool1StakePoolKeyHash = pool1VKeyHash
 
-  let pool1StakingRewardsFile = C.File $ tempAbsPath </> "pools/staking-reward1.vkey"
+  let pool1StakingRewardsFile =
+        C.File $ tempAbsPath </> "pools/staking-reward1.vkey"
   mPool1StakingRewards :: Maybe (C.VerificationKey C.StakeKey) <-
     maybeReadAs (C.AsVerificationKey C.AsStakeKey) pool1StakingRewardsFile
   let pool1StakeKeyHash = C.verificationKeyHash (fromJust mPool1StakingRewards)
@@ -380,7 +424,7 @@ pool1All tempAbsPath = do
     maybeReadAs (C.AsVerificationKey C.AsVrfKey) pool1VrfKeyFile
   let pool1VrfKeyHash = C.verificationKeyHash (fromJust mPool1VrfKey)
 
-  return $
+  pure $
     TestnetStakePool
       pool1SKey
       pool1VKey
@@ -390,10 +434,18 @@ pool1All tempAbsPath = do
       pool1StakePoolKeyHash
 
 pool1UnregCert
-  :: (MonadIO m, MonadTest m) => ConwayEraOnwards era -> C.EpochNo -> FilePath -> m (C.Certificate era)
+  :: (MonadIO m, MonadTest m)
+  => ConwayEraOnwards era
+  -> C.EpochNo
+  -> FilePath
+  -> m (C.Certificate era)
 pool1UnregCert ceo epochNo tempAbsPath = do
   pool1Data <- pool1All tempAbsPath
-  let retireReqs = C.StakePoolRetirementRequirementsConwayOnwards ceo (stakePoolVKeyHash pool1Data) epochNo
+  let retireReqs =
+        C.StakePoolRetirementRequirementsConwayOnwards
+          ceo
+          (stakePoolVKeyHash pool1Data)
+          epochNo
   pure $ C.makeStakePoolRetirementCertificate retireReqs
 
 pool1Voter
@@ -402,7 +454,7 @@ pool1Voter
   -> FilePath
   -> m (Voter (EraCrypto (C.ShelleyLedgerEra era)))
 pool1Voter ceo tempAbsPath =
-  return
+  pure
     . StakePoolVoter
     . C.conwayEraOnwardsConstraints ceo
     . stakePoolPoolKeyHash
