@@ -19,6 +19,7 @@ import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock qualified as Time
 import Data.Time.Clock.POSIX qualified as Time
+import GHC.IsList (fromList)
 import Hedgehog qualified as H
 import Hedgehog.Internal.Property (MonadTest)
 import Helpers.Common (makeAddress, toShelleyBasedEra)
@@ -79,7 +80,7 @@ checkTxInfoV2Test networkOptions testParams = do
     Q.getTxOutAtAddress era conn wAddress txIn "txInAsTxOut <- getTxOutAtAddress"
 
   let tokenValues =
-        C.valueFromList
+        fromList
           [ (PS.checkV2TxInfoAssetIdV2, 1)
           , (PS_1_0.alwaysSucceedAssetIdV2, 2)
           ]
@@ -248,11 +249,11 @@ referenceScriptMintTest networkOptions testParams = do
 
   let (tokenValues, mintWitnesses) = case era of
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 6)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV2, 6)]
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe (Just refScriptTxIn)]
           )
         C.ConwayEra ->
-          ( C.valueFromList [(PS_1_1.alwaysSucceedAssetIdV3, 6)]
+          ( fromList [(PS_1_1.alwaysSucceedAssetIdV3, 6)]
           , Map.fromList [PS_1_1.alwaysSucceedMintWitnessV3 sbe (Just refScriptTxIn)]
           )
       collateral = Tx.txInsCollateral era [otherTxIn]
@@ -541,7 +542,7 @@ referenceInputWithV1ScriptErrorTest
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo wAddress
 
-    let tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
+    let tokenValues = fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
         mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
         collateral = Tx.txInsCollateral era [txIn]
         txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) wAddress
@@ -589,7 +590,7 @@ referenceScriptOutputWithV1ScriptErrorTest
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo wAddress
 
-    let tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
+    let tokenValues = fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
         mintWitnesses =
           Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
         collateral = Tx.txInsCollateral era [txIn]
@@ -643,7 +644,7 @@ inlineDatumOutputWithV1ScriptErrorTest
 
     txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo wAddress
 
-    let tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
+    let tokenValues = fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
         mintWitnesses = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
         collateral = Tx.txInsCollateral era [txIn]
         txOut =
@@ -701,11 +702,11 @@ returnCollateralWithTokensValidScriptTest
     let (tokenValues, mintWitnesses) = case era of
           C.AlonzoEra -> error "Alonzo era is unsupported in this test"
           C.BabbageEra ->
-            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+            ( fromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
             , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
-            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
+            ( fromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
             , Map.fromList
                 [ PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing
                 , PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing
@@ -736,8 +737,8 @@ returnCollateralWithTokensValidScriptTest
     -- This is allowed because using return collateral feature.
 
     let tokenValues2 = case era of
-          C.BabbageEra -> C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 20)]
-          C.ConwayEra -> C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 20), (PS_1_1.alwaysSucceedAssetIdV3, 20)]
+          C.BabbageEra -> fromList [(PS_1_0.alwaysSucceedAssetIdV2, 20)]
+          C.ConwayEra -> fromList [(PS_1_0.alwaysSucceedAssetIdV2, 20), (PS_1_1.alwaysSucceedAssetIdV3, 20)]
         collateral2 = Tx.txInsCollateral era [txIn2]
         txOut2 =
           Tx.txOutWithInlineDatum
@@ -793,11 +794,11 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
     let (tokenValues, mintWitnesses) = case era of
           C.AlonzoEra -> error "Alonzo era is unsupported in this test"
           C.BabbageEra ->
-            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+            ( fromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
             , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
-            ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
+            ( fromList [(PS_1_0.alwaysSucceedAssetIdV2, 10), (PS_1_1.alwaysSucceedAssetIdV3, 10)]
             , Map.fromList
                 [PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing, PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing]
             )
@@ -824,11 +825,11 @@ submitWithInvalidScriptThenCollateralIsTakenAndReturnedTest
 
     let (tokenValues2, mintWitnesses2) = case era of
           C.BabbageEra ->
-            ( C.valueFromList [(PS_1_0.alwaysFailsAssetIdV2, 1)]
+            ( fromList [(PS_1_0.alwaysFailsAssetIdV2, 1)]
             , Map.fromList [PS_1_0.alwaysFailsMintWitnessV2 sbe Nothing]
             )
           C.ConwayEra ->
-            ( C.valueFromList [(PS_1_1.alwaysFailsAssetIdV3, 1)]
+            ( fromList [(PS_1_1.alwaysFailsAssetIdV3, 1)]
             , Map.fromList [PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing]
             )
         collateral2 = Tx.txInsCollateral era [collateralTxIn]

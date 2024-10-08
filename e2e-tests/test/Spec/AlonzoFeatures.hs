@@ -22,6 +22,7 @@ import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Time.Clock qualified as Time
 import Data.Time.Clock.POSIX qualified as Time
+import GHC.IsList (fromList)
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
 import Helpers.Common (makeAddress, toShelleyBasedEra)
@@ -87,7 +88,7 @@ checkTxInfoV1Test networkOptions params = do
       txIn
       "txInAsTxOut <- getTxOutAtAddress"
 
-  let tokenValues = C.valueFromList [(PS.checkV1TxInfoAssetIdV1, 1)]
+  let tokenValues = fromList [(PS.checkV1TxInfoAssetIdV1, 1)]
       executionUnits =
         C.ExecutionUnits
           { C.executionSteps = 1_000_000_000
@@ -310,11 +311,11 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
 
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 10)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, 10)]
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 10)
               , (PS_1_0.alwaysSucceedAssetIdV2, 10)
               ]
@@ -324,7 +325,7 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
               ]
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 10)
               , (PS_1_0.alwaysSucceedAssetIdV2, 10)
               , (PS_1_1.alwaysSucceedAssetIdV3, 10)
@@ -367,20 +368,20 @@ mintBurnTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId,
   let txIn2 = expectedTxIn
       (burnValue, tokenValues2) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, -5)]
-          , C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 5)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, -5)]
+          , fromList [(PS_1_0.alwaysSucceedAssetIdV1, 5)]
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, -5), (PS_1_0.alwaysSucceedAssetIdV2, -5)]
-          , C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 5), (PS_1_0.alwaysSucceedAssetIdV2, 5)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, -5), (PS_1_0.alwaysSucceedAssetIdV2, -5)]
+          , fromList [(PS_1_0.alwaysSucceedAssetIdV1, 5), (PS_1_0.alwaysSucceedAssetIdV2, 5)]
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, -5)
               , (PS_1_0.alwaysSucceedAssetIdV2, -5)
               , (PS_1_1.alwaysSucceedAssetIdV3, -5)
               ]
-          , C.valueFromList
+          , fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 5)
               , (PS_1_0.alwaysSucceedAssetIdV2, 5)
               , (PS_1_1.alwaysSucceedAssetIdV3, 5)
@@ -434,16 +435,16 @@ collateralContainsTokenErrorTest networkOptions TestParams{localNodeConnectInfo,
 
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
           , Map.fromList
               [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 1)
               , (PS_1_0.alwaysSucceedAssetIdV2, 1)
               , (PS_1_1.alwaysSucceedAssetIdV3, 1)
@@ -527,16 +528,21 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
 
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1), (PS_1_0.alwaysSucceedAssetIdV2, 1)]
+          ( fromList
+              [ (PS_1_0.alwaysSucceedAssetIdV1, 1)
+              , (PS_1_0.alwaysSucceedAssetIdV2, 1)
+              ]
           , Map.fromList
-              [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing, PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing]
+              [ PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing
+              , PS_1_0.alwaysSucceedMintWitnessV2 sbe Nothing
+              ]
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 1)
               , (PS_1_0.alwaysSucceedAssetIdV2, 1)
               , (PS_1_1.alwaysSucceedAssetIdV3, 1)
@@ -547,7 +553,11 @@ missingCollateralInputErrorTest networkOptions TestParams{localNodeConnectInfo, 
               , PS_1_1.alwaysSucceedMintWitnessV3 sbe Nothing
               ]
           )
-      txOut = Tx.txOut era (C.lovelaceToValue 10_000_000 <> tokenValues) w1Address
+      txOut =
+        Tx.txOut
+          era
+          (C.lovelaceToValue 10_000_000 <> tokenValues)
+          w1Address
 
       txBodyContent =
         (Tx.emptyTxBodyContent sbe pparams)
@@ -593,11 +603,11 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
   let collateral = Tx.txInsCollateral era []
       (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
+          ( fromList [(PS_1_0.alwaysSucceedAssetIdV1, 1)]
           , Map.fromList [PS_1_0.alwaysSucceedMintWitnessV1 sbe Nothing]
           )
         C.BabbageEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 1)
               , (PS_1_0.alwaysSucceedAssetIdV2, 1)
               ]
@@ -607,7 +617,7 @@ noCollateralInputsErrorTest networkOptions TestParams{localNodeConnectInfo, ppar
               ]
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.alwaysSucceedAssetIdV1, 1)
               , (PS_1_0.alwaysSucceedAssetIdV2, 1)
               , (PS_1_1.alwaysSucceedAssetIdV3, 1)

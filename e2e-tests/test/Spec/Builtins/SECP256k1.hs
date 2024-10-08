@@ -15,6 +15,7 @@ module Spec.Builtins.SECP256k1 where
 import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
+import GHC.IsList (fromList)
 import Hedgehog (MonadTest)
 import Hedgehog.Internal.Property (annotate)
 import Helpers.Common (toShelleyBasedEra)
@@ -51,7 +52,7 @@ verifySchnorrAndEcdsaTest networkOptions testParams = do
         , tempAbsPath
         } = testParams
   era <- TN.eraFromOptionsM networkOptions
-  pv <- TN.pvFromOptions networkOptions
+  let pv = TN.pvFromOptions networkOptions
   (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
   let sbe = toShelleyBasedEra era
 
@@ -61,7 +62,7 @@ verifySchnorrAndEcdsaTest networkOptions testParams = do
 
   let (tokenValues, mintWitnesses, plutusVersion) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.verifySchnorrAssetIdV1, 4)
               , (PS_1_0.verifyEcdsaAssetIdV1, 2)
               ]
@@ -72,7 +73,7 @@ verifySchnorrAndEcdsaTest networkOptions testParams = do
           , show C.PlutusV1
           )
         C.BabbageEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.verifySchnorrAssetIdV2, 4)
               , (PS_1_0.verifyEcdsaAssetIdV2, 2)
               ]
@@ -83,7 +84,7 @@ verifySchnorrAndEcdsaTest networkOptions testParams = do
           , show C.PlutusV2
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.verifySchnorrAssetIdV2, 4)
               , (PS_1_1.verifySchnorrAssetIdV3, 3)
               , -- ECDSA

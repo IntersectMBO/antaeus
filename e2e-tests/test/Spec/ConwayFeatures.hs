@@ -34,6 +34,7 @@ import Data.Ratio ((%))
 import Data.Text qualified as Text
 import Data.Time.Clock qualified as Time
 import Data.Time.Clock.POSIX qualified as Time
+import GHC.IsList (fromList)
 import GHC.Num (Natural)
 import Hedgehog qualified as H
 import Hedgehog.Extras qualified as H
@@ -98,7 +99,7 @@ checkTxInfoV3Test networkOptions TestParams{..} = do
     Q.getTxOutAtAddress era localNodeConnectInfo w1Address txIn "txInAsTxOut <- getTxOutAtAddress"
 
   -- TODO: use V3 scripts here and check for V3 TxInfo fields
-  let tokenValues = C.valueFromList [(PS.checkV2TxInfoAssetIdV2, 1), (PS_1_0.alwaysSucceedAssetIdV2, 2)]
+  let tokenValues = fromList [(PS.checkV2TxInfoAssetIdV2, 1), (PS_1_0.alwaysSucceedAssetIdV2, 2)]
       executionUnits1 = C.ExecutionUnits{C.executionSteps = 1_000_000_000, C.executionMemory = 10_000_000}
       executionUnits2 = C.ExecutionUnits{C.executionSteps = 1_000_000_000, C.executionMemory = 4_000_000}
       collateral = Tx.txInsCollateral era [txIn]
@@ -580,7 +581,7 @@ constitutionProposalAndVoteTest
         plutusProposalProcedure = fromCardanoProposal sbe proposal
         -- proposalProcedureItems' = C.fromProposalProcedure sbe proposal
         -- plutusProposalProcedure' = fromCardanoProposal proposalProcedureItems'
-        tokenValues = C.valueFromList [(PS_1_1.verifyProposalProceduresAssetIdV3, 1)]
+        tokenValues = fromList [(PS_1_1.verifyProposalProceduresAssetIdV3, 1)]
         mintWitness = Map.fromList [PS_1_1.verifyProposalProceduresMintWitnessV3 sbe [plutusProposalProcedure]]
         --}
 
@@ -604,7 +605,7 @@ constitutionProposalAndVoteTest
 
     let tx2Out1 = Tx.txOut era (C.lovelaceToValue 4_000_000) w1Address
         -- NOTE : sDRepVoter uses alwaysSucceed
-        -- tokenValues = C.valueFromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
+        -- tokenValues = fromList [(PS_1_0.alwaysSucceedAssetIdV2, 10)]
         -- mintWitness = Map.fromList [PS_1_0.alwaysSucceedMintWitnessV2 era Nothing]
         -- collateral = Tx.txInsCollateral era [tx2In3]
         -- SPO not allowed to vote on constitution
@@ -1116,8 +1117,8 @@ hardForkProposalAndVoteTest
     let anchorUrl = (\t -> C.textToUrl (Text.length t) t) "https://example.com/hard_fork.txt"
         anchor = C.createAnchor (fromJust anchorUrl) "hard fork"
     tx1In <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
-    pvNat :: Natural <- toEnum <$> TN.pvFromOptions networkOptions
     let
+      pvNat = toEnum $ TN.pvFromOptions networkOptions
       tx1Out1 = Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address
       tx1Out2 = Tx.txOut era (C.lovelaceToValue 3_000_000) w1Address
       nextPv = mkProtocolVersionOrErr (pvNat, 1)

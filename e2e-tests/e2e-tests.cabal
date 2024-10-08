@@ -180,10 +180,10 @@ test-suite antaeus-test
     , cardano-testnet
     , iohk-monitoring
     , ouroboros-network
-    , plutus-core
-    , plutus-ledger-api
-    , plutus-tx
-    , plutus-tx-plugin
+    , plutus-core           ==1.32.1.0
+    , plutus-ledger-api     ==1.32.1.0
+    , plutus-tx             ==1.32.1.0
+    , plutus-tx-plugin      ==1.32.1.0
 
   ------------------------
   -- Non-IOG dependencies
@@ -195,6 +195,7 @@ test-suite antaeus-test
     , bytestring
     , cborg
     , containers
+    , data-default-class
     , deepseq
     , directory
     , exceptions

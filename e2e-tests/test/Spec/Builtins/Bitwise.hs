@@ -2,7 +2,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
@@ -15,7 +14,7 @@ module Spec.Builtins.Bitwise where
 import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
-import Debug.Trace qualified as Debug
+import GHC.IsList (fromList)
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
 import Helpers.Common (toShelleyBasedEra)
@@ -33,7 +32,8 @@ verifyBitwiseFunctionsTestInfo =
   TestInfo
     { testName = "verifyBitwiseFunctionsTest"
     , testDescription =
-        "Use byteStringToInteger and integerToByteString to verify correct conversions"
+        "Use byteStringToInteger and integerToByteString \
+        \to verify correct conversions"
     , test = verifyBitwiseFunctionsTest
     }
 verifyBitwiseFunctionsTest
@@ -56,7 +56,7 @@ verifyBitwiseFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
         C.BabbageEra ->
           error "Babbage era not supported"
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_1.byteStringToIntegerAssetIdV3, 1)
               , (PS_1_1.integerToByteStringAssetIdV3, 2)
               , (PS_1_1.byteStringToIntegerRoundtripAssetIdV3, 3)
@@ -146,7 +146,7 @@ integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTest
   networkOptions
   testParams = do
     -- why does size of 10241 cause "it is a bug" error?
-    let params = PS.IntegerToByteStringParams True 8193 3735928559 (P.toBuiltin $ bytesFromHex "deadbeef")
+    let params = PS.IntegerToByteStringParams True 8193 3_735_928_559 (P.toBuiltin $ bytesFromHex "deadbeef")
         expError = "integerToByteString: cannot represent Integer in given number of bytes"
     checkIntegerToByteStringError networkOptions testParams params expError
 
@@ -176,7 +176,7 @@ checkIntegerToByteStringError
           C.BabbageEra ->
             error "Babbage era not supported"
           C.ConwayEra ->
-            ( C.valueFromList [(PS_1_1.integerToByteStringAssetIdV3, 1)]
+            ( fromList [(PS_1_1.integerToByteStringAssetIdV3, 1)]
             , Map.fromList [PS_1_1.integerToByteStringMintWitnessV3 sbe params]
             )
         txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
@@ -198,5 +198,4 @@ checkIntegerToByteStringError
         w1Address
         Nothing
         [C.WitnessPaymentKey w1SKey]
-    Debug.traceM $ show eitherTx
     assert expError $ Tx.isTxBodyScriptExecutionError expError eitherTx

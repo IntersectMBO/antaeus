@@ -234,7 +234,7 @@ txInWitness txIn wit = (txIn, C.BuildTxWith wit)
 txInsReference
   :: C.CardanoEra era
   -> [C.TxIn]
-  -> C.TxInsReference build era
+  -> C.TxInsReference era
 txInsReference era txIns = C.inEonForEra (error $ notSupportedError era) (\e -> C.TxInsReference e txIns) era
 
 txMintValue
@@ -254,9 +254,7 @@ txCertificates era certs stakeCreds =
     (error $ notSupportedError era)
     (`C.TxCertificates` certs)
     era
-    ( C.BuildTxWith $
-        Map.fromList ((,C.KeyWitness C.KeyWitnessForStakeAddr) <$> stakeCreds)
-    )
+    (C.BuildTxWith ((,C.KeyWitness C.KeyWitnessForStakeAddr) <$> stakeCreds))
 
 -- Takens the action ID and a map of voters and their votes, builds multiple VotingProcedures
 -- and combines them into a single VotingProcedures

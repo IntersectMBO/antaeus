@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -11,14 +12,35 @@
 
 module Helpers.Testnet where
 
+import Cardano.Api (ConwayEraOnwards)
 import Cardano.Api qualified as C
+import Cardano.Api.Ledger (
+  ConwayGenesis (cgUpgradePParams),
+  Credential (KeyHashObj),
+  EraCrypto,
+  KeyHash,
+  KeyRole (StakePool),
+  StandardCrypto,
+  UpgradeConwayPParams (ucppPlutusV3CostModel),
+  Voter (StakePoolVoter),
+ )
 import Cardano.Api.Shelley qualified as C
+import Cardano.Ledger.Alonzo.Genesis (AlonzoGenesis)
+import Cardano.Ledger.Conway.Genesis (ConwayGenesis)
+import Cardano.Ledger.Plutus (Language (PlutusV3), costModelFromMap, mkCostModel)
+import Cardano.Testnet (Conf (tempAbsPath))
+import Cardano.Testnet qualified as CTN
+import Control.Lens ((&), (.~))
 import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Default.Class (def)
 import Data.Maybe (fromJust)
+import Data.Time.Clock.POSIX qualified as Time
 import Hedgehog (MonadTest)
+import Hedgehog qualified as H
 import Hedgehog.Extras.Stock (waitSecondsForProcess)
 import Hedgehog.Extras.Stock.IO.Network.Sprocket qualified as IO
+import Hedgehog.Extras.Test qualified as H
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
 import Helpers.Common (
@@ -28,30 +50,14 @@ import Helpers.Common (
   toMaryEraOnwards,
   toShelleyBasedEra,
  )
+import Helpers.Error (TimedOut (ProcessExitTimedOut))
+import Helpers.Query qualified as Q
 import Helpers.Utils (maybeReadAs)
+import Helpers.Utils qualified as U
+import Prettyprinter (Doc)
 import System.Directory qualified as IO
 import System.FilePath ((</>))
 import System.Posix.Signals (sigKILL, signalProcess)
-
-import Cardano.Api (ConwayEraOnwards)
-import Cardano.Api.Ledger (
-  Credential (KeyHashObj),
-  EraCrypto,
-  KeyHash,
-  KeyRole (StakePool),
-  StandardCrypto,
-  Voter (StakePoolVoter),
- )
-import Cardano.Testnet (Conf (tempAbsPath))
-import Cardano.Testnet qualified as CTN
-import Control.Lens ((&), (.~))
-import Data.Time.Clock.POSIX qualified as Time
-import Hedgehog qualified as H
-import Hedgehog.Extras.Test qualified as H
-import Helpers.Error (TimedOut (ProcessExitTimedOut))
-import Helpers.Query qualified as Q
-import Helpers.Utils qualified as U
-import Prettyprinter (Doc)
 import System.Process (cleanupProcess)
 import System.Process.Internals (
   PHANDLE,
@@ -61,6 +67,7 @@ import System.Process.Internals (
 import Testnet.Defaults (defaultAlonzoGenesis)
 import Testnet.Defaults qualified as CTN
 import Testnet.Runtime qualified as CTN
+import Testnet.Start.Types qualified as CTN
 import Testnet.Types (
   PoolNode (..),
   TestnetRuntime,
@@ -74,6 +81,7 @@ data TestEnvironmentOptions era
       { testnetEra :: C.CardanoEra era
       , testnetProtocolVersion :: Int
       , testnetCardanoOptions :: CTN.CardanoTestnetOptions
+      , testnetShelleyOptions :: CTN.ShelleyTestnetOptions
       }
   | LocalNodeOptions
       { localNodeEra :: C.CardanoEra era
@@ -89,15 +97,16 @@ defAlonzoTestnetOptions =
   TestnetOptions
     { testnetEra = C.AlonzoEra
     , testnetProtocolVersion = 6
-    , testnetCardanoOptions =
-        CTN.cardanoDefaultTestnetOptions
-          { CTN.cardanoNodeEra = C.AnyCardanoEra C.AlonzoEra
-          , CTN.cardanoActiveSlotsCoeff = 0.1
-          , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoEpochLength = 10_000
+    , testnetShelleyOptions =
+        def
+          { CTN.shelleyActiveSlotsCoeff = 0.1
+          , CTN.shelleySlotLength = 0.1
+          , CTN.shelleyEpochLength = 10_000
           -- ↑ higher value so that txs can have higher
           -- upper bound validity range
           }
+    , testnetCardanoOptions =
+        def{CTN.cardanoNodeEra = C.AnyShelleyBasedEra C.ShelleyBasedEraAlonzo}
     }
 
 defBabbageTestnetOptions :: Int -> TestEnvironmentOptions C.BabbageEra
@@ -105,15 +114,16 @@ defBabbageTestnetOptions protocolVersion =
   TestnetOptions
     { testnetEra = C.BabbageEra
     , testnetProtocolVersion = protocolVersion
-    , testnetCardanoOptions =
-        CTN.cardanoDefaultTestnetOptions
-          { CTN.cardanoNodeEra = C.AnyCardanoEra C.BabbageEra
-          , CTN.cardanoActiveSlotsCoeff = 0.1
-          , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoEpochLength = 10_000
-          -- ↑ higher value so that txs can have
-          -- higher upper bound validity range
+    , testnetShelleyOptions =
+        def
+          { CTN.shelleyActiveSlotsCoeff = 0.1
+          , CTN.shelleySlotLength = 0.1
+          , CTN.shelleyEpochLength = 10_000
+          -- ↑ higher value so that txs can have higher
+          -- upper bound validity range
           }
+    , testnetCardanoOptions =
+        def{CTN.cardanoNodeEra = C.AnyShelleyBasedEra C.ShelleyBasedEraBabbage}
     }
 
 defConwayTestnetOptions :: Int -> TestEnvironmentOptions C.ConwayEra
@@ -121,28 +131,31 @@ defConwayTestnetOptions protocolVersion =
   TestnetOptions
     { testnetEra = C.ConwayEra
     , testnetProtocolVersion = protocolVersion
-    , testnetCardanoOptions =
-        CTN.cardanoDefaultTestnetOptions
-          { CTN.cardanoNodeEra = C.AnyCardanoEra C.ConwayEra
-          , CTN.cardanoActiveSlotsCoeff = 0.1
-          , CTN.cardanoSlotLength = 0.1
-          , CTN.cardanoEpochLength = 10_000
+    , testnetShelleyOptions =
+        def
+          { CTN.shelleyActiveSlotsCoeff = 0.1
+          , CTN.shelleySlotLength = 0.1
+          , CTN.shelleyEpochLength = 10_000
+          -- ↑ higher value so that txs can have higher
+          -- upper bound validity range
           }
-          -- ↑  higher value so that txs can have
-          -- higher upper bound validity range
+    , testnetCardanoOptions =
+        def{CTN.cardanoNodeEra = C.AnyShelleyBasedEra C.ShelleyBasedEraConway}
     }
 
 shortEpochConwayTestnetOptions :: Int -> TestEnvironmentOptions C.ConwayEra
 shortEpochConwayTestnetOptions protocolVersion =
   (defConwayTestnetOptions protocolVersion)
     { testnetCardanoOptions =
-        (testnetCardanoOptions (defConwayTestnetOptions protocolVersion))
-          { CTN.cardanoActiveSlotsCoeff = 0.1
+        testnetCardanoOptions (defConwayTestnetOptions protocolVersion)
+    , testnetShelleyOptions =
+        def
+          { CTN.shelleyActiveSlotsCoeff = 0.1
           , -- ↑ adjusted from default due to short epoch length
             -- 200 second epoch for testing outcome of governance actions
             -- (shorter is unstable)
-            CTN.cardanoEpochLength = 2_000
-          , CTN.cardanoSlotLength = 0.1
+            CTN.shelleyEpochLength = 2_000
+          , CTN.shelleySlotLength = 0.1
           }
     }
 
@@ -175,8 +188,8 @@ testnetOptionsConway9Governance = shortEpochConwayTestnetOptions 9
 
 eraFromOptions :: TestEnvironmentOptions era -> C.CardanoEra era
 eraFromOptions options = case options of
-  TestnetOptions era _ _ -> era
-  LocalNodeOptions era _ _ _ -> era
+  TestnetOptions{testnetEra} -> testnetEra
+  LocalNodeOptions{localNodeEra} -> localNodeEra
 
 eraFromOptionsM
   :: (MonadTest m)
@@ -184,9 +197,11 @@ eraFromOptionsM
   -> m (C.CardanoEra era)
 eraFromOptionsM = pure . eraFromOptions
 
-pvFromOptions :: (MonadTest m) => TestEnvironmentOptions era -> m Int
-pvFromOptions (TestnetOptions _ pv _) = pure pv
-pvFromOptions (LocalNodeOptions _ pv _ _) = pure pv
+pvFromOptions :: TestEnvironmentOptions era -> Int
+pvFromOptions TestnetOptions{testnetProtocolVersion} =
+  testnetProtocolVersion
+pvFromOptions LocalNodeOptions{localNodeProtocolVersion} =
+  localNodeProtocolVersion
 
 -- | Get path to where cardano-testnet files are
 getProjectBase :: (MonadIO m, MonadTest m) => m String
@@ -196,7 +211,8 @@ getProjectBase = liftIO . IO.canonicalizePath =<< HE.getProjectBase
 (including era and protocol version)
 -}
 startTestnet
-  :: TestEnvironmentOptions era
+  :: forall era
+   . TestEnvironmentOptions era
   -> FilePath
   -> H.Integration
       ( C.LocalNodeConnectInfo
@@ -208,10 +224,39 @@ startTestnet LocalNodeOptions{} _ = error "LocalNodeOptions not supported"
 startTestnet TestnetOptions{..} tempAbsBasePath = do
   conf :: CTN.Conf <- HE.noteShowM $ CTN.mkConf tempAbsBasePath
   currentTime <- liftIO Time.getCurrentTime
-  let sg = CTN.defaultShelleyGenesis currentTime testnetCardanoOptions
-      ag = U.unsafeFromRight (defaultAlonzoGenesis testnetEra)
-      cg = CTN.defaultConwayGenesis
-  tn <- CTN.cardanoTestnet testnetCardanoOptions conf currentTime sg ag cg
+  anySbe@(C.AnyShelleyBasedEra sbe) <-
+    pure $ CTN.cardanoNodeEra testnetCardanoOptions
+  let
+    maxSupply = CTN.cardanoMaxSupply testnetCardanoOptions
+    genesisShelley =
+      CTN.defaultShelleyGenesis
+        anySbe
+        currentTime
+        maxSupply
+        testnetShelleyOptions
+  genesisAlonzo <- CTN.getDefaultAlonzoGenesis sbe
+  -- PlutusV3 cost model should have as many cost values as there are
+  -- different cost model parameters in the given Plutus version,
+  -- or else missing parameter values are set to `maxBound`.
+  -- Unfortunately at the moment Cardano Testnet uses `testingCostModelV3`
+  -- function from Ledger that generates a cost model with less values
+  -- than needed: 231 instead of 251.
+  costModelV3 <-
+    mkCostModel PlutusV3 (replicate 251 0)
+      & either (fail . show) pure
+  tn <-
+    CTN.cardanoTestnet
+      testnetCardanoOptions
+      conf
+      genesisShelley
+      genesisAlonzo
+      CTN.defaultConwayGenesis
+        { cgUpgradePParams =
+            (cgUpgradePParams CTN.defaultConwayGenesis)
+              { ucppPlutusV3CostModel = costModelV3
+              }
+        }
+
   -- needed to avoid duplication of directory in filepath
   let tmpAbsBasePath' = CTN.makeTmpBaseAbsPath $ CTN.tempAbsPath conf
 

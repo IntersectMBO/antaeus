@@ -19,6 +19,7 @@ import Cardano.Api.Shelley qualified as C
 import Control.Monad (forM)
 import Control.Monad.IO.Class (MonadIO)
 import Data.Functor ((<&>))
+import GHC.IsList (fromList)
 import Hedgehog (MonadTest)
 import Helpers.Common (toShelleyBasedEra)
 import Helpers.Query qualified as Q
@@ -48,7 +49,7 @@ buildAndSubmit era lnci pparams txIn@(C.TxIn _id ix) collateral address skey ass
     sbe = toShelleyBasedEra era
     -- use unique asset quantity for each script to assist debugging
     assetQuantity = txIxToQuantity ix + 1
-    txTokenValue = C.valueFromList [(assetId, assetQuantity)]
+    txTokenValue = fromList [(assetId, assetQuantity)]
     txMintWitness = Map.fromList [mintWitness]
     -- use unique lovelace value for each script to assist debugging
     outputLovelaceValue = C.lovelaceToValue $ 3_000_000 + (C.quantityToLovelace assetQuantity * 100_000)

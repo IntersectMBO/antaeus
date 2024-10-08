@@ -2,7 +2,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-missing-import-lists #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
@@ -15,6 +14,7 @@ module Spec.Builtins.Hashing where
 import Cardano.Api qualified as C
 import Control.Monad.IO.Class (MonadIO)
 import Data.Map qualified as Map
+import GHC.IsList (fromList)
 import Hedgehog (MonadTest)
 import Helpers.Common (toShelleyBasedEra)
 import Helpers.Query qualified as Q
@@ -50,11 +50,11 @@ verifyHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
 
   let (tokenValues, mintWitnesses) = case era of
         C.AlonzoEra ->
-          ( C.valueFromList [(PS_1_0.checkHashingAssetIdV1, 4)]
+          ( fromList [(PS_1_0.checkHashingAssetIdV1, 4)]
           , Map.fromList [PS_1_0.checkHashingMintWitnessV1 sbe]
           )
         C.BabbageEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.checkHashingAssetIdV1, 4)
               , (PS_1_0.checkHashingAssetIdV2, 2)
               ]
@@ -64,7 +64,7 @@ verifyHashingFunctionsTest networkOptions TestParams{localNodeConnectInfo, ppara
               ]
           )
         C.ConwayEra ->
-          ( C.valueFromList
+          ( fromList
               [ (PS_1_0.checkHashingAssetIdV1, 4)
               , (PS_1_0.checkHashingAssetIdV2, 2)
               , (PS_1_1.checkHashingAssetIdV3, 3)
