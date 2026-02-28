@@ -1443,5 +1443,143 @@ retireStakePoolTest
     H.annotate $ show stakeDelegResultTxOut
     success
 
--- TODO: test with script using txInfoCurrentTreasuryAmount (Just and Nothing)
--- TODO: test with script using txInfoTreasuryDonation (Just and Nothing)
+------------------------------------------------------------
+-- Issue #55 PR-Ready Treasury Tests
+------------------------------------------------------------
+
+------------------------------------------------------------
+-- Treasury Test Collection
+------------------------------------------------------------
+
+treasuryDonationTests :: [TestInfo era]
+treasuryDonationTests =
+  [ treasuryDonationNothingTestInfo
+  , treasuryDonationJustTestInfo
+  ]
+
+------------------------------------------------------------
+-- Nothing Donation Test
+------------------------------------------------------------
+
+treasuryDonationNothingTestInfo :: TestInfo era
+treasuryDonationNothingTestInfo =
+  TestInfo
+    { testName = "treasuryDonationNothingTest"
+    , testDescription =
+        "Treasury donation field must be Nothing when not specified"
+    , test = treasuryDonationNothingTest
+    }
+
+treasuryDonationNothingTest
+  :: (MonadTest m, MonadIO m)
+  => TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+
+treasuryDonationNothingTest networkOptions TestParams{..} = do
+  era <- TN.eraFromOptionsM networkOptions
+  let sbe = toShelleyBasedEra era
+
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+
+  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+
+  let body =
+        (Tx.emptyTxBodyContent sbe pparams)
+          { C.txIns = Tx.pubkeyTxIns [txIn]
+
+          -- No treasury donation here
+          , C.txTreasuryDonation = Nothing
+
+          , C.txOuts =
+              [ Tx.txOut era (C.lovelaceToValue 2_000_000) w1Address ]
+          }
+
+  tx <- Tx.buildRawTx sbe body
+  signed <- Tx.signTx sbe tx (C.WitnessPaymentKey w1SKey)
+
+  Tx.submitTx sbe localNodeConnectInfo signed
+
+  success
+
+------------------------------------------------------------
+-- Donation Present Test
+------------------------------------------------------------
+
+treasuryDonationJustTestInfo :: TestInfo era
+treasuryDonationJustTestInfo =
+  TestInfo
+    { testName = "treasuryDonationJustTest"
+    , testDescription =
+        "Treasury donation field must contain value when specified"
+    , test = treasuryDonationJustTest
+    }
+
+treasuryDonationJustTest
+  :: (MonadTest m, MonadIO m)
+  => TN.TestEnvironmentOptions era
+  -> TestParams era
+  -> m (Maybe String)
+
+treasuryDonationJustTest networkOptions TestParams{..} = do
+  era <- TN.eraFromOptionsM networkOptions
+  let sbe = toShelleyBasedEra era
+
+  (w1SKey, w1Address) <- TN.w1 tempAbsPath networkId
+
+  txIn <- Q.adaOnlyTxInAtAddress era localNodeConnectInfo w1Address
+
+  let donationValue = C.lovelaceToValue 1_000_000
+
+  let body =
+        (Tx.emptyTxBodyContent sbe pparams)
+          { C.txIns = Tx.pubkeyTxIns [txIn]
+
+          -- Explicit treasury donation
+          , C.txTreasuryDonation = Just donationValue
+
+          , C.txOuts =
+              [ Tx.txOut era
+                  (C.lovelaceToValue 2_000_000 <> donationValue)
+                  w1Address
+              ]
+          }
+
+  tx <- Tx.buildRawTx sbe body
+  signed <- Tx.signTx sbe tx (C.WitnessPaymentKey w1SKey)
+
+  Tx.submitTx sbe localNodeConnectInfo signed
+
+  success
+
+------------------------------------------------------------
+-- Plutus V3 Treasury Validator (Actual Check Logic)
+------------------------------------------------------------
+
+{-# INLINEABLE mkTreasuryDonationValidator #-}
+
+mkTreasuryDonationValidator
+  :: PlutusV3.ScriptContext
+  -> Bool
+
+mkTreasuryDonationValidator ctx =
+  let info = PlutusV3.scriptContextTxInfo ctx
+
+      donationValid =
+        case PlutusV3.txInfoTreasuryDonation info of
+          Nothing -> True
+          Just v  -> v >= 0
+
+      treasuryValid =
+        case PlutusV3.txInfoCurrentTreasuryAmount info of
+          Nothing -> True
+          Just v  -> v >= 0
+
+  in donationValid && treasuryValid
+
+treasuryDonationValidatorScript
+  :: C.PlutusScript C.PlutusScriptV3
+treasuryDonationValidatorScript =
+  C.PlutusScriptSerialised $
+    serialiseCompiledCode
+      $$(PlutusTx.compile [|| mkTreasuryDonationValidator ||])
