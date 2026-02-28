@@ -1,7 +1,9 @@
 name: Auto-Format Haskell files
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - '*'
 
 jobs:
   format:
