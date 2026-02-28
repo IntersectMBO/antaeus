@@ -12,7 +12,6 @@ import Cardano.Ledger.Crypto qualified as L
 import Cardano.Ledger.Shelley.API qualified as L
 import GHC.Exts (toList)
 import PlutusLedgerApi.V1 qualified as PV1
-import PlutusTx.Prelude qualified as PlutusTx
 import PlutusLedgerApi.V1.Address (Address (Address))
 import PlutusLedgerApi.V1.Credential (
   Credential (PubKeyCredential, ScriptCredential),
@@ -21,6 +20,7 @@ import PlutusLedgerApi.V1.Credential (
 import PlutusLedgerApi.V1.Value qualified as Value
 import PlutusLedgerApi.V2 qualified as PV2
 import PlutusLedgerApi.V3 qualified as PV3
+import PlutusTx.Prelude qualified as PlutusTx
 
 fromCardanoPaymentKeyHash = PV1.PubKeyHash . PlutusTx.toBuiltin . C.serialiseToRawBytes
 
