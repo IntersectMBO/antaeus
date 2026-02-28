@@ -23,10 +23,10 @@ data SOPRedeemer
   | Sum2 Integer Integer
   | Sum3 Integer Integer Integer
 
-PlutusTx.unstableMakeIsData ''SOPRedeemer
-PlutusTx.makeLift ''SOPRedeemer
+$(PlutusTx.unstableMakeIsData ''SOPRedeemer)
+$(PlutusTx.makeLift ''SOPRedeemer)
 
-{-# INLINEABLE mkSopPolicyV3 #-}
+{-# INLINABLE mkSopPolicyV3 #-}
 mkSopPolicyV3 :: SOPRedeemer -> P.BuiltinUnit
 mkSopPolicyV3 redeemer =
   case redeemer of
