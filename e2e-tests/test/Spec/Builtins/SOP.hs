@@ -51,7 +51,6 @@ verifySopTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId
       let
         tokenValues = fromList [(SOP_1_1.checkSopAssetIdV3, 5)]
         mintWitnesses = Map.fromList [SOP_1_1.checkSopMintWitnessV3 sbe SOP.sopRedeemer3]
-        
         txOut = Tx.txOut era (C.lovelaceToValue 3_000_000 <> tokenValues) w1Address
         collateral = Tx.txInsCollateral era [txIn]
         txBodyContent =
@@ -72,5 +71,5 @@ verifySopTest networkOptions TestParams{localNodeConnectInfo, pparams, networkId
         Q.getTxOutAtAddress era localNodeConnectInfo w1Address expectedTxIn "TN.getTxOutAtAddress"
       txOutHasTokenValue <- Q.txOutHasValue resultTxOut tokenValues
       assert "txOut has SOP tokens" txOutHasTokenValue
-    _ -> 
+    _ ->
       assert "SOP feature is only applicable starting from Conway era" True

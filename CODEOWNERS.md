@@ -4,5 +4,5 @@
 * @
 
 # General reviewers per PR
-#                        Name   Name          
-*                        @      @  
+#                        Name   Name
+*                        @      @
