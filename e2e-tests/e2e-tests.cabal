@@ -166,6 +166,9 @@ test-suite antaeus-test
     Spec.Builtins.BLS
     Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1
+    Spec.Builtins.SOP
+    PlutusScripts.SOP.Common
+    PlutusScripts.SOP.V_1_1
     Spec.ConwayFeatures
     Spec.WriteScriptFiles
 
