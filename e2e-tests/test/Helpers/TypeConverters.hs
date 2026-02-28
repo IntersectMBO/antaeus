@@ -201,6 +201,29 @@ fromCardanoValue (C.valueToList -> list) =
     fromSingleton (fromCardanoAssetId -> assetClass, C.Quantity quantity) =
       Value.assetClassValue assetClass quantity
 
+-- | Convert a Cardano API 'Certificate' into the corresponding Plutus
+-- 'DCert' value.  The conversion is accomplished by serialising the
+-- certificate to generic 'Data' (via the 'ToPlutusData' instance provided by
+-- 'cardano-api') and then deserialising that 'Data' into the appropriate
+-- Plutus type.  This works because the on‑chain encoding of certificates is
+-- identical between the ledger and the Plutus types.
+--
+-- We expose two flavours targeted at the versions used in our e2e tests.
+-- The functions live here so they can be shared between multiple spec
+-- modules without duplicating the ugly boilerplate.
+
+fromCardanoDCertV1 :: C.Certificate era -> PV1.DCert
+fromCardanoDCertV1 =
+  PlutusTx.unsafeFromBuiltinData
+    . PV1.dataToBuiltinData
+    . C.toPlutusData
+
+fromCardanoDCertV2 :: C.Certificate era -> PV2.DCert
+fromCardanoDCertV2 =
+  PlutusTx.unsafeFromBuiltinData
+    . PV2.dataToBuiltinData
+    . C.toPlutusData
+
 coinToLovelace :: L.Coin -> PV3.Lovelace
 coinToLovelace (L.Coin l) = PV3.Lovelace l
 

@@ -25,8 +25,10 @@ import Data.Time.Clock.POSIX qualified as Time
 import GHC.IsList (fromList)
 import Hedgehog (MonadTest)
 import Hedgehog qualified as H
-import Helpers.Common (makeAddress, toShelleyBasedEra)
+import Helpers.Common (makeAddress, toConwayEraOnwards, toShelleyBasedEra)
 import Helpers.Query qualified as Q
+import Helpers.Staking (generateStakeKeyCredentialAndCertificate)
+import Helpers.StakePool (generateStakePoolKeyCredentialsAndCertificate)
 import Helpers.Test (assert, success)
 import Helpers.TestData (TestInfo (..), TestParams (..))
 import Helpers.Testnet qualified as TN
@@ -34,8 +36,6 @@ import Helpers.Tx qualified as Tx
 import Helpers.Utils qualified as U
 import Numeric.Natural (Natural)
 import PlutusLedgerApi.V1 as PlutusV1 hiding (lowerBound, upperBound)
-import PlutusLedgerApi.V1.Interval as P hiding (lowerBound, upperBound)
-import PlutusLedgerApi.V1.Time as P
 import PlutusScripts.Basic.V_1_0 qualified as PS_1_0
 import PlutusScripts.Basic.V_1_1 qualified as PS_1_1
 import PlutusScripts.Helpers qualified as PS
@@ -76,6 +76,11 @@ checkTxInfoV1Test networkOptions params = do
   startTime <- liftIO Time.getPOSIXTime
   (w1SKey, w1VKey, w1Address) <- TN.w1All tempAbsPath networkId
   let sbe = toShelleyBasedEra era
+      ceo = toConwayEraOnwards era
+
+  -- Generate a stake key for the certificate
+  stakePool <- generateStakePoolKeyCredentialsAndCertificate ceo networkId
+  staking <- generateStakeKeyCredentialAndCertificate ceo stakePool
 
   -- build a transaction
 
@@ -128,7 +133,8 @@ checkTxInfoV1Test networkOptions params = do
       expTxInfoOutputs = PS.txInfoOutputs era [txOut1, txOut2]
       expTxInfoFee = PS.txInfoFee fee
       expTxInfoMint = PS.txInfoMint tokenValues
-      expDCert = [] -- not testing any staking registration certificate
+      -- Include the stake registration certificate in the test
+      expDCert = PS.txInfoDCert [Helpers.Staking.stakeRegCert staking]
       expWdrl = [] -- not testing any staking reward withdrawal
       expTxInfoSigs = PS.txInfoSigs [w1VKey]
       expTxInfoData = PS.txInfoData [datum]
@@ -159,6 +165,7 @@ checkTxInfoV1Test networkOptions params = do
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]
+          , C.txCertificates = Tx.txCertificates era [Helpers.Staking.stakeRegCert staking] [Helpers.Staking.stakeCred staking]
           }
   txbody <- Tx.buildRawTx sbe txBodyContent
   kw <- Tx.signTx sbe txbody (C.WitnessPaymentKey w1SKey)

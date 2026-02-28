@@ -17,6 +17,7 @@ module PlutusScripts.V1TxInfo (
   txInfoMint,
   txInfoSigs,
   txInfoData,
+  txInfoDCert,
   checkV1TxInfoScriptV1,
   checkV1TxInfoAssetIdV1,
   checkV1TxInfoRedeemer,
@@ -34,6 +35,7 @@ import Helpers.TypeConverters (
   fromCardanoTxOutToPV1TxInfoTxOut,
   fromCardanoTxOutToPV1TxInfoTxOut',
   fromCardanoValue,
+  fromCardanoDCertV1,
  )
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
 import PlutusLedgerApi.V1 qualified as V1
@@ -103,6 +105,9 @@ txInfoFee = fromCardanoValue . C.lovelaceToValue
 
 txInfoMint :: C.Value -> V1.Value
 txInfoMint = fromCardanoValue
+
+txInfoDCert :: [C.Certificate era] -> [V1.DCert]
+txInfoDCert = map fromCardanoDCertV1
 
 txInfoSigs :: [C.VerificationKey C.PaymentKey] -> [V1.PubKeyHash]
 txInfoSigs = map (fromCardanoPaymentKeyHash . C.verificationKeyHash)
