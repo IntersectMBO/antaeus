@@ -14,13 +14,13 @@ import Cardano.Api qualified as C
 import Cardano.Api.Shelley qualified as C
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (SerialisedScript, serialiseCompiledCode)
-import PlutusScripts.SOP.Common (mkSopPolicyV3, sopAssetName)
 import PlutusScripts.Helpers (
   mintScriptWitness,
   plutusL3,
   policyIdV3,
   toScriptData,
  )
+import PlutusScripts.SOP.Common (mkSopPolicyV3, sopAssetName)
 import PlutusTx qualified
 
 checkSopPolicy :: SerialisedScript

@@ -26,7 +26,7 @@ data SOPRedeemer
 $(PlutusTx.unstableMakeIsData ''SOPRedeemer)
 $(PlutusTx.makeLift ''SOPRedeemer)
 
-{-# INLINABLE mkSopPolicyV3 #-}
+{-# INLINEABLE mkSopPolicyV3 #-}
 mkSopPolicyV3 :: SOPRedeemer -> P.BuiltinUnit
 mkSopPolicyV3 redeemer =
   case redeemer of

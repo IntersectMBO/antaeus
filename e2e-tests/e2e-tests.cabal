@@ -156,6 +156,8 @@ test-suite antaeus-test
     PlutusScripts.SECP256k1.Common
     PlutusScripts.SECP256k1.V_1_0
     PlutusScripts.SECP256k1.V_1_1
+    PlutusScripts.SOP.Common
+    PlutusScripts.SOP.V_1_1
     PlutusScripts.V1TxInfo
     PlutusScripts.V2TxInfo
     PlutusScripts.V3TxInfo
@@ -167,8 +169,6 @@ test-suite antaeus-test
     Spec.Builtins.Hashing
     Spec.Builtins.SECP256k1
     Spec.Builtins.SOP
-    PlutusScripts.SOP.Common
-    PlutusScripts.SOP.V_1_1
     Spec.ConwayFeatures
     Spec.WriteScriptFiles
 
