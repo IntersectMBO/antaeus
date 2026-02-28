@@ -10,6 +10,7 @@ import Cardano.Chain.Common (addrToBase58)
 import Cardano.Ledger.Conway.Governance qualified as L
 import Cardano.Ledger.Crypto qualified as L
 import Cardano.Ledger.Shelley.API qualified as L
+import GHC.Exts (toList)
 import PlutusLedgerApi.V1 qualified as PV1
 import PlutusLedgerApi.V1.Address (Address (Address))
 import PlutusLedgerApi.V1.Credential (
@@ -19,9 +20,7 @@ import PlutusLedgerApi.V1.Credential (
 import PlutusLedgerApi.V1.Value qualified as Value
 import PlutusLedgerApi.V2 qualified as PV2
 import PlutusLedgerApi.V3 qualified as PV3
-import PlutusTx.Prelude qualified as PlutusTx
 
-fromCardanoPaymentKeyHash :: C.Hash C.PaymentKey -> PV1.PubKeyHash
 fromCardanoPaymentKeyHash = PV1.PubKeyHash . PlutusTx.toBuiltin . C.serialiseToRawBytes
 
 fromCardanoStakeKeyHash :: C.Hash C.StakeKey -> PV1.PubKeyHash
@@ -195,7 +194,7 @@ fromCardanoAssetId (C.AssetId policyId assetName) =
   Value.assetClass (fromCardanoPolicyId policyId) (fromCardanoAssetName assetName)
 
 fromCardanoValue :: C.Value -> Value.Value
-fromCardanoValue (C.valueToList -> list) =
+fromCardanoValue (toList -> list) =
   foldMap fromSingleton list
   where
     fromSingleton (fromCardanoAssetId -> assetClass, C.Quantity quantity) =

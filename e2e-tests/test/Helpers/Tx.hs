@@ -428,7 +428,7 @@ buildRawTx
   => C.ShelleyBasedEra era
   -> C.TxBodyContent C.BuildTx era
   -> m (C.TxBody era)
-buildRawTx sbe = HE.leftFail . C.createAndValidateTransactionBody sbe -- TODO: handle error
+buildRawTx sbe = HE.leftFail . C.createTransactionBody sbe -- TODO: handle error
 
 -- | Witness txbody with signing key when not using convenience build function
 signTx

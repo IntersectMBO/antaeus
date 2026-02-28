@@ -23,6 +23,7 @@ import Data.List (isInfixOf, sortBy)
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Set qualified as Set
+import GHC.Exts (toList)
 import Hedgehog (MonadTest)
 import Hedgehog.Extras.Test qualified as HE
 import Hedgehog.Extras.Test.Base qualified as H
@@ -66,16 +67,16 @@ adaOnlyTxInAtAddress era localNodeConnectInfo address = do
     adaOnly =
       filter
         ( \(_, C.TxOut _ (C.TxOutValueShelleyBased sbe v) _ _) ->
-            ((length $ C.valueToList (C.fromLedgerValue sbe v)) == 1)
-              && ((fst $ head $ C.valueToList (C.fromLedgerValue sbe v)) == C.AdaAssetId)
+            ((length $ toList (C.fromLedgerValue sbe v)) == 1)
+              && ((fst $ head $ toList (C.fromLedgerValue sbe v)) == C.AdaAssetId)
         )
     sortByMostAda =
       sortBy
         ( \(_, C.TxOut _ (C.TxOutValueShelleyBased sbe v1) _ _)
            (_, C.TxOut _ (C.TxOutValueShelleyBased _ v2) _ _) ->
               compare
-                (snd $ head $ C.valueToList (C.fromLedgerValue sbe v2))
-                (snd $ head $ C.valueToList (C.fromLedgerValue sbe v1))
+                (snd $ head $ toList (C.fromLedgerValue sbe v2))
+                (snd $ head $ toList (C.fromLedgerValue sbe v1))
         )
 
 -- | Get TxIns from all UTxOs
@@ -221,7 +222,7 @@ txOutHasValue
   -> m Bool
 txOutHasValue (C.TxOut _ txOutValue _ _) tokenValue = do
   let value = C.txOutValueToValue txOutValue
-  return $ isInfixOf (C.valueToList tokenValue) (C.valueToList value)
+  return $ isInfixOf (toList tokenValue) (toList value)
 
 -- | Query network's protocol parameters
 getProtocolParams
