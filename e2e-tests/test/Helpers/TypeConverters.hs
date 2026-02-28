@@ -12,6 +12,7 @@ import Cardano.Ledger.Crypto qualified as L
 import Cardano.Ledger.Shelley.API qualified as L
 import GHC.Exts (toList)
 import PlutusLedgerApi.V1 qualified as PV1
+import PlutusTx.Prelude qualified as PlutusTx
 import PlutusLedgerApi.V1.Address (Address (Address))
 import PlutusLedgerApi.V1.Credential (
   Credential (PubKeyCredential, ScriptCredential),
