@@ -5,14 +5,17 @@ on:
     branches:
       - '*'
 
+permissions:
+  contents: write
+
 jobs:
   format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
-      
+          ref: ${{ github.ref }}
+
       - name: Install Nix
         uses: cachix/install-nix-action@v27
         with:
@@ -21,7 +24,7 @@ jobs:
       - name: Run pre-commit formatter
         run: |
           nix develop --extra-experimental-features "nix-command flakes" -c pre-commit run --all-files || true
-      
+
       - name: Commit changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
