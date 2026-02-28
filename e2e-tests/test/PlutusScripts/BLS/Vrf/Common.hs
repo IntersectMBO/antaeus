@@ -101,10 +101,10 @@ verifyBlsVrfScript
       P.== ( P.sha2_256
               P.. P.mconcat
               P.$ P.bls12_381_G2_compress
-                P.<$> [uncompressedG2, h, pubKey, gamma, u, v]
+              P.<$> [uncompressedG2, h, pubKey, gamma, u, v]
            )
       P.&& beta
-        P.== (P.sha2_256 P.. P.bls12_381_G2_compress P.$ P.bls12_381_G2_scalarMul f gamma)
+      P.== (P.sha2_256 P.. P.bls12_381_G2_compress P.$ P.bls12_381_G2_scalarMul f gamma)
 
 -- used offchain to generate the vrf proof output
 generateVrfProofWithOutput :: Integer -> P.BuiltinByteString -> VrfProofWithOutput
