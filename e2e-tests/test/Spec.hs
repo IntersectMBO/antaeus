@@ -39,6 +39,7 @@ import Spec.AlonzoFeatures qualified as Alonzo
 import Spec.BabbageFeatures qualified as Babbage
 import Spec.Builtins qualified as Builtins
 import Spec.Builtins.Bitwise qualified as Conway
+import Spec.Builtins.SOP qualified as SOP
 import Spec.ConwayFeatures qualified as Conway
 import Spec.WriteScriptFiles (writeV3ScriptFiles)
 import System.Directory (createDirectoryIfMissing)
@@ -315,6 +316,7 @@ pv9Tests resultsRef = integrationRetryWorkspace 0 "pv9" $ \tempAbsPath -> do
 
       run Conway.integerToByteStringBitwiseSizeArgumentGreaterThan8192ErrorTestInfo -- Failing for unknown reason
     , run Conway.verifyBitwiseFunctionsTestInfo
+    , run SOP.verifySopTestInfo
     ]
 
   failureMessages <- liftIO $ suiteFailureMessages resultsRef

@@ -155,7 +155,7 @@ checkTxInfoV1Test networkOptions params = do
           , C.txOuts = [txOut1, txOut2]
           , C.txFee = Tx.txFee era fee
           , C.txValidityLowerBound = Tx.txValidityLowerBound era 1
-          , C.txValidityUpperBound = Tx.txValidityUpperBound era 2700
+          , C.txValidityUpperBound = Tx.txValidityUpperBound era 5400
           , -- \^ ~9min range (200ms slots)
             -- \^ Babbage era onwards cannot have upper slot beyond epoch boundary (10_000 slot epoch)
             C.txExtraKeyWits = Tx.txExtraKeyWits era [w1VKey]

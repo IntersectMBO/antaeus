@@ -1,0 +1,79 @@
+{
+  "url": "https://api.github.com/repos/IntersectMBO/antaeus/issues/81",
+  "repository_url": "https://api.github.com/repos/IntersectMBO/antaeus",
+  "labels_url": "https://api.github.com/repos/IntersectMBO/antaeus/issues/81/labels{/name}",
+  "comments_url": "https://api.github.com/repos/IntersectMBO/antaeus/issues/81/comments",
+  "events_url": "https://api.github.com/repos/IntersectMBO/antaeus/issues/81/events",
+  "html_url": "https://github.com/IntersectMBO/antaeus/issues/81",
+  "id": 2108258565,
+  "node_id": "I_kwDOJTiGz859qXkF",
+  "number": 81,
+  "title": "Chang HF User Story Coverage",
+  "user": {
+    "login": "catch-21",
+    "id": 74595920,
+    "node_id": "MDQ6VXNlcjc0NTk1OTIw",
+    "avatar_url": "https://avatars.githubusercontent.com/u/74595920?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/catch-21",
+    "html_url": "https://github.com/catch-21",
+    "followers_url": "https://api.github.com/users/catch-21/followers",
+    "following_url": "https://api.github.com/users/catch-21/following{/other_user}",
+    "gists_url": "https://api.github.com/users/catch-21/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/catch-21/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/catch-21/subscriptions",
+    "organizations_url": "https://api.github.com/users/catch-21/orgs",
+    "repos_url": "https://api.github.com/users/catch-21/repos",
+    "events_url": "https://api.github.com/users/catch-21/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/catch-21/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "labels": [
+
+  ],
+  "state": "open",
+  "locked": false,
+  "assignees": [
+
+  ],
+  "milestone": null,
+  "comments": 1,
+  "created_at": "2024-01-30T16:21:04Z",
+  "updated_at": "2024-02-07T14:32:38Z",
+  "closed_at": null,
+  "assignee": null,
+  "author_association": "CONTRIBUTOR",
+  "type": null,
+  "active_lock_reason": null,
+  "sub_issues_summary": {
+    "total": 0,
+    "completed": 0,
+    "percent_completed": 0
+  },
+  "issue_dependencies_summary": {
+    "blocked_by": 0,
+    "total_blocked_by": 0,
+    "blocking": 0,
+    "total_blocking": 0
+  },
+  "body": "\r\nChang HF User Stories Coverage\r\n==============================\r\n\r\nLast updated **2024-01-30** for **cardano-node 8.7.2**\r\n&nbsp;\r\n\r\n**Legend:** ![Success Badge][success-badge] ![Failure Badge][failure-badge] ![Uncovered Badge][uncovered-badge]\r\n&nbsp;\r\n\r\n\r\nSmart Contract User Stories\r\n----------------\r\n\r\n| Status for Story ID | Title | Story Overview |\r\n|---------------------|-------|----------------|\r\n|[![Status Badge][CIP-85-badge]][CIP-85-link] <sub>PlutusV3 is not supported in this build so cannot use plutus-tx compiler v1.1.0</sub>| Sums-of-products in Plutus v3 [→][CIP-85-req] | As a DApp developer I want to use sums-of-products instead of Scott-encoding in my Plutus scripts to get better performance.|\r\n|[![Status Badge][CIP-101-badge]][CIP-101-link] <sub>Plutus version in use doesn't include this builtin| Keccak256 in Plutus v3</sub> [→][CIP-101-req] | As a DApp developer I want to use the Keccak hashing function to validate ECDSA signatures formatted via the EVM standard. |\r\n|[![Status Badge][PLT-001-badge]][PLT-001-link]<sub> Plutus version in use doesn't include this builtin</sub>| Blake2b-224 in Plutus v3 [→][PLT-001-req] | As a DApp developer I want to use the Blake2b-224 hashing function to compute PubKeyHash onchain. |\r\n|[![Status Badge][CIP-87-badge]][CIP-87-link] <sub> Plutus version in use doesn't include this builtin</sub>| Use bitwise operations in Plutus V3 [→][CIP-87-req] | As a DApp developer I want to use bitwise operations So that I can work with data bytestrings in a more granular and optimized way and perform operations at the bit level. |\r\n\r\n\r\n[success-badge]: https://img.shields.io/badge/success-green\r\n[failure-badge]: https://img.shields.io/badge/failure-red\r\n[uncovered-badge]: https://img.shields.io/badge/uncovered-grey\r\n\r\n[CIP-85-badge]: https://img.shields.io/badge/CIP-85-grey\r\n[CIP-101-badge]: https://img.shields.io/badge/CIP-101-grey\r\n[PLT-001-badge]: https://img.shields.io/badge/PLT-001-grey\r\n[CIP-87-badge]: https://img.shields.io/badge/CIP-87-grey\r\n\r\n[CIP-85-link]: https://github.com/input-output-hk/antaeus/blob/cardano-node_8-7-2/e2e-tests/test/Spec.hs#L180-L203\r\n[CIP-101-link]: https://github.com/input-output-hk/antaeus/pull/43\r\n[PLT-001-link]: https://github.com/input-output-hk/antaeus/pull/43\r\n[CIP-87-link]: https://github.com/input-output-hk/antaeus/pull/79\r\n\r\n[CIP-85-req]: https://github.com/IntersectMBO/cardano-test-plans/blob/main/docs/user-stories/04-smart-contracts.md#user-story-id-cip-85\r\n[CIP-101-req]: https://github.com/IntersectMBO/cardano-test-plans/blob/main/docs/user-stories/04-smart-contracts.md#user-story-id-cip-101\r\n[PLT-001-req]: https://github.com/IntersectMBO/cardano-test-plans/blob/main/docs/user-stories/04-smart-contracts.md#user-story-id-plt001\r\n[CIP-87-req]: https://github.com/IntersectMBO/cardano-test-plans/blob/main/docs/user-stories/04-smart-contracts.md#user-story-id-cip-87",
+  "closed_by": null,
+  "reactions": {
+    "url": "https://api.github.com/repos/IntersectMBO/antaeus/issues/81/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+  },
+  "timeline_url": "https://api.github.com/repos/IntersectMBO/antaeus/issues/81/timeline",
+  "performed_via_github_app": null,
+  "state_reason": null,
+  "pinned_comment": null
+}
