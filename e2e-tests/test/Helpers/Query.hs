@@ -155,7 +155,7 @@ waitForTxInAtAddress
   -> String -- temp debug text for intermittent timeout failure
   -> m ()
 waitForTxInAtAddress era localNodeConnectInfo address txIn debugStr = do
-  let timeoutSeconds = 90 :: Int
+  let timeoutSeconds = 180 :: Int
       loop i prevUtxo = do
         if i == 0
           then
